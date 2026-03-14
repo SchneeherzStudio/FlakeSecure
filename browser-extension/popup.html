@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlakeSecure</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      min-height: 200px;
+      background: linear-gradient(145deg, #0a0d16, #0f1420);
+      color: #fff;
+      font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #6391ff, #a78bfa);
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      box-shadow: 0 4px 12px rgba(99, 145, 255, 0.35);
+      flex-shrink: 0;
+    }
+    .logo-text {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .logo-text span { color: #6391ff; }
+    .version {
+      font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      margin-left: auto;
+    }
+    .status-card {
+      background: rgba(99, 145, 255, 0.08);
+      border: 1px solid rgba(99, 145, 255, 0.18);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .status-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .status-value {
+      font-size: 14px;
+      color: #8eb0ff;
+      font-weight: 500;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #6391ff;
+      margin-right: 7px;
+      animation: pulse 2s ease-in-out infinite;
+      vertical-align: middle;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .server-config {
+      margin-bottom: 16px;
+    }
+    .label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .input-group {
+      display: flex;
+      gap: 8px;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 9px 12px;
+      color: #fff;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus {
+      border-color: rgba(99, 145, 255, 0.5);
+    }
+    .btn {
+      background: linear-gradient(135deg, #6391ff, #7c6aff);
+      border: none;
+      border-radius: 10px;
+      padding: 9px 16px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      font-family: inherit;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { transform: scale(0.97); }
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      width: 100%;
+      margin-bottom: 8px;
+    }
+    .info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 13px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { color: rgba(255,255,255,0.5); }
+    .info-val { color: rgba(255,255,255,0.85); font-weight: 500; }
+    .toggle {
+      position: relative;
+      width: 36px; height: 20px;
+      cursor: pointer;
+    }
+    .toggle input { display: none; }
+    .toggle-track {
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: #6391ff; }
+    .toggle-thumb {
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 16px; height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: left 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .toggle input:checked ~ .toggle-thumb { left: 18px; }
+    .footer {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255,255,255,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo-icon">❄️</div>
+    <div class="logo-text">Flake<span>Secure</span></div>
+    <div class="version">v1.0.0</div>
+  </div>
+
+  <div class="status-card">
+    <div class="status-label">Status</div>
+    <div class="status-value" id="status-text">
+      <span class="status-dot"></span>
+      <span id="status-msg">Bereit</span>
+    </div>
+  </div>
+
+  <div class="server-config">
+    <div class="label">Server URL</div>
+    <div class="input-group">
+      <input type="text" id="server-url" value="https://flakesecure.snowystudio.dev/" placeholder="https://flakesecure.snowystudio.dev/">
+      <button class="btn" id="save-btn">Speichern</button>
+    </div>
+  </div>
+
+  <div class="info-row">
+    <span class="info-key">Auto-Login</span>
+    <label class="toggle">
+      <input type="checkbox" id="auto-login" checked>
+      <div class="toggle-track"></div>
+      <div class="toggle-thumb"></div>
+    </label>
+  </div>
+
+  <div class="info-row">
+    <span class="info-key">Overlay bei Passwortfeld</span>
+    <label class="toggle">
+      <input type="checkbox" id="auto-overlay" checked>
+      <div class="toggle-track"></div>
+      <div class="toggle-thumb"></div>
+    </label>
+  </div>
+
+  <div class="info-row">
+    <span class="info-key">Verschlüsselung</span>
+    <span class="info-val">AES-256-GCM ✓</span>
+  </div>
+
+  <div class="footer">FlakeSecure – Biometrische Sicherheit</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
