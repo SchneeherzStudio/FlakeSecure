@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const SERVER_URL = 'https://flakesecure.snowystudio.dev/';
+  const SERVER_URL = 'https://flakesecure.snowystudio.dev';
   let overlayInjected = false;
   let userCancelled = false;   // set on manual cancel – prevents re-trigger on same page
   let socket = null;
