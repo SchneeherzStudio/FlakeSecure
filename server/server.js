@@ -8,18 +8,28 @@
  */
 
 const express = require('express');
-const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const crypto = require('crypto');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 80;
+const PORT = 443;
 const SESSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+const options = {
+  key: fs.readFileSync('ssl/_.snowystudio.dev_private_key.key'),
+  cert: fs.readFileSync('ssl/fullchain.pem'),
+  // Füge diese Zeilen hinzu:
+  minVersion: 'TLSv1.2',
+  requestCert: false,
+  rejectUnauthorized: false
+};
 
 // ─── App Setup ───────────────────────────────────────────────────────────────
 const app = express();
-const server = http.createServer(app);
+const server = https.createServer(options, app);
 
 // CORS: Allow browser extensions (chrome-extension://) and the mobile app
 const io = new Server(server, {
@@ -72,6 +82,9 @@ function isValidEncryptedPayload(payload) {
 
 // ─── REST API ─────────────────────────────────────────────────────────────────
 
+app.get('/', (req, res) => {
+  res.sendFile('index.html', {root: __dirname })
+})
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -203,7 +216,7 @@ io.on('connection', (socket) => {
 });
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
-server.listen(PORT, () => {
+server.listen(PORT, '::', () => {
   console.log('');
   console.log('  ❄️  FlakeSecure Relay Server');
   console.log('  ────────────────────────────');

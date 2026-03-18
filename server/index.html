@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlakeSecure — Status</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --gold: #C9930A;
+      --gold-light: #E8B020;
+      --gold-pale: #F5D070;
+      --black: #0A0800;
+      --dark: #111005;
+      --text: #F0D080;
+      --text-dim: #9A7830;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--black);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      overflow: hidden;
+    }
+
+    /* Radial gradient background matching icon */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 70% 60%, #7A5800 0%, #3A2800 40%, #0A0800 100%);
+      z-index: 0;
+    }
+
+    /* Subtle noise overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.3;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 2rem;
+    }
+
+    /* Lock icon SVG */
+    .lock-icon {
+      width: 90px;
+      height: 90px;
+      margin-bottom: 2rem;
+      filter: drop-shadow(0 0 24px rgba(201, 147, 10, 0.5));
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .wordmark {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.2rem, 6vw, 3.5rem);
+      letter-spacing: -0.02em;
+      color: var(--gold-light);
+      line-height: 1;
+      margin-bottom: 0.25rem;
+      text-shadow: 0 0 40px rgba(201, 147, 10, 0.4);
+    }
+
+    .wordmark span {
+      color: var(--gold-pale);
+    }
+
+    .tagline {
+      font-size: 0.7rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 3.5rem;
+    }
+
+    /* Status card */
+    .status-card {
+      border: 1px solid rgba(201, 147, 10, 0.25);
+      background: rgba(10, 8, 0, 0.6);
+      backdrop-filter: blur(12px);
+      border-radius: 6px;
+      padding: 1.6rem 2.4rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.2rem;
+      min-width: 280px;
+      animation: fadeIn 0.8s ease 0.3s both;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4ADE80;
+      box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+      animation: pulse 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); }
+      70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+    }
+
+    .status-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .status-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .status-value {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #4ADE80;
+      letter-spacing: 0.05em;
+    }
+
+    /* Divider line */
+    .divider {
+      width: 280px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(201,147,10,0.3), transparent);
+      margin: 0.8rem 0 1.6rem;
+      animation: fadeIn 0.8s ease 0.5s both;
+    }
+
+    /* Secondary info row */
+    .meta-row {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 3.5rem;
+      animation: fadeIn 0.8s ease 0.6s both;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .meta-item .m-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .meta-item .m-value {
+      font-size: 0.8rem;
+      color: var(--gold-light);
+      letter-spacing: 0.08em;
+    }
+
+    /* Snowflake decorative */
+    .snowflakes {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .sf {
+      position: absolute;
+      color: rgba(201, 147, 10, 0.06);
+      font-size: 120px;
+      line-height: 1;
+      animation: drift linear infinite;
+      user-select: none;
+    }
+
+    .sf:nth-child(1) { left: 5%; top: -140px; animation-duration: 22s; animation-delay: 0s; }
+    .sf:nth-child(2) { left: 80%; top: -140px; animation-duration: 28s; animation-delay: -8s; font-size: 80px; }
+    .sf:nth-child(3) { left: 45%; top: -140px; animation-duration: 18s; animation-delay: -14s; font-size: 60px; }
+
+    @keyframes drift {
+      to { transform: translateY(110vh) rotate(360deg); }
+    }
+
+    /* Footer link */
+    .footer {
+      position: fixed;
+      bottom: 1.8rem;
+      left: 0; right: 0;
+      text-align: center;
+      animation: fadeIn 0.8s ease 0.9s both;
+    }
+
+    .footer a {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(201,147,10,0.2);
+      padding-bottom: 1px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .footer a:hover {
+      color: var(--gold-light);
+      border-color: var(--gold-light);
+    }
+
+    /* Thin corner accents */
+    .corner {
+      position: fixed;
+      width: 40px; height: 40px;
+      opacity: 0.3;
+    }
+    .corner--tl { top: 1.5rem; left: 1.5rem; border-top: 1px solid var(--gold); border-left: 1px solid var(--gold); }
+    .corner--tr { top: 1.5rem; right: 1.5rem; border-top: 1px solid var(--gold); border-right: 1px solid var(--gold); }
+    .corner--bl { bottom: 1.5rem; left: 1.5rem; border-bottom: 1px solid var(--gold); border-left: 1px solid var(--gold); }
+    .corner--br { bottom: 1.5rem; right: 1.5rem; border-bottom: 1px solid var(--gold); border-right: 1px solid var(--gold); }
+
+    /* Live clock */
+    #clock {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.15em;
+      margin-top: 0.5rem;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Decorative corners -->
+  <div class="corner corner--tl"></div>
+  <div class="corner corner--tr"></div>
+  <div class="corner corner--bl"></div>
+  <div class="corner corner--br"></div>
+
+  <!-- Drifting snowflakes -->
+  <div class="snowflakes" aria-hidden="true">
+    <div class="sf">❄</div>
+    <div class="sf">❄</div>
+    <div class="sf">❄</div>
+  </div>
+
+  <main class="page">
+
+    <!-- Lock + Snowflake SVG matching icon -->
+    <svg class="lock-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="lockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#E8B020"/>
+          <stop offset="100%" stop-color="#A07010"/>
+        </linearGradient>
+      </defs>
+      <!-- shackle -->
+      <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#lockGrad)" stroke-width="9" stroke-linecap="round"/>
+      <!-- body -->
+      <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#lockGrad)"/>
+    </svg>
+
+    <h1 class="wordmark">Flake<span>Secure</span></h1>
+    <p class="tagline">Security Status Dashboard</p>
+
+    <div class="status-card">
+      <div class="pulse-dot"></div>
+      <div class="status-text">
+        <span class="status-label">Connection Status</span>
+        <span class="status-value">Secure &amp; Connected</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="meta-row">
+      <div class="meta-item">
+        <span class="m-label">System</span>
+        <span class="m-value">Operational</span>
+      </div>
+      <div class="meta-item">
+        <span class="m-label">Encryption</span>
+        <span class="m-value">Active</span>
+      </div>
+      <div class="meta-item">
+        <span class="m-label">Uptime</span>
+        <span class="m-value">100%</span>
+      </div>
+    </div>
+
+    <div id="clock"></div>
+
+  </main>
+
+  <footer class="footer">
+    <a href="https://flake.snowystudio.dev" target="_blank" rel="noopener">flake.snowystudio.dev &rarr;</a>
+  </footer>
+
+  <script>
+    function tick() {
+      const now = new Date();
+      document.getElementById('clock').textContent =
+        now.toUTCString().replace('GMT', 'UTC');
+    }
+    tick();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>
