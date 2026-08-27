@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "FlakeSecure",
+  "version": "1.2.0",
+  "description": "Secure login via mobile app with biometric authentication",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "snowy@snowystudio.dev",
+      "strict_min_version": "109.0"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["styles/content.css"],
+      "js": ["lib/qrcode.min.js", "lib/socket.io.min.js", "content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "FlakeSecure"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html", "popup.js", "lib/*", "icons/*", "styles/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'",
+    "content_scripts": "connect-src https://flakesecure.snowystudio.dev"
+  }
+}

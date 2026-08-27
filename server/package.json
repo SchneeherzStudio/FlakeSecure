@@ -1,6 +1,6 @@
 {
   "name": "flakesecure-server",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "FlakeSecure relay server – bridges encrypted credentials between mobile app and browser",
   "main": "server.js",
   "scripts": {
@@ -8,8 +8,13 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "argon2": "^0.41.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
     "express": "^4.18.2",
+    "geoip-lite": "^1.4.0",
+    "jsonwebtoken": "^9.0.0",
+    "pg": "^8.13.0",
     "socket.io": "^4.7.2"
   },
   "devDependencies": {

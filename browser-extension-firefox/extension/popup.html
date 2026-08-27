@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlakeSecure</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 330px;
+      min-height: 200px;
+      background: linear-gradient(160deg, #090b14 0%, #101424 100%);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      padding: 20px;
+      user-select: none;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #6391ff, #a78bfa);
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      box-shadow: 0 4px 12px rgba(99, 145, 255, 0.35);
+      flex-shrink: 0;
+    }
+    .logo-text {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .logo-text span { color: #6391ff; }
+    .version {
+      font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      margin-left: auto;
+    }
+
+    /* Cards */
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    /* Auth Card */
+    .auth-card {
+      background: linear-gradient(145deg, rgba(99,145,255,0.08), rgba(124,106,255,0.04));
+      border: 1px solid rgba(99,145,255,0.22);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .auth-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+    .form-group {
+      margin-bottom: 10px;
+    }
+    .form-input {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .form-input::placeholder {
+      color: rgba(255,255,255,0.3);
+    }
+    .form-input:focus {
+      border-color: #6391ff;
+      background: rgba(0,0,0,0.45);
+      box-shadow: 0 0 0 2px rgba(99, 145, 255, 0.2);
+    }
+    .auth-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #6391ff, #7c6aff);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      font-family: inherit;
+      box-shadow: 0 4px 12px rgba(99, 145, 255, 0.3);
+      margin-top: 4px;
+    }
+    .auth-btn:hover { opacity: 0.9; }
+    .auth-btn:active { transform: scale(0.98); }
+    .auth-error {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 11px;
+      margin-top: 10px;
+      display: none;
+      line-height: 1.4;
+    }
+
+    /* Logged in User Card */
+    .user-card {
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(99, 145, 255, 0.08);
+      border: 1px solid rgba(99, 145, 255, 0.2);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .user-info-label {
+      font-size: 10px;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 2px;
+    }
+    .user-info-name {
+      font-size: 14px;
+      color: #fff;
+      font-weight: 600;
+    }
+    .logout-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: rgba(255,255,255,0.8);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .logout-btn:hover {
+      background: rgba(255,77,79,0.15);
+      border-color: rgba(255,77,79,0.3);
+      color: #ff6b6b;
+    }
+
+    /* Status Card */
+    .status-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .status-label {
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .status-value {
+      font-size: 13px;
+      color: #8eb0ff;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 6px #34d399;
+    }
+
+    /* Display Mode Options */
+    .section-title {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      color: rgba(255,255,255,0.85);
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 8px 10px;
+      border-radius: 8px;
+      transition: background 0.15s;
+    }
+    .radio-label:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .radio-label input {
+      accent-color: #6391ff;
+    }
+
+    /* Toggle Rows */
+    .info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 13px;
+    }
+    .info-row:last-of-type { border-bottom: none; }
+    .info-key { color: rgba(255,255,255,0.6); }
+    .info-val { color: rgba(255,255,255,0.9); font-weight: 500; font-size: 12px; }
+    .toggle {
+      position: relative;
+      width: 36px; height: 20px;
+      cursor: pointer;
+    }
+    .toggle input { display: none; }
+    .toggle-track {
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.12);
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: #6391ff; }
+    .toggle-thumb {
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 16px; height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: left 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .toggle input:checked ~ .toggle-thumb { left: 18px; }
+
+    /* Footer */
+    .footer {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-icon">❄️</div>
+    <div class="logo-text">Flake<span>Secure</span></div>
+    <div class="version">v1.1.0</div>
+  </div>
+
+  <!-- Account / Auth Section -->
+  <div id="auth-section">
+    <!-- Logged out: Login Card -->
+    <div class="auth-card" id="login-view" style="display: none;">
+      <div class="auth-title">Account Anmeldung</div>
+      <div class="form-group">
+        <input type="text" class="form-input" id="login-identifier" placeholder="Benutzername oder E-Mail" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <input type="password" class="form-input" id="login-password" placeholder="Passwort" autocomplete="current-password">
+      </div>
+      <button class="auth-btn" id="login-btn">Anmelden</button>
+      <div class="auth-error" id="login-error"></div>
+    </div>
+    
+    <!-- Logged in: User Info Card -->
+    <div class="user-card" id="user-view" style="display: none;">
+      <div>
+        <div class="user-info-label">Angemeldet als</div>
+        <div class="user-info-name" id="auth-username"></div>
+      </div>
+      <button class="logout-btn" id="logout-btn">Abmelden</button>
+    </div>
+  </div>
+
+  <!-- Status Card -->
+  <div class="status-card">
+    <div class="status-label">Status</div>
+    <div class="status-value" id="status-text">
+      <span class="status-dot"></span>
+      <span id="status-msg">Bereit</span>
+    </div>
+  </div>
+
+  <!-- Display Mode -->
+  <div>
+    <div class="section-title">Anzeige-Modus</div>
+    <div class="radio-group">
+      <label class="radio-label">
+        <input type="radio" name="display-mode" value="popup" id="mode-popup" checked>
+        Direkt Popup öffnen
+      </label>
+      <label class="radio-label">
+        <input type="radio" name="display-mode" value="button" id="mode-button">
+        "FlakeSecure" Button anzeigen
+      </label>
+    </div>
+  </div>
+
+  <!-- Options & Details -->
+  <div class="card" style="padding: 4px 12px; margin-bottom: 0;">
+    <div class="info-row">
+      <span class="info-key">Auto-Login</span>
+      <label class="toggle">
+        <input type="checkbox" id="auto-login" checked>
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+
+    <div class="info-row">
+      <span class="info-key">Overlay bei Passwortfeld</span>
+      <label class="toggle">
+        <input type="checkbox" id="auto-overlay" checked>
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+
+    <div class="info-row">
+      <span class="info-key">Verschlüsselung</span>
+      <span class="info-val">AES-256 (Zero-Knowledge) ✓</span>
+    </div>
+  </div>
+
+  <div class="footer">FlakeSecure – Biometrische Sicherheit</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
