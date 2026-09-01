@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     language VARCHAR(5) DEFAULT 'en',
     share_mode VARCHAR(20) DEFAULT 'whitelist',
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    scheduled_purge_at TIMESTAMPTZ DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -18,6 +20,10 @@ CREATE TABLE IF NOT EXISTS users (
 -- Ensure newly added columns exist if updating from older schema
 ALTER TABLE users ADD COLUMN IF NOT EXISTS share_mode VARCHAR(20) DEFAULT 'whitelist';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(5) DEFAULT 'en';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS scheduled_purge_at TIMESTAMPTZ DEFAULT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_users_scheduled_purge ON users(scheduled_purge_at) WHERE deleted_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS allowed_recipients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

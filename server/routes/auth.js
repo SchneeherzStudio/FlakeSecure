@@ -33,17 +33,46 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware, createToken, hashToken } = require('../middleware/auth');
 const { sendPushToUser } = require('./notifications');
+const { sendWelcomeEmail } = require('../utils/email');
 
 const router = express.Router();
 
+function getCleanIp(req) {
+    let ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+    if (ip.includes(',')) ip = ip.split(',')[0].trim();
+    if (ip.startsWith('::ffff:')) ip = ip.substring(7);
+    if (ip === '::1') ip = '127.0.0.1';
+    return ip;
+}
+
+function parseDeviceModel(headers, bodyDeviceInfo) {
+    if (bodyDeviceInfo && typeof bodyDeviceInfo === 'string' && bodyDeviceInfo.trim()) {
+        return bodyDeviceInfo.trim().substring(0, 100);
+    }
+    const customDevice = headers && (headers['x-device-name'] || headers['x-device-model']);
+    if (customDevice && typeof customDevice === 'string' && customDevice.trim()) {
+        return customDevice.trim().substring(0, 100);
+    }
+    const ua = (headers && headers['user-agent']) || '';
+    if (!ua) return 'Unbekanntes Gerät';
+    if (ua.includes('iPhone')) return 'Apple iPhone (iOS)';
+    if (ua.includes('iPad')) return 'Apple iPad (iPadOS)';
+    if (ua.includes('Android')) return 'Android Smartphone';
+    if (ua.includes('Windows NT') || ua.includes('Windows')) return 'Windows PC (Desktop)';
+    if (ua.includes('Macintosh') || ua.includes('Mac OS X')) return 'Apple Mac (macOS)';
+    if (ua.includes('Linux')) return 'Linux PC (Desktop)';
+    return ua.length > 50 ? ua.substring(0, 47) + '...' : ua;
+}
+
 router.post('/register', async (req, res) => {
-    let { email, username, password, otpToken } = req.body;
+    let { email, username, password, otpToken, language } = req.body;
     if (!email || !username || !password) {
         return res.status(400).json({ error: 'Email, username, and password are required' });
     }
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim().toLowerCase();
+    const userLang = ['en', 'de', 'fr', 'es'].includes(language) ? language : 'en';
 
     if (!/^[a-z0-9_-]+$/.test(cleanUsername)) {
         return res.status(400).json({ error: 'Username can only contain lowercase letters (a-z), numbers (0-9), hyphens (-), and underscores (_)' });
@@ -71,20 +100,25 @@ router.post('/register', async (req, res) => {
     try {
         const passwordHash = await argon2.hash(password);
         const { rows } = await db.query(
-            'INSERT INTO users (email, username, password_hash) VALUES ($1, $2, $3) RETURNING id, email, username, language, share_mode, created_at',
-            [cleanEmail, cleanUsername, passwordHash]
+            'INSERT INTO users (email, username, password_hash, language) VALUES ($1, $2, $3, $4) RETURNING id, email, username, language, share_mode, created_at',
+            [cleanEmail, cleanUsername, passwordHash, userLang]
         );
         const user = rows[0];
 
         const token = createToken(user);
         const tHash = hashToken(token);
-        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-        const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
+        const cleanIp = getCleanIp(req);
+        const deviceInfo = parseDeviceModel(req.headers, req.body.device_info);
 
         await db.query(
             "INSERT INTO sessions (user_id, token_hash, device_info, ip_address, expires_at) VALUES ($1, $2, $3, $4, NOW() + INTERVAL '24 hours')",
-            [user.id, tHash, deviceInfo, ip.split(',')[0].trim()]
+            [user.id, tHash, deviceInfo, cleanIp]
         );
+
+        // Send welcome email asynchronously
+        sendWelcomeEmail(user.email, user.username, user.language).catch(err => {
+            console.log('[Auth] Welcome email send error:', err.message);
+        });
 
         res.status(201).json({ user, token });
     } catch (error) {
@@ -115,11 +149,16 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        if (user.deleted_at) {
+            return res.status(403).json({
+                error: 'Dieser Account wurde zur Löschung vorgemerkt und ist deaktiviert. (30 Tage Sicherheitsfrist)'
+            });
+        }
+
         const token = createToken(user);
         const tHash = hashToken(token);
-        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-        const cleanIp = ip.split(',')[0].trim();
-        const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
+        const cleanIp = getCleanIp(req);
+        const deviceInfo = parseDeviceModel(req.headers, req.body.device_info);
 
         await db.query(
             "INSERT INTO sessions (user_id, token_hash, device_info, ip_address, expires_at) VALUES ($1, $2, $3, $4, NOW() + INTERVAL '24 hours')",
@@ -130,11 +169,9 @@ router.post('/login', async (req, res) => {
         const city = geo ? geo.city : null;
         const region = geo ? geo.region : null;
         const country = geo ? geo.country : null;
-        const domain = req.headers.origin || null;
-
         await db.query(
             'INSERT INTO login_logs (user_id, ip_address, city, region, country, device_info, action, domain) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-            [user.id, cleanIp, city, region, country, deviceInfo, 'login', domain]
+            [user.id, cleanIp, city, region, country, deviceInfo, 'login', null]
         );
 
         try {

@@ -83,6 +83,16 @@ export default function AuthenticatorScreen({ route, navigation }) {
       setCopiedId(null);
     }, 2000);
 
+    // Auto-clear clipboard after 45 seconds
+    setTimeout(async () => {
+      try {
+        const current = await Clipboard.getStringAsync();
+        if (current === code) {
+          await Clipboard.setStringAsync('');
+        }
+      } catch {}
+    }, 45000);
+
     if (activeRelaySession && activeRelaySession.sid && activeRelaySession.keyHex) {
       try {
         const payload = await encryptCredentials(

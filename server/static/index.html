@@ -11,13 +11,13 @@
 </head>
 <body>
 
-  <!-- Decorative corners -->
+  <!-- Decorative corner accents -->
   <div class="corner corner--tl"></div>
   <div class="corner corner--tr"></div>
   <div class="corner corner--bl"></div>
   <div class="corner corner--br"></div>
 
-  <!-- Drifting snowflakes -->
+  <!-- Drifting snowflakes background -->
   <div class="snowflakes" aria-hidden="true">
     <div class="sf">❄</div>
     <div class="sf">❄</div>
@@ -25,7 +25,7 @@
   </div>
 
   <div class="container">
-    <!-- Top Navigation Bar -->
+    <!-- Streamlined Modern Header -->
     <header class="navbar">
       <a href="/" class="nav-brand">
         <svg class="nav-logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -38,313 +38,206 @@
           <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#navLockGrad)" stroke-width="9" stroke-linecap="round"/>
           <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#navLockGrad)"/>
         </svg>
-        <div class="nav-wordmark">Flake<span>Secure</span></div>
+        <div class="nav-wordmark">Flake<span>Secure</span> <span class="nav-version-badge">v2.0</span></div>
       </a>
 
-      <ul class="nav-menu">
-        <li><a href="#showcase" data-i18n="nav.preview">App Preview</a></li>
-        <li><a href="#security" data-i18n="nav.security">Security</a></li>
-        <li><a href="#how-it-works" data-i18n="nav.howItWorks">How It Works</a></li>
-        <li><a href="#downloads" data-i18n="nav.downloads">Downloads</a></li>
-        <li><a href="/account" data-i18n="nav.account" style="color: #6391ff; font-weight: 700;">Account Portal 🔐</a></li>
-        <li><a href="/imprint" data-i18n="nav.legal">Privacy &amp; Legal</a></li>
-      </ul>
+      <div class="nav-right">
+        <nav class="nav-links-clean">
+          <a href="#downloads" data-i18n="nav.downloads">Downloads</a>
+          <a href="#features" data-i18n="nav.features">Features</a>
+          <a href="/account" class="nav-portal-btn" data-i18n="nav.account">🔐 Account Portal</a>
+        </nav>
 
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <select class="fs-lang-select" aria-label="Language" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; outline: none;">
-          <option value="en" style="background: #111424; color: #fff;">🇬🇧 EN</option>
-          <option value="de" style="background: #111424; color: #fff;">🇩🇪 DE</option>
-          <option value="fr" style="background: #111424; color: #fff;">🇫🇷 FR</option>
-          <option value="es" style="background: #111424; color: #fff;">🇪🇸 ES</option>
-        </select>
+        <div class="nav-controls">
+          <select class="fs-lang-select" aria-label="Language">
+            <option value="en">🇬🇧 EN</option>
+            <option value="de">🇩🇪 DE</option>
+            <option value="fr">🇫🇷 FR</option>
+            <option value="es">🇪🇸 ES</option>
+          </select>
 
-        <div class="nav-status-pill">
-          <div class="pulse-dot"></div>
-          <span id="nav-status-text" data-i18n="nav.statusOnline">Relay Online</span>
+          <div class="nav-status-pill" title="Server Status">
+            <div class="pulse-dot"></div>
+            <span id="nav-status-text" data-i18n="nav.statusOnline">Online</span>
+          </div>
         </div>
       </div>
     </header>
 
-    <!-- Hero Section -->
+    <!-- Hero Section (Clean & Focused) -->
     <section class="hero">
-      <svg class="hero-lock-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <defs>
-          <linearGradient id="heroLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#E8B020"/>
-            <stop offset="100%" stop-color="#A07010"/>
-          </linearGradient>
-        </defs>
-        <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#heroLockGrad)" stroke-width="9" stroke-linecap="round"/>
-        <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#heroLockGrad)"/>
-      </svg>
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span data-i18n="hero.badge">Zero-Knowledge Architecture &bull; Hardware Biometrics</span>
+      </div>
 
       <h1 class="hero-title">Flake<span>Secure</span></h1>
       <p class="hero-subtitle" data-i18n="hero.subtitle">
-        Zero-Knowledge Biometric Password Manager &amp; Instant Browser Relay.
-      </p>
-      <p class="hero-tagline" data-i18n="hero.tagline">
-        End-to-End Encrypted &bull; No Passwords On Server &bull; Hardware Biometrics
+        Your Biometric Password &amp; 2FA Manager. Confirm logins on your smartphone with Face ID or fingerprint — autofilled instantly in your desktop browser.
       </p>
 
       <div class="hero-cta-group">
-        <a href="#downloads" class="btn btn-primary" data-i18n="hero.btnApp">📱 Get Mobile App</a>
-        <a href="#downloads" class="btn btn-secondary" data-i18n="hero.btnExt">🧩 Browser Extension</a>
-        <a href="#showcase" class="btn btn-secondary" data-i18n="hero.btnFeatures">✨ Explore Features</a>
+        <a href="#downloads" class="btn btn-primary" data-i18n="hero.btnDownload">⬇️ Get Apps &amp; Extensions</a>
+        <a href="/account" class="btn btn-secondary" data-i18n="hero.btnAccount">🔐 Manage Account &amp; Vault</a>
       </div>
 
-      <!-- Live Server Metrics Card -->
-      <div class="status-banner">
-        <div class="metric-item">
-          <span class="metric-label" data-i18n="hero.metricRelay">Relay Connection</span>
-          <span class="metric-value live">
-            <span class="pulse-dot"></span> <span data-i18n="hero.metricRelayVal">Active &amp; Operational</span>
-          </span>
-        </div>
+      <!-- Compact Live Metrics -->
+      <div class="status-banner-compact">
         <div class="metric-item">
           <span class="metric-label" data-i18n="hero.metricCrypto">Cryptography</span>
           <span class="metric-value">AES-256-CTR &bull; Argon2id</span>
         </div>
         <div class="metric-item">
-          <span class="metric-label" data-i18n="hero.metricSessions">Ephemeral Sessions</span>
-          <span class="metric-value" id="active-sessions-count">0 in-memory</span>
+          <span class="metric-label" data-i18n="hero.metricRelay">Relay Status</span>
+          <span class="metric-value live">
+            <span class="pulse-dot"></span> <span data-i18n="hero.metricRelayVal">Active &amp; E2E Encrypted</span>
+          </span>
         </div>
         <div class="metric-item">
-          <span class="metric-label">Server Time (UTC)</span>
-          <span class="metric-value" id="live-clock">--:--:--</span>
+          <span class="metric-label" data-i18n="hero.metricSessions">Active Sessions</span>
+          <span class="metric-value" id="active-sessions-count">0 in-memory</span>
         </div>
       </div>
     </section>
 
-    <!-- App Showcase Gallery with Screenshots -->
-    <section id="showcase" class="section">
+    <!-- Clean 3-Pillar Features Section -->
+    <section id="features" class="section">
       <div class="section-header">
-        <span class="section-badge">Visual Overview</span>
-        <h2 class="section-title">Designed for Ultimate Security &amp; Speed</h2>
-        <p class="section-subtitle">
-          Experience frictionless biometric authentication across your smartphone, desktop, and web browsers.
+        <span class="section-badge" data-i18n="features.badge">Core Security</span>
+        <h2 class="section-title" data-i18n="features.title">Engineered for Frictionless Privacy</h2>
+        <p class="section-subtitle" data-i18n="features.subtitle">
+          No plaintext passwords ever touch the server. Complete control stays on your physical devices.
         </p>
       </div>
 
-      <div class="showcase-grid">
-        <!-- Showcase Card 1 -->
-        <div class="showcase-card">
-          <div class="showcase-media">
-            <img src="/images/app_home.jpg" alt="FlakeSecure Protected Vault Screen" loading="lazy" />
-          </div>
-          <div class="showcase-body">
-            <span class="showcase-pill">🔒 Secure Storage</span>
-            <h3 class="showcase-title">Protected Vault</h3>
-            <p class="showcase-desc">
-              Your credentials remain fully encrypted on your physical device with hardware-backed encryption keys. Quick 1-tap QR scan triggers instant desktop logins.
-            </p>
-          </div>
-        </div>
-
-        <!-- Showcase Card 2 -->
-        <div class="showcase-card">
-          <div class="showcase-media">
-            <img src="/images/app_confirm.jpg" alt="FlakeSecure Biometric Authentication Confirmation" loading="lazy" />
-          </div>
-          <div class="showcase-body">
-            <span class="showcase-pill">⚡ Instant QR Login</span>
-            <h3 class="showcase-title">Biometric Authorization</h3>
-            <p class="showcase-desc">
-              Point your camera at the browser extension QR code, confirm with your fingerprint or Face ID, and you're logged into your account in under a second.
-            </p>
-          </div>
-        </div>
-
-        <!-- Showcase Card 3 -->
-        <div class="showcase-card">
-          <div class="showcase-media">
-            <img src="/images/app_share.jpg" alt="FlakeSecure Encrypted P2P Sharing Screen" loading="lazy" />
-          </div>
-          <div class="showcase-body">
-            <span class="showcase-pill">🛡️ P2P Sync &amp; Share</span>
-            <h3 class="showcase-title">Zero-Knowledge Sharing</h3>
-            <p class="showcase-desc">
-              Transfer credentials securely device-to-device with custom expiration timers (1 hour to 30 days), allowed recipient whitelists, and restricted viewing modes.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Security Architecture Section -->
-    <section id="security" class="section">
-      <div class="section-header">
-        <span class="section-badge">Zero-Knowledge Guarantee</span>
-        <h2 class="section-title">Cryptographic Architecture</h2>
-        <p class="section-subtitle">
-          Engineered from the ground up so that even if the relay server were compromised, your passwords remain 100% unbreakable.
-        </p>
-      </div>
-
-      <div class="security-grid">
-        <div class="security-card">
-          <div class="security-icon">🛡️</div>
-          <h3 class="security-card-title">Client-Side Encryption</h3>
-          <p class="security-card-text">
-            All encryption keys are generated randomly on your device using a cryptographically secure random number generator (CSPRNG). Credentials are encrypted with <strong>AES-256-CTR</strong> and authenticated with <strong>HMAC-SHA256</strong> before leaving your phone.
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3 class="feature-title" data-i18n="features.f1Title">Zero-Knowledge Vault</h3>
+          <p class="feature-desc" data-i18n="features.f1Desc">
+            Client-side 256-bit AES encryption derived via PBKDF2 &amp; Argon2id. Even if the server were intercepted, your vault remains mathematically unbreakable.
           </p>
         </div>
 
-        <div class="security-card">
-          <div class="security-icon">🔐</div>
-          <h3 class="security-card-title">Argon2id Master Keys</h3>
-          <p class="security-card-text">
-            Account master passwords are encrypted with memory-hard <strong>Argon2id</strong> hashing algorithm with unique cryptographic salts, rendering GPU/ASIC brute-force and rainbow table attacks computationally infeasible.
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3 class="feature-title" data-i18n="features.f2Title">1-Tap Biometric Relay</h3>
+          <p class="feature-desc" data-i18n="features.f2Desc">
+            Scan a QR code on your browser, authorize via Face ID or fingerprint, and your logins are autofilled in under a second over ephemeral encrypted websockets.
           </p>
         </div>
 
-        <div class="security-card">
-          <div class="security-icon">⚡</div>
-          <h3 class="security-card-title">Ephemeral In-Memory Relay</h3>
-          <p class="security-card-text">
-            The server operates strictly as a zero-knowledge communication relay. Sessions are held temporarily in-memory with a <strong>5-minute time-to-live (TTL)</strong> and are permanently wiped immediately upon delivery.
-          </p>
-        </div>
-
-        <div class="security-card">
-          <div class="security-icon">👁️</div>
-          <h3 class="security-card-title">Restricted Visibility Mode</h3>
-          <p class="security-card-text">
-            Share credentials with team members or temporary devices where the recipient can authenticate into websites without being able to inspect, copy, or view the plaintext password.
-          </p>
-        </div>
-
-        <div class="security-card">
-          <div class="security-icon">📲</div>
-          <h3 class="security-card-title">Hardware Biometric Storage</h3>
-          <p class="security-card-text">
-            Your master keys and encrypted vault records are shielded by your smartphone's Secure Enclave / Android Keystore, requiring physical biometric validation (Face ID, Touch ID, BiometricPrompt) to unlock.
-          </p>
-        </div>
-
-        <div class="security-card">
-          <div class="security-icon">🗑️</div>
-          <h3 class="security-card-title">GDPR Instant Right to Erasure</h3>
-          <p class="security-card-text">
-            Full compliance with Art. 17 GDPR. With a single tap in the app's danger zone, your entire account, cryptographic session tokens, logs, and sharing permissions are purged forever via database cascade delete.
+        <div class="feature-card">
+          <div class="feature-icon">🔑</div>
+          <h3 class="feature-title" data-i18n="features.f3Title">Built-in 2FA Authenticator</h3>
+          <p class="feature-desc" data-i18n="features.f3Desc">
+            Integrated RFC 6238 TOTP engine with live countdowns. Directly stream 2FA verification codes to your desktop browser with a single tap.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- How It Works Section -->
-    <section id="how-it-works" class="section">
-      <div class="section-header">
-        <span class="section-badge">Workflow</span>
-        <h2 class="section-title">How FlakeSecure Works</h2>
-        <p class="section-subtitle">
-          Say goodbye to typing complex master passwords or trusting cloud-hosted password vaults.
-        </p>
-      </div>
-
-      <div class="steps-container">
-        <div class="step-card">
-          <span class="step-num">01</span>
-          <div class="step-icon">💻</div>
-          <h3 class="step-title">Extension Displays QR</h3>
-          <p class="step-desc">
-            Open any login page on your desktop browser. The FlakeSecure browser extension automatically detects the login fields and generates a unique single-use cryptographic QR code.
-          </p>
+    <!-- Visual App Showcase Carousel / Grid -->
+    <section class="section">
+      <div class="showcase-grid-clean">
+        <div class="showcase-card">
+          <div class="showcase-media">
+            <img src="/images/app_home.jpg" alt="FlakeSecure Vault Screen" loading="lazy" />
+          </div>
+          <div class="showcase-body">
+            <h4 class="showcase-title" data-i18n="showcase.c1Title">Biometric Master Vault</h4>
+            <p class="showcase-desc" data-i18n="showcase.c1Desc">Securely organize logins, categories, and 2FA tokens protected by your phone's Secure Enclave.</p>
+          </div>
         </div>
 
-        <div class="step-card">
-          <span class="step-num">02</span>
-          <div class="step-icon">📲</div>
-          <h3 class="step-title">Scan &amp; Biometric Confirm</h3>
-          <p class="step-desc">
-            Open the FlakeSecure mobile app or scan with your device camera. Confirm the website domain with a quick fingerprint or Face ID scan.
-          </p>
+        <div class="showcase-card">
+          <div class="showcase-media">
+            <img src="/images/app_confirm.jpg" alt="FlakeSecure QR Confirmation" loading="lazy" />
+          </div>
+          <div class="showcase-body">
+            <h4 class="showcase-title" data-i18n="showcase.c2Title">Instant Authorization</h4>
+            <p class="showcase-desc" data-i18n="showcase.c2Desc">Confirm domain authorization with biometrics. Encrypted payloads self-destruct after consumption.</p>
+          </div>
         </div>
 
-        <div class="step-card">
-          <span class="step-num">03</span>
-          <div class="step-icon">⚡</div>
-          <h3 class="step-title">Instant Auto-Login</h3>
-          <p class="step-desc">
-            Your encrypted credentials are securely relayed to your browser socket. The extension decrypts the payload client-side, autofills the login form, and logs you in instantly.
-          </p>
+        <div class="showcase-card">
+          <div class="showcase-media">
+            <img src="/images/app_share.jpg" alt="FlakeSecure P2P Sync" loading="lazy" />
+          </div>
+          <div class="showcase-body">
+            <h4 class="showcase-title" data-i18n="showcase.c3Title">Secure P2P Sharing</h4>
+            <p class="showcase-desc" data-i18n="showcase.c3Desc">Send credentials with hidden view modes and auto-delete timers (1h to 30d) across verified recipients.</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Downloads Section -->
+    <!-- Direct Downloads Section -->
     <section id="downloads" class="section">
       <div class="section-header">
-        <span class="section-badge">Get Started</span>
+        <span class="section-badge" data-i18n="downloads.badge">Get Started</span>
         <h2 class="section-title" data-i18n="downloads.title">Download FlakeSecure v2.0</h2>
-        <p class="section-subtitle">
+        <p class="section-subtitle" data-i18n="downloads.subtitle">
           Available on mobile and desktop platforms.
         </p>
       </div>
 
-      <div class="downloads-grid">
+      <div class="downloads-grid-clean">
         <div class="download-card">
-          <div class="download-icon">🤖</div>
-          <h3 class="download-title" data-i18n="downloads.appTitle">Mobile App (iOS &amp; Android)</h3>
+          <div class="download-icon">📱</div>
+          <h3 class="download-title" data-i18n="downloads.appTitle">Mobile App (Android &amp; iOS)</h3>
           <p class="download-meta" data-i18n="downloads.appDesc">Your biometric master vault. Scan QR codes to autofill logins instantly.</p>
-          <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" style="width: 100%; margin-top: auto;" data-i18n="downloads.btnAndroid">Download Android APK</a>
-        </div>
-
-        <div class="download-card">
-          <div class="download-icon">🍏</div>
-          <h3 class="download-title">iOS App (Expo)</h3>
-          <p class="download-meta">Requires iOS 15.0+ &bull; Face ID / Touch ID</p>
-          <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" style="width: 100%; margin-top: auto;" data-i18n="downloads.btnIos">Install on iOS (Expo)</a>
+          <div class="download-btn-group">
+            <a href="https://flakesecure.snowystudio.dev" class="btn btn-primary" data-i18n="downloads.btnAndroid">Download Android APK</a>
+            <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" data-i18n="downloads.btnIos">iOS (Expo Go)</a>
+          </div>
         </div>
 
         <div class="download-card">
           <div class="download-icon">🌐</div>
           <h3 class="download-title">Chrome / Edge / Brave</h3>
-          <p class="download-meta">Manifest V3 &bull; Chromium Extension v2.0.0</p>
-          <a href="/browser-extension.zip" download="browser-extension.zip" class="btn btn-secondary" style="width: 100%; margin-top: auto;" data-i18n="downloads.btnChrome">Download Chrome Extension (.zip)</a>
+          <p class="download-meta">Chromium Manifest V3 Extension &bull; v2.0.0</p>
+          <div class="download-btn-group">
+            <a href="/browser-extension.zip" download="browser-extension.zip" class="btn btn-primary" data-i18n="downloads.btnChrome">Download (.zip)</a>
+          </div>
         </div>
 
         <div class="download-card">
           <div class="download-icon">🦊</div>
-          <h3 class="download-title">Firefox Add-on</h3>
-          <p class="download-meta">Manifest V3 &bull; Firefox Extension v2.0.0</p>
-          <a href="/browser-extension-firefox.zip" download="browser-extension-firefox.zip" class="btn btn-secondary" style="width: 100%; margin-top: auto;" data-i18n="downloads.btnFirefox">Download Firefox Extension (.zip)</a>
+          <h3 class="download-title">Firefox Browser</h3>
+          <p class="download-meta">Firefox Manifest V3 Extension &bull; v2.0.0</p>
+          <div class="download-btn-group">
+            <a href="/browser-extension-firefox.zip" download="browser-extension-firefox.zip" class="btn btn-primary" data-i18n="downloads.btnFirefox">Download (.zip)</a>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Footer -->
+    <!-- Clean Footer -->
     <footer class="footer">
       <div class="footer-nav">
-        <a href="/">Home</a>
+        <a href="/" data-i18n="footer.home">Home</a>
         <span class="footer-sep">&bull;</span>
-        <a href="#showcase">App Preview</a>
+        <a href="#features" data-i18n="footer.features">Features</a>
         <span class="footer-sep">&bull;</span>
-        <a href="#security">Security</a>
+        <a href="#downloads" data-i18n="footer.downloads">Downloads</a>
         <span class="footer-sep">&bull;</span>
-        <a href="/imprint">Impressum / Imprint</a>
+        <a href="/account" data-i18n="footer.account">Account Portal</a>
         <span class="footer-sep">&bull;</span>
-        <a href="/legal">Datenschutz &amp; Legal</a>
+        <a href="/imprint" data-i18n="footer.imprint">Impressum / Imprint</a>
         <span class="footer-sep">&bull;</span>
-        <a href="https://flake.snowystudio.dev" target="_blank" rel="noopener">flake.snowystudio.dev &rarr;</a>
+        <a href="/legal" data-i18n="footer.legal">Datenschutz / Privacy</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/terms" data-i18n="footer.terms">AGB / Terms</a>
       </div>
       <p class="footer-copy">
-        &copy; 2026 FlakeSecure by Snowy Studio. All rights reserved. Zero-Knowledge Biometric Authentication.
+        &copy; 2026 FlakeSecure by SchneeherzStudio. All rights reserved. Zero-Knowledge Biometric Security.
       </p>
     </footer>
   </div>
 
-  <!-- Live Health & Time Script -->
+  <!-- Live Status Script -->
   <script>
-    function updateClock() {
-      const now = new Date();
-      const clockEl = document.getElementById('live-clock');
-      if (clockEl) {
-        clockEl.textContent = now.toUTCString().replace('GMT', 'UTC');
-      }
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
-
     async function fetchServerStatus() {
       try {
         const res = await fetch('/health');
@@ -355,9 +248,7 @@
             countEl.textContent = `${data.activeSessions || 0} active in-memory`;
           }
         }
-      } catch (e) {
-        // Network polling fallback
-      }
+      } catch (_) {}
     }
     fetchServerStatus();
     setInterval(fetchServerStatus, 5000);

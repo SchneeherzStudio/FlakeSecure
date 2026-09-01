@@ -37,11 +37,25 @@
  * ============================================================================
  */
 
-export default {};
-
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const DEFAULT_SERVER_URL = 'https://flakesecure.snowystudio.dev';
+
+export function getDeviceModelName() {
+  if (Platform.OS === 'ios') {
+    const isPad = Platform.isPad;
+    const sysVer = Platform.Version ? ` ${Platform.Version}` : '';
+    return `Apple ${isPad ? 'iPad' : 'iPhone'} (iOS${sysVer})`;
+  } else if (Platform.OS === 'android') {
+    const brand = Platform.constants?.Brand || '';
+    const model = Platform.constants?.Model || 'Android Phone';
+    const cleanBrand = brand ? brand.charAt(0).toUpperCase() + brand.slice(1) : '';
+    const release = Platform.constants?.Release ? ` ${Platform.constants.Release}` : '';
+    return `${cleanBrand} ${model} (Android${release})`.trim();
+  }
+  return `${Platform.OS.toUpperCase()} Device`;
+}
 
 export async function getServerUrl() {
   const url = await SecureStore.getItemAsync('server_url');
@@ -58,6 +72,7 @@ export async function apiRequest(endpoint, options = {}) {
   
   const headers = {
     'Content-Type': 'application/json',
+    'x-device-name': getDeviceModelName(),
     ...options.headers,
   };
   
@@ -82,14 +97,14 @@ export async function apiRequest(endpoint, options = {}) {
 export async function register(email, username, password, otpToken = null) {
   return apiRequest('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, username, password, otpToken }),
+    body: JSON.stringify({ email, username, password, otpToken, device_info: getDeviceModelName() }),
   });
 }
 
 export async function login(identifier, password) {
   return apiRequest('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ identifier, password }),
+    body: JSON.stringify({ identifier, password, device_info: getDeviceModelName() }),
   });
 }
 

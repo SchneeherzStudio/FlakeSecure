@@ -25,123 +25,493 @@
   </div>
 
   <div class="container">
-    <header class="header">
-      <a href="/" class="logo-link">
-        <!-- Lock SVG matching index.html -->
-        <svg class="lock-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <header class="navbar">
+      <a href="/" class="nav-brand">
+        <svg class="nav-logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <defs>
-            <linearGradient id="lockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id="navLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#E8B020"/>
               <stop offset="100%" stop-color="#A07010"/>
             </linearGradient>
           </defs>
-          <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#lockGrad)" stroke-width="9" stroke-linecap="round"/>
-          <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#lockGrad)"/>
+          <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#navLockGrad)" stroke-width="9" stroke-linecap="round"/>
+          <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#navLockGrad)"/>
         </svg>
-        <h1 class="wordmark">Flake<span>Secure</span></h1>
+        <div class="nav-wordmark">Flake<span>Secure</span> <span class="nav-version-badge">v2.0</span></div>
       </a>
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <select class="fs-lang-select" aria-label="Language" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; outline: none;">
-          <option value="en" style="background: #111424; color: #fff;">🇬🇧 EN</option>
-          <option value="de" style="background: #111424; color: #fff;">🇩🇪 DE</option>
-          <option value="fr" style="background: #111424; color: #fff;">🇫🇷 FR</option>
-          <option value="es" style="background: #111424; color: #fff;">🇪🇸 ES</option>
-        </select>
-        <a href="/" class="page-badge" data-i18n="imprint.backHome" style="text-decoration: none;">← Home</a>
+
+      <div class="nav-right">
+        <nav class="nav-links-clean">
+          <a href="/" data-i18n="footer.home">Home</a>
+          <a href="/#downloads" data-i18n="nav.downloads">Downloads</a>
+          <a href="/account" class="nav-portal-btn" data-i18n="nav.account">🔐 Account Portal</a>
+        </nav>
+
+        <div class="nav-controls">
+          <select class="fs-lang-select" aria-label="Language">
+            <option value="en">🇬🇧 EN</option>
+            <option value="de">🇩🇪 DE</option>
+            <option value="fr">🇫🇷 FR</option>
+            <option value="es">🇪🇸 ES</option>
+          </select>
+
+          <div class="nav-status-pill" title="Server Status">
+            <div class="pulse-dot"></div>
+            <span data-i18n="nav.statusOnline">Online</span>
+          </div>
+        </div>
       </div>
     </header>
 
+    <div class="page-header-box">
+      <div data-lang="de">
+        <span class="page-badge-pill">Rechtliche Angaben &bull; § 5 DDG</span>
+        <h1 class="page-title">Impressum</h1>
+      </div>
+      <div data-lang="en">
+        <span class="page-badge-pill">Legal Notice &bull; § 5 German DDG</span>
+        <h1 class="page-title">Imprint / Legal Notice</h1>
+      </div>
+      <div data-lang="fr">
+        <span class="page-badge-pill">Mentions Légales &bull; § 5 DDG</span>
+        <h1 class="page-title">Mentions Légales</h1>
+      </div>
+      <div data-lang="es">
+        <span class="page-badge-pill">Información Legal &bull; § 5 DDG</span>
+        <h1 class="page-title">Aviso Legal / Pie de Imprenta</h1>
+      </div>
+    </div>
+
     <main class="card">
-      <!-- Angaben gemäß § 5 DDG -->
-      <section class="section">
-        <h2 class="section-title"><span class="icon">🏛️</span> Angaben gemäß § 5 DDG</h2>
-        <p class="text">
-          <strong>Diensteanbieter &amp; Entwickler:</strong><br />
-          Snowy Studio / Schneeherz Studio<br />
-          Projekt: <em>FlakeSecure Zero-Knowledge Password Manager</em>
-        </p>
-        <div class="info-grid">
-          <div class="info-box">
-            <div class="info-box-label">Plattform &amp; Dienst</div>
-            <div class="info-box-value">FlakeSecure Relay Server</div>
-          </div>
-          <div class="info-box">
-            <div class="info-box-label">Domain</div>
-            <div class="info-box-value">
-              <a href="https://flakesecure.snowystudio.dev" target="_blank" rel="noopener">flakesecure.snowystudio.dev</a>
+      <!-- GERMAN (DE) -->
+      <div data-lang="de">
+        <!-- 1. Diensteanbieter nach § 5 DDG -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🏛️</span> Angaben gemäß § 5 Digitale-Dienste-Gesetz (DDG)</h2>
+          <p class="text">
+            <strong>Diensteanbieter &amp; Projektbetreiber:</strong><br />
+            SchneeherzStudio / Snowy Studio<br />
+            Inhaber / Projektleitung: Snowy<br />
+            Im Heideck 14<br />
+            65795 Hattersheim<br />
+            Deutschland
+          </p>
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="info-box-label">Plattform &amp; Software</div>
+              <div class="info-box-value">FlakeSecure Relay Server &amp; Client Apps</div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Offizielle Webpräsenz</div>
+              <div class="info-box-value">
+                <a href="https://flakesecure.snowystudio.dev" target="_blank" rel="noopener">flakesecure.snowystudio.dev</a>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Kontakt -->
-      <section class="section">
-        <h2 class="section-title"><span class="icon">📫</span> Kontakt &amp; Support</h2>
-        <p class="text">
-          Bei technischen Anfragen, Sicherheitsmeldungen oder Support-Themen rund um FlakeSecure erreichen Sie uns unter:
-        </p>
-        <div class="info-grid">
-          <div class="info-box">
-            <div class="info-box-label">E-Mail Support</div>
-            <div class="info-box-value">
-              <a href="mailto:support@snowystudio.dev">support@snowystudio.dev</a>
+        <!-- 2. Kontaktmöglichkeiten -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">📫</span> Kontaktmöglichkeiten</h2>
+          <p class="text">
+            Für Support, allgemeine Anfragen sowie rechtliche Mitteilungen stehen Ihnen folgende offizielle Kontaktwege zur Verfügung:
+          </p>
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="info-box-label">Telefonischer Kontakt</div>
+              <div class="info-box-value">
+                <a href="tel:+491628765631">(+49) 01628765631</a>
+              </div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Allgemeiner Kontakt &amp; Support</div>
+              <div class="info-box-value">
+                <a href="mailto:snowy@snowystudio.dev">snowy@snowystudio.dev</a>
+              </div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Rechtliches &amp; Datenschutz</div>
+              <div class="info-box-value">
+                <a href="mailto:legal@snowystudio.dev">legal@snowystudio.dev</a>
+              </div>
             </div>
           </div>
-          <div class="info-box">
-            <div class="info-box-label">Allgemeine Anfragen</div>
+        </section>
+
+        <!-- 3. Datenschutzbeauftragter -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🛡️</span> Datenschutzbeauftragter</h2>
+          <p class="text">
+            Bei datenschutzrechtlichen Fragen, Auskunftsbegehren oder zur Geltendmachung Ihrer Betroffenenrechte nach der DSGVO wenden Sie sich bitte direkt an unseren Datenschutzbeauftragten:
+          </p>
+          <div class="info-box" style="margin-top: 12px;">
+            <div class="info-box-label">Datenschutzbeauftragter FlakeSecure / SchneeherzStudio</div>
             <div class="info-box-value">
-              <a href="mailto:contact@snowystudio.dev">contact@snowystudio.dev</a>
+              E-Mail: <a href="mailto:legal@snowystudio.dev">legal@snowystudio.dev</a><br />
+              Anschrift: Im Heideck 14, 65795 Hattersheim, Deutschland<br />
+              Telefon: <a href="tel:+491628765631">(+49) 01628765631</a>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Verantwortlich für den Inhalt -->
-      <section class="section">
-        <h2 class="section-title"><span class="icon">⚖️</span> Verantwortlich für den Inhalt</h2>
-        <p class="text">
-          Verantwortlich nach § 18 Abs. 2 MStV:<br />
-          <strong>Snowy Studio Core Development Team</strong><br />
-          Entwicklung &amp; Betrieb der FlakeSecure Relay- und Authentifizierungsdienste.
-        </p>
-      </section>
+        <!-- 4. Verantwortlich für den Inhalt -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">⚖️</span> Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
+          <p class="text">
+            <strong>Snowy Studio Core Development Team</strong><br />
+            Im Heideck 14, 65795 Hattersheim, Deutschland<br />
+            E-Mail: <a href="mailto:snowy@snowystudio.dev">snowy@snowystudio.dev</a><br />
+            Telefon: <a href="tel:+491628765631">(+49) 01628765631</a>
+          </p>
+        </section>
 
-      <!-- Haftungsausschluss -->
-      <section class="section">
-        <h2 class="section-title"><span class="icon">🛡️</span> Haftungsausschluss (Disclaimer)</h2>
-        <p class="text">
-          <strong>Haftung für Inhalte:</strong><br />
-          Als Diensteanbieter sind wir gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG sind wir jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.
-        </p>
-        <p class="text">
-          <strong>Haftung für Links:</strong><br />
-          Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.
-        </p>
-        <p class="text">
-          <strong>Zero-Knowledge-Garantie:</strong><br />
-          FlakeSecure arbeitet nach dem Zero-Knowledge-Prinzip. Alle Anmeldedaten und Passwörter werden auf dem Client-Gerät (Smartphone / Browser) verschlüsselt (AES-256-CTR + HMAC-SHA256). Der Relay-Server hat technisch zu keinem Zeitpunkt Zugriff auf Klartext-Passwörter oder kryptografische Schlüssel.
-        </p>
-      </section>
+        <!-- 5. EU-Streitschlichtung -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🇪🇺</span> EU-Streitschlichtung &amp; Verbraucherstreitbeilegung</h2>
+          <p class="text">
+            Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: 
+            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr</a>.<br />
+            Unsere E-Mail-Adresse finden Sie oben im Impressum.
+          </p>
+          <p class="text" style="margin-top: 10px;">
+            Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle im Sinne des Verbraucherstreitbeilegungsgesetzes (VSBG) teilzunehmen.
+          </p>
+        </section>
 
-      <!-- Urheberrecht -->
-      <section class="section">
-        <h2 class="section-title"><span class="icon">📜</span> Urheberrecht &amp; Lizenzen</h2>
-        <p class="text">
-          Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Erstellers.
-        </p>
-      </section>
+        <!-- 6. Haftungsausschluss -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🛡️</span> Haftungsausschluss (Disclaimer)</h2>
+          <p class="text">
+            <strong>Haftung für eigene Inhalte:</strong><br />
+            Als Diensteanbieter sind wir gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG sind wir jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.
+          </p>
+          <p class="text" style="margin-top: 10px;">
+            <strong>Zero-Knowledge-Architektur:</strong><br />
+            FlakeSecure arbeitet nach dem Zero-Knowledge-Prinzip. Alle Passwörter und Vault-Einträge werden lokal auf dem Endgerät mit AES-256-CTR verschlüsselt. Wir besitzen technisch keinen Zugriff auf Klartext-Passwörter oder kryptografische Hauptschlüssel.
+          </p>
+        </section>
+
+        <!-- 7. Urheberrecht -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">📜</span> Urheberrecht</h2>
+          <p class="text">
+            Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Beiträge Dritter sind als solche gekennzeichnet.
+          </p>
+        </section>
+      </div>
+
+      <!-- ENGLISH (EN) -->
+      <div data-lang="en">
+        <!-- 1. Service Provider -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🏛️</span> Information Pursuant to § 5 German Digital Services Act (DDG)</h2>
+          <p class="text">
+            <strong>Service Provider &amp; Project Operator:</strong><br />
+            SchneeherzStudio / Snowy Studio<br />
+            Owner / Lead Developer: Snowy<br />
+            Im Heideck 14<br />
+            65795 Hattersheim<br />
+            Germany
+          </p>
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="info-box-label">Platform &amp; Software</div>
+              <div class="info-box-value">FlakeSecure Relay Server &amp; Client Apps</div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Official Website</div>
+              <div class="info-box-value">
+                <a href="https://flakesecure.snowystudio.dev" target="_blank" rel="noopener">flakesecure.snowystudio.dev</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Contact Information -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">📫</span> Contact Information</h2>
+          <p class="text">
+            For user support, general inquiries, and legal notifications, please use the following official communication channels:
+          </p>
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="info-box-label">Telephone Contact</div>
+              <div class="info-box-value">
+                <a href="tel:+491628765631">(+49) 01628765631</a>
+              </div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">General Contact &amp; Support</div>
+              <div class="info-box-value">
+                <a href="mailto:snowy@snowystudio.dev">snowy@snowystudio.dev</a>
+              </div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Legal &amp; Privacy Desk</div>
+              <div class="info-box-value">
+                <a href="mailto:legal@snowystudio.dev">legal@snowystudio.dev</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Data Protection Officer -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🛡️</span> Data Protection Officer (DPO)</h2>
+          <p class="text">
+            For privacy inquiries, data subject access requests under GDPR, or regulatory notices, please contact our designated privacy desk:
+          </p>
+          <div class="info-box" style="margin-top: 12px;">
+            <div class="info-box-label">Data Protection Desk — FlakeSecure / SchneeherzStudio</div>
+            <div class="info-box-value">
+              Email: <a href="mailto:legal@snowystudio.dev">legal@snowystudio.dev</a><br />
+              Address: Im Heideck 14, 65795 Hattersheim, Germany<br />
+              Phone: <a href="tel:+491628765631">(+49) 01628765631</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. Content Responsibility -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">⚖️</span> Responsible for Editorial Content (§ 18 MStV)</h2>
+          <p class="text">
+            <strong>Snowy Studio Core Development Team</strong><br />
+            Im Heideck 14, 65795 Hattersheim, Germany<br />
+            Email: <a href="mailto:snowy@snowystudio.dev">snowy@snowystudio.dev</a><br />
+            Phone: <a href="tel:+491628765631">(+49) 01628765631</a>
+          </p>
+        </section>
+
+        <!-- 5. EU Dispute Resolution -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🇪🇺</span> EU Dispute Resolution</h2>
+          <p class="text">
+            The European Commission provides a platform for online dispute resolution (ODR): 
+            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr</a>.<br />
+            Our contact email is listed above.
+          </p>
+          <p class="text" style="margin-top: 10px;">
+            We are neither obligated nor willing to participate in dispute resolution proceedings before a consumer arbitration board.
+          </p>
+        </section>
+
+        <!-- 6. Disclaimer -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🛡️</span> Disclaimer &amp; Zero-Knowledge Notice</h2>
+          <p class="text">
+            <strong>Liability for Contents:</strong> As a digital service provider, we are responsible for our own content on these pages under general German law pursuant to § 7 (1) DDG. Under §§ 8 to 10 DDG, we are not obligated to monitor transmitted or stored third-party information.
+          </p>
+          <p class="text" style="margin-top: 10px;">
+            <strong>Zero-Knowledge Architecture:</strong> FlakeSecure is engineered strictly around client-side cryptography. All vault data and credentials are encrypted using 256-bit AES-CTR locally on your physical device. We mathematically have no access to master passwords or plaintext secrets.
+          </p>
+        </section>
+
+        <!-- 7. Copyright -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">📜</span> Copyright Notice</h2>
+          <p class="text">
+            The content, code, and design created by the project operators on this website are subject to German and international copyright law. Third-party contributions are identified as such.
+          </p>
+        </section>
+      </div>
+
+      <!-- FRENCH (FR) -->
+      <div data-lang="fr">
+        <!-- 1. Fournisseur du service -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🏛️</span> Informations selon la loi allemande sur les services numériques (§ 5 DDG)</h2>
+          <p class="text">
+            <strong>Fournisseur du service &amp; Éditeur du projet :</strong><br />
+            SchneeherzStudio / Snowy Studio<br />
+            Responsable / Direction : Snowy<br />
+            Im Heideck 14<br />
+            65795 Hattersheim<br />
+            Allemagne
+          </p>
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="info-box-label">Plateforme &amp; Logiciel</div>
+              <div class="info-box-value">FlakeSecure Relay Server &amp; Applications Clientes</div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Site Web Officiel</div>
+              <div class="info-box-value">
+                <a href="https://flakesecure.snowystudio.dev" target="_blank" rel="noopener">flakesecure.snowystudio.dev</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Contact -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">📫</span> Moyens de Contact</h2>
+          <p class="text">
+            Pour le support, les demandes générales et les communications juridiques :
+          </p>
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="info-box-label">Téléphone</div>
+              <div class="info-box-value">
+                <a href="tel:+491628765631">(+49) 01628765631</a>
+              </div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Support Général</div>
+              <div class="info-box-value">
+                <a href="mailto:snowy@snowystudio.dev">snowy@snowystudio.dev</a>
+              </div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Service Juridique &amp; RGPD</div>
+              <div class="info-box-value">
+                <a href="mailto:legal@snowystudio.dev">legal@snowystudio.dev</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. DPO -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🛡️</span> Délégué à la Protection des Données (DPO)</h2>
+          <p class="text">
+            Pour exercer vos droits au titre du RGPD (accès, rectification, suppression) :
+          </p>
+          <div class="info-box" style="margin-top: 12px;">
+            <div class="info-box-label">Contact RGPD — FlakeSecure / SchneeherzStudio</div>
+            <div class="info-box-value">
+              E-mail : <a href="mailto:legal@snowystudio.dev">legal@snowystudio.dev</a><br />
+              Adresse : Im Heideck 14, 65795 Hattersheim, Allemagne<br />
+              Téléphone : <a href="tel:+491628765631">(+49) 01628765631</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. Règlement des litiges -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🇪🇺</span> Règlement des Litiges UE</h2>
+          <p class="text">
+            Plateforme européenne de règlement en ligne des litiges (RLL) : 
+            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr</a>.
+          </p>
+        </section>
+
+        <!-- 5. Clause de non-responsabilité Zero-Knowledge -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🛡️</span> Architecture Zero-Knowledge &amp; Responsabilité</h2>
+          <p class="text">
+            FlakeSecure applique strictement le principe du Zero-Knowledge. Vos coffres-forts et mots de passe sont chiffrés localement en AES-256-CTR sur votre appareil physique. Nous n'avons aucun accès technique à vos clés de déchiffrement.
+          </p>
+        </section>
+      </div>
+
+      <!-- SPANISH (ES) -->
+      <div data-lang="es">
+        <!-- 1. Proveedor del Servicio -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🏛️</span> Información conforme al § 5 de la Ley de Servicios Digitales (DDG)</h2>
+          <p class="text">
+            <strong>Proveedor del servicio &amp; Operador del proyecto:</strong><br />
+            SchneeherzStudio / Snowy Studio<br />
+            Titular / Dirección: Snowy<br />
+            Im Heideck 14<br />
+            65795 Hattersheim<br />
+            Alemania
+          </p>
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="info-box-label">Plataforma y Software</div>
+              <div class="info-box-value">FlakeSecure Relay Server y Apps Cliente</div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Sitio Web Oficial</div>
+              <div class="info-box-value">
+                <a href="https://flakesecure.snowystudio.dev" target="_blank" rel="noopener">flakesecure.snowystudio.dev</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Contacto -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">📫</span> Canales de Contacto</h2>
+          <p class="text">
+            Para soporte técnico, consultas generales o comunicaciones legales:
+          </p>
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="info-box-label">Teléfono</div>
+              <div class="info-box-value">
+                <a href="tel:+491628765631">(+49) 01628765631</a>
+              </div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Soporte General</div>
+              <div class="info-box-value">
+                <a href="mailto:snowy@snowystudio.dev">snowy@snowystudio.dev</a>
+              </div>
+            </div>
+            <div class="info-box">
+              <div class="info-box-label">Legal y Privacidad</div>
+              <div class="info-box-value">
+                <a href="mailto:legal@snowystudio.dev">legal@snowystudio.dev</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. DPO -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🛡️</span> Delegado de Protección de Datos (DPO)</h2>
+          <p class="text">
+            Para consultas de privacidad o ejercicio de derechos RGPD:
+          </p>
+          <div class="info-box" style="margin-top: 12px;">
+            <div class="info-box-label">Contacto de Privacidad — FlakeSecure / SchneeherzStudio</div>
+            <div class="info-box-value">
+              Correo: <a href="mailto:legal@snowystudio.dev">legal@snowystudio.dev</a><br />
+              Dirección: Im Heideck 14, 65795 Hattersheim, Alemania<br />
+              Teléfono: <a href="tel:+491628765631">(+49) 01628765631</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. Resolución de litigios -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🇪🇺</span> Resolución de Litigios en Línea (UE)</h2>
+          <p class="text">
+            Plataforma europea de resolución de litigios en línea (ODR): 
+            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr</a>.
+          </p>
+        </section>
+
+        <!-- 5. Zero-Knowledge -->
+        <section class="section">
+          <h2 class="section-title"><span class="icon">🛡️</span> Arquitectura Zero-Knowledge y Responsabilidad</h2>
+          <p class="text">
+            FlakeSecure opera bajo el principio de Zero-Knowledge. Todos los datos y contraseñas se cifran localmente con AES-256-CTR en su dispositivo físico. Técnicamente no poseemos acceso a contraseñas maestras ni a claves de descifrado.
+          </p>
+        </section>
+      </div>
     </main>
 
-    <!-- Navigation links -->
-    <nav class="nav-links">
-      <a href="/">← Status &amp; Features</a>
-      <a href="/imprint" class="active">Impressum</a>
-      <a href="/legal">Datenschutz &amp; Rechtliches</a>
-      <a href="https://flake.snowystudio.dev" target="_blank" rel="noopener">flake.snowystudio.dev ↗</a>
-    </nav>
-
+    <!-- Footer -->
     <footer class="footer">
-      &copy; 2026 FlakeSecure by Snowy Studio. All rights reserved.
+      <div class="footer-nav">
+        <a href="/" data-i18n="footer.home">Home</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/#downloads" data-i18n="footer.downloads">Downloads</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/account" data-i18n="footer.account">Account Portal</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/imprint" class="active" data-i18n="footer.imprint">Impressum</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/legal" data-i18n="footer.legal">Datenschutz / Privacy</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/terms" data-i18n="footer.terms">AGB / Nutzungsbedingungen</a>
+      </div>
+      <p class="footer-copy">
+        &copy; 2026 FlakeSecure by SchneeherzStudio. Alle Rechte vorbehalten.
+      </p>
     </footer>
   </div>
 

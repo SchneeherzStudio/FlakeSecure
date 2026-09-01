@@ -35,6 +35,7 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -344,19 +345,40 @@ export default function SettingsScreen({ navigation }) {
           ) : sessions.length === 0 ? (
             <Text style={styles.emptyText}>{t('settings.noSessions')}</Text>
           ) : (
-            sessions.map((s, idx) => (
-              <View key={s.id || idx} style={[styles.sessionItem, idx !== sessions.length - 1 && styles.borderBottom]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sessionDevice} numberOfLines={1}>
-                    💻 {s.device_info ? s.device_info.substring(0, 35) : 'Device'}
-                  </Text>
-                  <Text style={styles.sessionIp}>IP: {s.ip_address || 'Local'}</Text>
+            sessions.map((s, idx) => {
+              const isCurrent = s.is_current;
+              const info = s.device_info || 'Device';
+              const isPhone = info.toLowerCase().includes('phone') || info.toLowerCase().includes('ios') || info.toLowerCase().includes('android');
+              const icon = isPhone ? '📱' : '💻';
+
+              return (
+                <View key={s.id || idx} style={[styles.sessionItem, idx !== sessions.length - 1 && styles.borderBottom]}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <View style={styles.sessionHeaderRow}>
+                      <Text style={styles.sessionDevice} numberOfLines={1}>
+                        {icon} {info}
+                      </Text>
+                      {isCurrent && (
+                        <View style={styles.currentDeviceBadge}>
+                          <View style={styles.greenPulseDot} />
+                          <Text style={styles.currentDeviceText}>{t('settings.currentDevice')}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.sessionIp}>IP: {s.ip_address || 'Local'}</Text>
+                  </View>
+                  {!isCurrent ? (
+                    <TouchableOpacity onPress={() => handleTerminateSession(s.id)}>
+                      <Text style={styles.removeText}>{t('settings.terminate')}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.activeNowContainer}>
+                      <Text style={styles.activeNowText}>{t('settings.activeNow')}</Text>
+                    </View>
+                  )}
                 </View>
-                <TouchableOpacity onPress={() => handleTerminateSession(s.id)}>
-                  <Text style={styles.removeText}>{t('settings.terminate')}</Text>
-                </TouchableOpacity>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
 
@@ -533,6 +555,31 @@ export default function SettingsScreen({ navigation }) {
           <View style={styles.divider} />
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('ShareImport', { mode: 'share' })}>
             <Text style={styles.dataItemText}>{t('settings.shareLogins')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Legal & Privacy Section */}
+        <Text style={styles.sectionHeader}>{t('settings.legalSection')}</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.dataItem}
+            onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/legal')}
+          >
+            <Text style={styles.dataItemText}>{t('settings.privacyPolicy')}</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={styles.dataItem}
+            onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/imprint')}
+          >
+            <Text style={styles.dataItemText}>{t('settings.imprint')}</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={styles.dataItem}
+            onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/terms')}
+          >
+            <Text style={styles.dataItemText}>{t('settings.termsOfService')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -720,11 +767,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
   },
+  sessionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 3,
+  },
   sessionDevice: {
     fontSize: 13,
     fontWeight: '600',
     color: '#fff',
-    marginBottom: 2,
+  },
+  currentDeviceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    borderColor: 'rgba(34, 197, 94, 0.35)',
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 4,
+  },
+  greenPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22c55e',
+  },
+  currentDeviceText: {
+    color: '#22c55e',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  activeNowContainer: {
+    backgroundColor: 'rgba(99, 145, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  activeNowText: {
+    color: '#6391ff',
+    fontSize: 11,
+    fontWeight: '700',
   },
   sessionIp: {
     fontSize: 11,

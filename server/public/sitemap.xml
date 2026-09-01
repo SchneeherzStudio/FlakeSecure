@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://flakesecure.snowystudio.dev/</loc>
+    <lastmod>2026-09-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://flakesecure.snowystudio.dev/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://flakesecure.snowystudio.dev/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://flakesecure.snowystudio.dev/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://flakesecure.snowystudio.dev/" />
+  </url>
+  <url>
+    <loc>https://flakesecure.snowystudio.dev/account</loc>
+    <lastmod>2026-09-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://flakesecure.snowystudio.dev/account" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://flakesecure.snowystudio.dev/account" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://flakesecure.snowystudio.dev/account" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://flakesecure.snowystudio.dev/account" />
+  </url>
+  <url>
+    <loc>https://flakesecure.snowystudio.dev/legal</loc>
+    <lastmod>2026-09-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://flakesecure.snowystudio.dev/legal" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://flakesecure.snowystudio.dev/legal" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://flakesecure.snowystudio.dev/legal" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://flakesecure.snowystudio.dev/legal" />
+  </url>
+  <url>
+    <loc>https://flakesecure.snowystudio.dev/terms</loc>
+    <lastmod>2026-09-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://flakesecure.snowystudio.dev/terms" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://flakesecure.snowystudio.dev/terms" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://flakesecure.snowystudio.dev/terms" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://flakesecure.snowystudio.dev/terms" />
+  </url>
+  <url>
+    <loc>https://flakesecure.snowystudio.dev/imprint</loc>
+    <lastmod>2026-09-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="de" href="https://flakesecure.snowystudio.dev/imprint" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://flakesecure.snowystudio.dev/imprint" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://flakesecure.snowystudio.dev/imprint" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://flakesecure.snowystudio.dev/imprint" />
+  </url>
+</urlset>

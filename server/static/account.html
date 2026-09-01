@@ -179,23 +179,38 @@
   <div class="container">
     <header class="navbar">
       <a href="/" class="nav-brand">
-        <div class="nav-wordmark">Flake<span>Secure</span></div>
+        <svg class="nav-logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="navLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#E8B020"/>
+              <stop offset="100%" stop-color="#A07010"/>
+            </linearGradient>
+          </defs>
+          <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#navLockGrad)" stroke-width="9" stroke-linecap="round"/>
+          <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#navLockGrad)"/>
+        </svg>
+        <div class="nav-wordmark">Flake<span>Secure</span> <span class="nav-version-badge">v2.0</span></div>
       </a>
-      <ul class="nav-menu">
-        <li><a href="/" data-i18n="imprint.backHome">Home</a></li>
-        <li><a href="/#downloads" data-i18n="nav.downloads">Downloads</a></li>
-        <li><a href="/imprint" data-i18n="nav.legal">Privacy &amp; Legal</a></li>
-      </ul>
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <select class="fs-lang-select" aria-label="Language" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; outline: none;">
-          <option value="en" style="background: #111424; color: #fff;">🇬🇧 EN</option>
-          <option value="de" style="background: #111424; color: #fff;">🇩🇪 DE</option>
-          <option value="fr" style="background: #111424; color: #fff;">🇫🇷 FR</option>
-          <option value="es" style="background: #111424; color: #fff;">🇪🇸 ES</option>
-        </select>
-        <div class="nav-status-pill">
-          <div class="pulse-dot"></div>
-          <span data-i18n="nav.statusOnline">Relay Online</span>
+
+      <div class="nav-right">
+        <nav class="nav-links-clean">
+          <a href="/" data-i18n="imprint.backHome">Home</a>
+          <a href="/#downloads" data-i18n="nav.downloads">Downloads</a>
+          <a href="/imprint" data-i18n="nav.legal">Privacy &amp; Legal</a>
+        </nav>
+
+        <div class="nav-controls">
+          <select class="fs-lang-select" aria-label="Language">
+            <option value="en">🇬🇧 EN</option>
+            <option value="de">🇩🇪 DE</option>
+            <option value="fr">🇫🇷 FR</option>
+            <option value="es">🇪🇸 ES</option>
+          </select>
+
+          <div class="nav-status-pill" title="Server Status">
+            <div class="pulse-dot"></div>
+            <span data-i18n="nav.statusOnline">Online</span>
+          </div>
         </div>
       </div>
     </header>
@@ -242,9 +257,13 @@
             <input type="password" id="regPassword" class="form-input" placeholder="Mindestens 8 Zeichen" required />
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Passwort wiederholen</label>
-            <input type="password" id="regConfirmPassword" class="form-input" placeholder="Passwort bestätigen" required />
+          <div class="form-group" style="margin-top: 15px; margin-bottom: 20px;">
+            <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; color: rgba(255, 255, 255, 0.75); font-size: 13px; line-height: 1.5;">
+              <input type="checkbox" id="regTermsCheckbox" required style="margin-top: 3px; accent-color: #6391ff;" />
+              <span>
+                Ich akzeptiere die <a href="/terms" target="_blank" style="color: #6391ff; text-decoration: underline;">AGB / Nutzungsbedingungen</a> und habe die <a href="/legal" target="_blank" style="color: #6391ff; text-decoration: underline;">Datenschutzerklärung</a> sowie das <a href="/imprint" target="_blank" style="color: #6391ff; text-decoration: underline;">Impressum</a> zur Kenntnis genommen.
+              </span>
+            </label>
           </div>
 
           <button type="submit" class="action-btn" id="regSubmitBtn">Account erstellen</button>
@@ -320,6 +339,26 @@
         </form>
       </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="footer" style="margin-top: 40px; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px; padding-bottom: 20px;">
+      <div class="footer-nav" style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: rgba(255,255,255,0.6);">
+        <a href="/" style="color: rgba(255,255,255,0.7); text-decoration: none;">Home</a>
+        <span>&bull;</span>
+        <a href="/#downloads" style="color: rgba(255,255,255,0.7); text-decoration: none;">Downloads</a>
+        <span>&bull;</span>
+        <a href="/account" style="color: #6391ff; text-decoration: none;">Account Portal</a>
+        <span>&bull;</span>
+        <a href="/imprint" style="color: rgba(255,255,255,0.7); text-decoration: none;">Impressum</a>
+        <span>&bull;</span>
+        <a href="/legal" style="color: rgba(255,255,255,0.7); text-decoration: none;">Datenschutz / Privacy</a>
+        <span>&bull;</span>
+        <a href="/terms" style="color: rgba(255,255,255,0.7); text-decoration: none;">AGB / Nutzungsbedingungen</a>
+      </div>
+      <p style="color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 10px;">
+        &copy; 2026 FlakeSecure by SchneeherzStudio. Alle Rechte vorbehalten.
+      </p>
+    </footer>
   </div>
 
   <script>
@@ -420,6 +459,12 @@
         return;
       }
 
+      const termsCheckbox = document.getElementById('regTermsCheckbox');
+      if (termsCheckbox && !termsCheckbox.checked) {
+        showAlert('Bitte akzeptiere die AGB und Datenschutzerklärung.', false);
+        return;
+      }
+
       if (!otpCode || otpCode.length !== 6) {
         showAlert('Bitte gib den 6-stelligen Bestätigungscode ein.', false);
         return;
@@ -507,17 +552,26 @@
 
         if (data.sessions && data.sessions.length > 0) {
           data.sessions.forEach(s => {
+            const isCurrent = s.is_current;
+            const info = s.device_info || 'Browser / Gerät';
+            const isPhone = info.toLowerCase().includes('phone') || info.toLowerCase().includes('ios') || info.toLowerCase().includes('android');
+            const icon = isPhone ? '📱' : '💻';
+
             const row = document.createElement('div');
             row.className = 'info-card';
             row.style.display = 'flex';
             row.style.justifyContent = 'space-between';
             row.style.alignItems = 'center';
+            row.style.marginBottom = '8px';
             row.innerHTML = `
               <div>
-                <div style="font-weight: 600; color: #fff; font-size: 13px;">💻 ${s.device_info || 'Browser / Gerät'}</div>
-                <div style="color: rgba(255,255,255,0.4); font-size: 11px;">IP: ${s.ip_address || 'Lokal'}</div>
+                <div style="font-weight: 600; color: #fff; font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <span>${icon} ${info}</span>
+                  ${isCurrent ? '<span style="background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.35); color: #22c55e; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #22c55e;"></span>Dieses Gerät</span>' : ''}
+                </div>
+                <div style="color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 2px;">IP: ${s.ip_address || 'Lokal'}</div>
               </div>
-              <button onclick="terminateSession('${s.id}')" style="background: rgba(255,77,79,0.2); border: 1px solid rgba(255,77,79,0.4); color: #ff4d4f; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px;">Beenden</button>
+              ${!isCurrent ? `<button onclick="terminateSession('${s.id}')" style="background: rgba(255,77,79,0.2); border: 1px solid rgba(255,77,79,0.4); color: #ff4d4f; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 600;">Beenden</button>` : `<span style="background: rgba(99,145,255,0.1); color: #6391ff; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px;">Aktiv</span>`}
             `;
             container.appendChild(row);
           });
@@ -588,8 +642,8 @@
 
         localStorage.removeItem('fs_auth_token');
         currentToken = null;
-        showAlert('Account und Tresor wurden dauerhaft gelöscht.', true);
-        setTimeout(() => window.location.href = '/', 2000);
+        showAlert('Konto erfolgreich deaktiviert. Die Daten verbleiben für 30 Tage in der gesicherten Aufbewahrungsfrist vor der endgültigen Löschung. Eine Bestätigung wurde per E-Mail gesendet.', true);
+        setTimeout(() => window.location.href = '/', 3000);
       } catch (err) {
         showAlert(err.message, false);
       }

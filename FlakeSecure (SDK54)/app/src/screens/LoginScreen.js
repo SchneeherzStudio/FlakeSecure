@@ -29,6 +29,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,6 +52,7 @@ export default function LoginScreen({ navigation }) {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleLogin = async () => {
     const cleanIdentifier = identifier.trim().toLowerCase();
@@ -124,6 +126,11 @@ export default function LoginScreen({ navigation }) {
 
     if (!cleanOtp || cleanOtp.length !== 6) {
       Alert.alert(t('error'), t('onboarding.account.otpLabel'));
+      return;
+    }
+
+    if (!acceptedTerms) {
+      Alert.alert(t('error'), t('login.acceptTermsRequired'));
       return;
     }
 
@@ -235,6 +242,20 @@ export default function LoginScreen({ navigation }) {
                   secureTextEntry={!showPassword}
                 />
 
+                {/* Terms & Privacy Checkbox */}
+                <TouchableOpacity
+                  style={styles.termsRow}
+                  onPress={() => setAcceptedTerms(!acceptedTerms)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                    {acceptedTerms && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.termsLabel}>
+                    {t('login.acceptTermsCheckbox')}
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity style={styles.submitBtn} onPress={handleRegister} disabled={loading}>
                   <LinearGradient
                     colors={['#6391ff', '#7c6aff']}
@@ -311,6 +332,21 @@ export default function LoginScreen({ navigation }) {
                   : t('login.toggleToRegister')}
               </Text>
             </TouchableOpacity>
+
+            {/* Legal Links */}
+            <View style={styles.legalLinksRow}>
+              <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/terms')}>
+                <Text style={styles.legalLinkText}>{t('login.termsLink')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalLinkSeparator}>•</Text>
+              <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/legal')}>
+                <Text style={styles.legalLinkText}>{t('login.privacyLink')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalLinkSeparator}>•</Text>
+              <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/imprint')}>
+                <Text style={styles.legalLinkText}>{t('login.imprintLink')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -457,5 +493,57 @@ const styles = StyleSheet.create({
     color: '#6391ff',
     fontSize: 13,
     fontWeight: '600',
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 4,
+    paddingHorizontal: 2,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: '#6391ff',
+    borderColor: '#6391ff',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  termsLabel: {
+    flex: 1,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 22,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  legalLinkText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  legalLinkSeparator: {
+    color: 'rgba(255, 255, 255, 0.25)',
+    marginHorizontal: 10,
+    fontSize: 10,
   },
 });

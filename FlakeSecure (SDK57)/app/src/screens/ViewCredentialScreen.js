@@ -148,6 +148,16 @@ export default function ViewCredentialScreen({ route, navigation }) {
   const copyToClipboard = async (text, label) => {
     await Clipboard.setStringAsync(text);
     Alert.alert(t('viewCredential.copied'), t('viewCredential.copiedMsg', { label }), [{ text: t('ok') }]);
+    
+    // Auto-clear clipboard after 45 seconds to protect sensitive credentials (Art. 32 DSGVO)
+    setTimeout(async () => {
+      try {
+        const current = await Clipboard.getStringAsync();
+        if (current === text) {
+          await Clipboard.setStringAsync('');
+        }
+      } catch {}
+    }, 45000);
   };
 
   if (loading) {

@@ -1,0 +1,16 @@
+# FlakeSecure Robot Exclusion Standard
+User-agent: *
+Allow: /
+Allow: /imprint
+Allow: /legal
+Allow: /terms
+Allow: /account
+Disallow: /api/
+Disallow: /send-login
+Disallow: /session-status/
+Disallow: /health
+Disallow: /share
+Disallow: /auth
+
+# Sitemaps
+Sitemap: https://flakesecure.snowystudio.dev/sitemap.xml

@@ -36,6 +36,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { sendDeletionNoticeEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -55,8 +56,28 @@ router.delete('/delete', authMiddleware, async (req, res) => {
     }
 
     try {
-        await db.query('DELETE FROM users WHERE id = $1', [req.user.id]);
-        res.json({ message: 'Account deleted successfully' });
+        // Soft delete with 30-day retention period
+        const { rows } = await db.query(
+            "UPDATE users SET deleted_at = NOW(), scheduled_purge_at = NOW() + INTERVAL '30 days', updated_at = NOW() WHERE id = $1 RETURNING id, email, username, language, scheduled_purge_at",
+            [req.user.id]
+        );
+        const user = rows[0];
+
+        // Immediately revoke all active sessions and push tokens
+        await db.query('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
+        await db.query('DELETE FROM push_tokens WHERE user_id = $1', [req.user.id]);
+
+        // Send deletion notice with 30-day retention date asynchronously
+        if (user) {
+            sendDeletionNoticeEmail(user.email, user.username, user.scheduled_purge_at, user.language).catch(err => {
+                console.log('[Account] Deletion notice email error:', err.message);
+            });
+        }
+
+        res.json({
+            message: 'Account successfully deactivated and marked for deletion. Data will be permanently purged after the 30-day security retention period.',
+            scheduledPurgeAt: user?.scheduled_purge_at
+        });
     } catch (error) {
         console.error('Delete account error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -183,10 +204,18 @@ router.get('/search', authMiddleware, async (req, res) => {
 router.get('/sessions', authMiddleware, async (req, res) => {
     try {
         const { rows } = await db.query(
-            'SELECT id, device_info, ip_address, created_at, expires_at FROM sessions WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC',
+            'SELECT id, token_hash, device_info, ip_address, created_at, expires_at FROM sessions WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC',
             [req.user.id]
         );
-        res.json({ sessions: rows });
+        const sessions = rows.map(s => ({
+            id: s.id,
+            device_info: s.device_info || 'Unbekanntes Gerät',
+            ip_address: s.ip_address,
+            created_at: s.created_at,
+            expires_at: s.expires_at,
+            is_current: s.token_hash === req.sessionHash
+        }));
+        res.json({ sessions });
     } catch (error) {
         console.error('Get sessions error:', error);
         res.status(500).json({ error: 'Internal server error' });

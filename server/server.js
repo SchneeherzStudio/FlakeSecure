@@ -100,9 +100,28 @@ function cleanExpiredSessions() {
 
   db.query("DELETE FROM shared_payloads WHERE created_at < NOW() - INTERVAL '10 minutes'")
     .catch(err => console.error('Error cleaning shared_payloads:', err));
+
+  // Auto-clean audit logs older than 90 days as promised in privacy policy
+  db.query("DELETE FROM login_logs WHERE created_at < NOW() - INTERVAL '90 days'")
+    .catch(err => console.error('Error cleaning 90-day login_logs:', err));
+}
+
+async function purgeExpiredAccounts() {
+  try {
+    const { rowCount } = await db.query(
+      "DELETE FROM users WHERE deleted_at IS NOT NULL AND scheduled_purge_at <= NOW()"
+    );
+    if (rowCount > 0) {
+      console.log(`[FlakeSecure] Permanently purged ${rowCount} expired user account(s) after 30-day retention period.`);
+    }
+  } catch (err) {
+    console.error('[FlakeSecure] Error during expired account purge:', err.message);
+  }
 }
 
 setInterval(cleanExpiredSessions, 60_000);
+setInterval(purgeExpiredAccounts, 6 * 3600 * 1000);
+purgeExpiredAccounts();
 
 function isValidSid(sid) {
   return typeof sid === 'string' && /^[a-f0-9]{32}$/.test(sid);
@@ -140,18 +159,40 @@ app.get('/legal', (req, res) => {
 app.get('/privacy', (req, res) => res.redirect('/legal'));
 app.get('/datenschutz', (req, res) => res.redirect('/legal'));
 
+app.get('/terms', (req, res) => {
+  res.sendFile('terms.html', { root: STATIC_DIR });
+});
+app.get('/agb', (req, res) => res.redirect('/terms'));
+app.get('/tos', (req, res) => res.redirect('/terms'));
+
+const PUBLIC_DIR = path.join(__dirname, 'public');
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').sendFile('robots.txt', { root: PUBLIC_DIR });
+});
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml').sendFile('sitemap.xml', { root: PUBLIC_DIR });
+});
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    activeSessions: activeSessions.size,
+    service: 'FlakeSecure Relay Server',
     uptime: Math.floor(process.uptime()),
+    activeSessions: activeSessions.size,
     timestamp: new Date().toISOString()
   });
 });
 
+/**
+ * POST /send-login
+ * Mobile app calls this to push encrypted credentials into the session room.
+ * 
+ * The server NEVER decrypts the payload – it only forwards it.
+ */
 app.post('/send-login', async (req, res) => {
   const { sid, payload } = req.body;
 
+  // Validate input
   if (!isValidSid(sid)) {
     return res.status(400).json({ error: 'Invalid or missing session ID' });
   }
@@ -160,28 +201,27 @@ app.post('/send-login', async (req, res) => {
     return res.status(400).json({ error: 'Invalid or missing encrypted payload' });
   }
 
+  // Check if session exists
   const session = activeSessions.get(sid);
   if (!session) {
-    return res.status(404).json({ error: 'Session not found or expired' });
+    return res.status(404).json({ error: 'Session expired or invalid' });
   }
 
-  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-    activeSessions.delete(sid);
-    return res.status(410).json({ error: 'Session expired' });
-  }
-
+  // Relay the encrypted payload to the browser via Socket.IO
   io.to(sid).emit('login-data', payload);
-  session.loginCompleted = true;
-  session.loginCompletedAt = Date.now();
 
+  // Mark session as fulfilled but keep active briefly for potential TOTP sync
+  session.loginFulfilled = true;
   setTimeout(() => {
-    if (activeSessions.has(sid) && activeSessions.get(sid).loginCompleted) {
+    if (activeSessions.has(sid) && !activeSessions.get(sid).totpActive) {
       activeSessions.delete(sid);
+      console.log(`[FlakeSecure] Session ${sid.slice(0, 8)}... completed and purged`);
     }
   }, 2 * 60 * 1000);
 
-  console.log(`[FlakeSecure] Relayed login data for session ${sid.slice(0, 8)}... → domain: ${session.domain}`);
+  console.log(`[FlakeSecure] Relayed login data for session ${sid.slice(0, 8)}...`);
 
+  // Optional: log security audit event without logging target browsing domain (Data Minimization / Art. 5 DSGVO)
   try {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -192,7 +232,7 @@ app.post('/send-login', async (req, res) => {
       const geo = geoip.lookup(ip);
       await db.query(
         'INSERT INTO login_logs (user_id, ip_address, city, region, country, device_info, action, domain) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [decoded.id, ip, geo?.city, geo?.region, geo?.country, req.headers['user-agent'], 'credential_send', session.domain]
+        [decoded.id, ip, geo?.city, geo?.region, geo?.country, req.headers['user-agent'], 'credential_send', null]
       );
     }
   } catch (logErr) {
@@ -215,11 +255,12 @@ app.post('/send-totp', async (req, res) => {
 
   const session = activeSessions.get(sid);
   if (!session) {
-    return res.status(404).json({ error: 'Session not found or expired' });
+    return res.status(404).json({ error: 'Session expired or invalid' });
   }
 
+  session.totpActive = true;
   io.to(sid).emit('totp-data', payload);
-  res.json({ success: true, message: 'TOTP data relayed successfully' });
+  res.json({ success: true, message: 'TOTP payload relayed successfully' });
 });
 
 app.get('/session-status/:sid', (req, res) => {
@@ -246,10 +287,12 @@ app.get('/session-status/:sid', (req, res) => {
   });
 });
 
+// ─── Socket.IO Relay Logic ───────────────────────────────────────────────────
+
 io.on('connection', (socket) => {
   console.log(`[FlakeSecure] Browser connected: ${socket.id}`);
 
-  socket.on('join-session', async ({ sid, token, domain }) => {
+  socket.on('join-session', async ({ sid, domain, token }) => {
     if (!isValidSid(sid)) {
       socket.emit('error', { message: 'Invalid session ID' });
       return;
@@ -266,7 +309,7 @@ io.on('connection', (socket) => {
     socket.join(sid);
     socket.sessionId = sid;
 
-    console.log(`[FlakeSecure] Session registered: ${sid.slice(0, 8)}... (socket: ${socket.id}, domain: ${sessionDomain})`);
+    console.log(`[FlakeSecure] Session registered: ${sid.slice(0, 8)}... (socket: ${socket.id})`);
 
     socket.emit('session-ready', { sid });
 
@@ -303,7 +346,8 @@ io.on('connection', (socket) => {
   });
 });
 
-function renderDeepLinkPage(deepLinkUrl, title, subtitle) {
+// ─── Web Redirects for Deep Linking ──────────────────────────────────────────
+function renderDeepLinkPage(title, subtitle, defaultAction) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -333,7 +377,20 @@ function renderDeepLinkPage(deepLinkUrl, title, subtitle) {
     }
   </style>
   <script>
-    window.location.href = "${deepLinkUrl}";
+    // Client-side deep link resolution (reads fragment # and fallback search ?)
+    function computeDeepLink() {
+      var hash = window.location.hash ? window.location.hash.substring(1) : '';
+      var search = window.location.search ? window.location.search.substring(1) : '';
+      var params = hash || search;
+      var action = '${defaultAction || 'auth'}';
+      return 'flakesecure://' + action + (params ? '?' + params : '');
+    }
+    var targetUri = computeDeepLink();
+    window.location.href = targetUri;
+    window.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('openBtn');
+      if (btn) btn.href = targetUri;
+    });
   </script>
 </head>
 <body>
@@ -341,25 +398,18 @@ function renderDeepLinkPage(deepLinkUrl, title, subtitle) {
     <div class="emoji">❄️</div>
     <h1>${title}</h1>
     <p>${subtitle}</p>
-    <a href="${deepLinkUrl}" class="btn">Open in FlakeSecure App</a>
+    <a id="openBtn" href="flakesecure://${defaultAction || 'auth'}" class="btn">Open in FlakeSecure App</a>
   </div>
 </body>
 </html>`;
 }
 
 app.get('/share', (req, res) => {
-  const sid = req.query.sid || '';
-  const key = req.query.key || '';
-  const deepLink = `flakesecure://share?sid=${encodeURIComponent(sid)}&key=${encodeURIComponent(key)}`;
-  res.send(renderDeepLinkPage(deepLink, 'Import Credentials', 'Tap below to import the credentials into FlakeSecure.'));
+  res.send(renderDeepLinkPage('Import Credentials', 'Tap below to import the credentials into FlakeSecure.', 'share'));
 });
 
 app.get('/auth', (req, res) => {
-  const sid = req.query.sid || '';
-  const key = req.query.key || '';
-  const domain = req.query.domain || '';
-  const deepLink = `flakesecure://auth?sid=${encodeURIComponent(sid)}&key=${encodeURIComponent(key)}&domain=${encodeURIComponent(domain)}`;
-  res.send(renderDeepLinkPage(deepLink, 'Confirm Login', `Confirm login for ${domain || 'website'} in FlakeSecure.`));
+  res.send(renderDeepLinkPage('Confirm Login', 'Confirm login in the FlakeSecure App.', 'auth'));
 });
 
 server.listen(PORT, '::', () => {

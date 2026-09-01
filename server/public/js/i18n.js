@@ -18,45 +18,51 @@
   const TRANSLATIONS = {
     en: {
       nav: {
-        preview: "App Preview",
-        security: "Security",
-        howItWorks: "How It Works",
         downloads: "Downloads",
-        account: "Account Portal 🔐",
+        features: "Features",
+        account: "🔐 Account Portal",
         legal: "Privacy & Legal",
-        statusOnline: "Relay Online"
+        statusOnline: "Online"
       },
       hero: {
-        subtitle: "Zero-Knowledge Biometric Password Manager & Instant Browser Relay.",
-        tagline: "End-to-End Encrypted • No Passwords On Server • Hardware Biometrics",
-        btnApp: "📱 Get Mobile App",
-        btnExt: "🧩 Browser Extension",
-        btnFeatures: "✨ Explore Features",
-        metricRelay: "Relay Connection",
-        metricRelayVal: "Active & Operational",
+        badge: "Zero-Knowledge Architecture • Hardware Biometrics",
+        subtitle: "Your Biometric Password & 2FA Manager. Confirm logins on your smartphone with Face ID or fingerprint — autofilled instantly in your desktop browser.",
+        btnDownload: "⬇️ Get Apps & Extensions",
+        btnAccount: "🔐 Manage Account & Vault",
         metricCrypto: "Cryptography",
-        metricSessions: "Ephemeral Sessions"
+        metricRelay: "Relay Status",
+        metricRelayVal: "Active & E2E Encrypted",
+        metricSessions: "Active Sessions"
       },
-      security: {
-        title: "Zero-Knowledge Architecture",
-        desc: "Your master password and login credentials never touch our servers in plain text. Everything is encrypted directly on your mobile device hardware.",
-        card1Title: "Argon2id Key Derivation",
-        card1Desc: "State-of-the-art memory-hard hashing algorithm protects user authentication credentials against brute-force and GPU cracking.",
-        card2Title: "AES-256-CTR End-to-End",
-        card2Desc: "Real-time communication channels between browser extension and smartphone use ephemeral 256-bit AES encryption keys.",
-        card3Title: "Hardware Biometrics",
-        card3Desc: "Face ID, Touch ID, and Android BiometricPrompt ensure only your physical presence can authorize password transmissions."
+      features: {
+        badge: "Core Security",
+        title: "Engineered for Frictionless Privacy",
+        subtitle: "No plaintext passwords ever touch the server. Complete control stays on your physical devices.",
+        f1Title: "Zero-Knowledge Vault",
+        f1Desc: "Client-side 256-bit AES encryption derived via PBKDF2 & Argon2id. Even if the server were intercepted, your vault remains mathematically unbreakable.",
+        f2Title: "1-Tap Biometric Relay",
+        f2Desc: "Scan a QR code on your browser, authorize via Face ID or fingerprint, and your logins are autofilled in under a second over ephemeral encrypted websockets.",
+        f3Title: "Built-in 2FA Authenticator",
+        f3Desc: "Integrated RFC 6238 TOTP engine with live countdowns. Directly stream 2FA verification codes to your desktop browser with a single tap."
+      },
+      showcase: {
+        c1Title: "Biometric Master Vault",
+        c1Desc: "Securely organize logins, categories, and 2FA tokens protected by your phone's Secure Enclave.",
+        c2Title: "Instant Authorization",
+        c2Desc: "Confirm domain authorization with biometrics. Encrypted payloads self-destruct after consumption.",
+        c3Title: "Secure P2P Sharing",
+        c3Desc: "Send credentials with hidden view modes and auto-delete timers (1h to 30d) across verified recipients."
       },
       downloads: {
-        title: "Get FlakeSecure v2.0",
-        appTitle: "Mobile App (iOS & Android)",
+        badge: "Get Started",
+        title: "Download FlakeSecure v2.0",
+        subtitle: "Available on mobile and desktop platforms.",
+        appTitle: "Mobile App (Android & iOS)",
         appDesc: "Your biometric master vault. Scan QR codes to autofill logins instantly.",
         btnAndroid: "Download Android APK",
-        btnIos: "Install on iOS (Expo)",
-        extTitle: "Browser Extensions",
-        extDesc: "One-click login relay directly inside your favorite browser.",
-        btnChrome: "Download Chrome Extension",
-        btnFirefox: "Download Firefox Extension"
+        btnIos: "iOS (Expo Go)",
+        btnChrome: "Download Chrome (.zip)",
+        btnFirefox: "Download Firefox (.zip)"
       },
       accountPortal: {
         title: "Account Portal & Security Settings",
@@ -79,253 +85,283 @@
         btnSaveProfile: "Save Changes",
         sessionsTitle: "Active Sessions & Linked Devices",
         btnRevokeAll: "Revoke All Sessions",
-        dangerTitle: "Permanent Account Deletion",
-        dangerDesc: "Deleting your account will immediately remove all cloud-synced vaults, active sessions, and access keys. This action cannot be undone.",
+        dangerTitle: "Account Deactivation & 30-Day Retention",
+        dangerDesc: "Deactivating your account will immediately revoke all sessions. Data is preserved for a 30-day compliance retention period before permanent erasure.",
         labelDeletePass: "Enter Password to Confirm Deletion",
-        btnDeleteAccount: "Permanently Delete My Account"
+        btnDeleteAccount: "Deactivate & Delete My Account"
       },
       imprint: {
-        title: "Privacy & Imprint",
-        subtitle: "Transparency, data privacy, and legal disclosures for FlakeSecure.",
-        backHome: "← Back to Homepage"
+        backHome: "← Home"
       },
       footer: {
-        tagline: "FlakeSecure v2.0.0 — Open, Secure, Zero-Knowledge.",
-        copyright: "© 2026 SchneeherzStudio. All rights reserved."
+        home: "Home",
+        features: "Features",
+        downloads: "Downloads",
+        account: "Account Portal",
+        imprint: "Impressum / Imprint",
+        legal: "Privacy & Legal",
+        terms: "Terms of Service"
       }
     },
     de: {
       nav: {
-        preview: "App-Vorschau",
-        security: "Sicherheit",
-        howItWorks: "Funktionsweise",
         downloads: "Downloads",
-        account: "Account Portal 🔐",
-        legal: "Datenschutz & Impressum",
-        statusOnline: "Relay Online"
+        features: "Funktionen",
+        account: "🔐 Account Portal",
+        legal: "Datenschutz & Rechtliches",
+        statusOnline: "Online"
       },
       hero: {
-        subtitle: "Zero-Knowledge Biometrischer Passwort-Manager & Sofortiger Browser-Relay.",
-        tagline: "Ende-zu-Ende verschlüsselt • Keine Passwörter auf Servern • Hardware-Biometrie",
-        btnApp: "📱 Mobile App laden",
-        btnExt: "🧩 Browser-Erweiterung",
-        btnFeatures: "✨ Funktionen entdecken",
-        metricRelay: "Relay-Verbindung",
-        metricRelayVal: "Aktiv & Betriebsbereit",
-        metricCrypto: "Kryptographie",
+        badge: "Zero-Knowledge Architektur • Hardware-Biometrie",
+        subtitle: "Dein biometrischer Passwort- & 2FA-Manager. Bestätige Logins auf deinem Smartphone per Face ID oder Fingerabdruck – blitzschnell im Browser ausgefüllt.",
+        btnDownload: "⬇️ Apps & Erweiterungen",
+        btnAccount: "🔐 Account & Tresor verwalten",
+        metricCrypto: "Kryptografie",
+        metricRelay: "Relay-Status",
+        metricRelayVal: "Aktiv & Ende-zu-Ende verschlüsselt",
         metricSessions: "Aktive Sitzungen"
       },
-      security: {
-        title: "Zero-Knowledge Architektur",
-        desc: "Dein Master-Passwort und deine Zugangsdaten erreichen unsere Server niemals im Klartext. Alles wird direkt auf deinem Gerät verschlüsselt.",
-        card1Title: "Argon2id Schlüsselableitung",
-        card1Desc: "Modernster speicherintensiver Hashing-Algorithmus schützt vor Brute-Force- und GPU-basierten Angriffen.",
-        card2Title: "AES-256-CTR Ende-zu-Ende",
-        card2Desc: "Echtzeitkommunikation zwischen Browser-Erweiterung und Smartphone nutzt flüchtige 256-Bit AES-Schlüssel.",
-        card3Title: "Hardware-Biometrie",
-        card3Desc: "Face ID, Touch ID und Android BiometricPrompt stellen sicher, dass nur du Passwörter freigeben kannst."
+      features: {
+        badge: "Kern-Sicherheit",
+        title: "Entwickelt für kompromisslose Privatsphäre",
+        subtitle: "Keine Passwörter im Klartext auf dem Server. Volle Kontrolle direkt auf deinen Geräten.",
+        f1Title: "Zero-Knowledge Tresor",
+        f1Desc: "Clientseitige 256-Bit-AES-Verschlüsselung (PBKDF2 & Argon2id). Selbst bei Serverzugriff bleiben deine Daten mathematisch unknackbar.",
+        f2Title: "1-Tap Biometrie-Relay",
+        f2Desc: "Scanne den QR-Code im Browser, bestätige mit Fingerabdruck oder Face ID, und deine Logins werden in unter einer Sekunde ausgefüllt.",
+        f3Title: "Integrierter 2FA Authenticator",
+        f3Desc: "Eingebauter RFC 6238 TOTP-Generator mit Live-Timer. Übertrage 2FA-Codes mit nur einem Fingertipp direkt in deinen Desktop-Browser."
+      },
+      showcase: {
+        c1Title: "Biometrischer Haupttresor",
+        c1Desc: "Organisiere Logins, Kategorien und 2FA-Tokens geschützt durch die Secure Enclave deines Smartphones.",
+        c2Title: "Sofortige Autorisierung",
+        c2Desc: "Domainfreigabe per Biometrie bestätigen. Verschlüsselte Datenblöcke zerstören sich nach Gebrauch selbst.",
+        c3Title: "Sicheres P2P-Teilen",
+        c3Desc: "Übertrage Zugangsdaten mit ausgeblendeter Ansicht und Auto-Löschfristen (1h bis 30d) an erlaubte Empfänger."
       },
       downloads: {
+        badge: "Jetzt starten",
         title: "FlakeSecure v2.0 herunterladen",
-        appTitle: "Mobile App (iOS & Android)",
-        appDesc: "Dein biometrischer Safe. QR-Codes scannen, um Logins blitzschnell im Browser auszufüllen.",
+        subtitle: "Verfügbar für Smartphone und Desktop-Browser.",
+        appTitle: "Mobile App (Android & iOS)",
+        appDesc: "Dein biometrischer Haupttresor. QR-Codes scannen und blitzschnell einloggen.",
         btnAndroid: "Android APK herunterladen",
-        btnIos: "Auf iOS installieren (Expo)",
-        extTitle: "Browser-Erweiterungen",
-        extDesc: "Ein-Klick Login-Relay direkt in deinem bevorzugten Webbrowser.",
-        btnChrome: "Chrome Extension herunterladen",
-        btnFirefox: "Firefox Extension herunterladen"
+        btnIos: "iOS (Expo Go)",
+        btnChrome: "Chrome Erweiterung (.zip)",
+        btnFirefox: "Firefox Erweiterung (.zip)"
       },
       accountPortal: {
-        title: "Account-Portal & Sicherheitsverwaltung",
-        subtitle: "Verwalte dein FlakeSecure Profil, aktive Sitzungen und Sicherheitseinstellungen.",
+        title: "Account-Portal & Sicherheitseinstellungen",
+        subtitle: "Verwalte dein FlakeSecure Profil, aktive Sitzungen und Zwei-Faktor-Authentifizierung.",
         tabLogin: "🔑 Anmelden",
         tabRegister: "✨ Registrieren",
         tabProfile: "👤 Profil",
-        tabDelete: "⚠️ Gefahrenzone",
+        tabDelete: "⚠️ Gefahrenbereich",
         labelEmailOrUser: "Benutzername oder E-Mail",
         labelPassword: "Passwort",
         btnLogin: "Im Portal anmelden",
         labelEmail: "E-Mail-Adresse",
         labelUsername: "Benutzername",
-        labelConfirmPass: "Passwort wiederholen",
+        labelConfirmPass: "Passwort bestätigen",
         btnSendOtp: "Bestätigungscode senden",
         btnResendOtp: "Code erneut senden",
-        labelOtp: "6-stelliger E-Mail Bestätigungscode",
+        labelOtp: "6-stelliger E-Mail-Bestätigungscode",
         btnRegister: "FlakeSecure Account erstellen",
-        labelLanguage: "Spracheinstellung",
+        labelLanguage: "Sprache der Benutzeroberfläche",
         btnSaveProfile: "Änderungen speichern",
-        sessionsTitle: "Aktive Sitzungen & Verknüpfte Geräte",
+        sessionsTitle: "Aktive Sitzungen & Verbundene Geräte",
         btnRevokeAll: "Alle Sitzungen beenden",
-        dangerTitle: "Unwiderrufliche Account-Löschung",
-        dangerDesc: "Das Löschen deines Accounts entfernt sofort alle Cloud-Tresore, aktiven Sitzungen und Zugriffsschlüssel.",
+        dangerTitle: "Konto-Deaktivierung & 30-Tage Aufbewahrung",
+        dangerDesc: "Die Kontolöschung beendet sofort alle Sitzungen. Deine Daten verbleiben für 30 Tage in der gesicherten Aufbewahrungsfrist, bevor sie endgültig gelöscht werden.",
         labelDeletePass: "Passwort zur Bestätigung eingeben",
-        btnDeleteAccount: "Account endgültig löschen"
+        btnDeleteAccount: "Mein Konto unwiderruflich löschen"
       },
       imprint: {
-        title: "Datenschutz & Impressum",
-        subtitle: "Transparenz, Datenschutz und rechtliche Angaben für FlakeSecure.",
-        backHome: "← Zurück zur Startseite"
+        backHome: "← Home"
       },
       footer: {
-        tagline: "FlakeSecure v2.0.0 — Offen, Sicher, Zero-Knowledge.",
-        copyright: "© 2026 SchneeherzStudio. Alle Rechte vorbehalten."
+        home: "Home",
+        features: "Funktionen",
+        downloads: "Downloads",
+        account: "Account Portal",
+        imprint: "Impressum",
+        legal: "Datenschutz",
+        terms: "AGB"
       }
     },
     fr: {
       nav: {
-        preview: "Aperçu de l'app",
-        security: "Sécurité",
-        howItWorks: "Fonctionnement",
         downloads: "Téléchargements",
-        account: "Portail Compte 🔐",
-        legal: "Mentions Légales",
-        statusOnline: "Relais en Ligne"
+        features: "Fonctionnalités",
+        account: "🔐 Portail Compte",
+        legal: "Confidentialité & Mentions",
+        statusOnline: "En ligne"
       },
       hero: {
-        subtitle: "Gestionnaire de mots de passe biométrique Zero-Knowledge et relais navigateur.",
-        tagline: "Chiffré de bout en bout • Aucun mot de passe sur serveur • Biométrie matérielle",
-        btnApp: "📱 Application Mobile",
-        btnExt: "🧩 Extension Navigateur",
-        btnFeatures: "✨ Découvrir les fonctionnalités",
-        metricRelay: "Connexion Relais",
-        metricRelayVal: "Actif et Opérationnel",
+        badge: "Architecture Zero-Knowledge • Biométrie Matérielle",
+        subtitle: "Votre gestionnaire de mots de passe et 2FA biométrique. Validez vos connexions sur mobile avec Face ID ou empreinte digitale.",
+        btnDownload: "⬇️ Télécharger l'App & Extensions",
+        btnAccount: "🔐 Gérer le Compte & Coffre",
         metricCrypto: "Cryptographie",
-        metricSessions: "Sessions Éphémères"
+        metricRelay: "État du Relais",
+        metricRelayVal: "Actif & Chiffré E2E",
+        metricSessions: "Sessions Actives"
       },
-      security: {
-        title: "Architecture Zero-Knowledge",
-        desc: "Vos mots de passe ne transitent jamais en clair sur nos serveurs. Tout est chiffré directement sur votre appareil.",
-        card1Title: "Dérivation Argon2id",
-        card1Desc: "Algorithme de hachage à mémoire intensive protégeant vos accès contre les attaques par force brute.",
-        card2Title: "AES-256-CTR Bout en Bout",
-        card2Desc: "Canaux de communication temps réel sécurisés avec des clés AES 256 bits éphémères.",
-        card3Title: "Biométrie Matérielle",
-        card3Desc: "Face ID, Touch ID et Biométrie Android garantissent que seule votre présence physique autorise le remplissage."
+      features: {
+        badge: "Sécurité Centrale",
+        title: "Conçu pour une Confidentialité Totale",
+        subtitle: "Aucun mot de passe en clair ne transite par les serveurs.",
+        f1Title: "Coffre-fort Zero-Knowledge",
+        f1Desc: "Chiffrement AES 256 bits côté client avec PBKDF2 et Argon2id.",
+        f2Title: "Relais Biométrique 1-Clic",
+        f2Desc: "Scannez un code QR sur votre navigateur et remplissez vos identifiants instantanément.",
+        f3Title: "Authentificateur 2FA Intégré",
+        f3Desc: "Générateur TOTP RFC 6238 avec compte à rebours en direct."
+      },
+      showcase: {
+        c1Title: "Coffre-fort Biométrique",
+        c1Desc: "Organisez vos identifiants protégés par la Secure Enclave de votre téléphone.",
+        c2Title: "Autorisation Instantanée",
+        c2Desc: "Confirmez l'accès avec vos données biométriques.",
+        c3Title: "Partage P2P Sécurisé",
+        c3Desc: "Partagez des accès avec minuteries d'expiration automatique."
       },
       downloads: {
+        badge: "Commencer",
         title: "Télécharger FlakeSecure v2.0",
-        appTitle: "Application Mobile (iOS & Android)",
-        appDesc: "Votre coffre-fort biométrique. Scannez un QR code pour vous connecter instantanément.",
-        btnAndroid: "Télécharger l'APK Android",
-        btnIos: "Installer sur iOS (Expo)",
-        extTitle: "Extensions Navigateur",
-        extDesc: "Relais de connexion en un clic directement dans votre navigateur favori.",
-        btnChrome: "Extension Chrome",
-        btnFirefox: "Extension Firefox"
+        subtitle: "Disponible sur mobile et navigateurs.",
+        appTitle: "Application Mobile (Android & iOS)",
+        appDesc: "Votre coffre-fort maître biométrique.",
+        btnAndroid: "Télécharger APK Android",
+        btnIos: "iOS (Expo Go)",
+        btnChrome: "Extension Chrome (.zip)",
+        btnFirefox: "Extension Firefox (.zip)"
       },
       accountPortal: {
-        title: "Portail Compte & Sécurité",
-        subtitle: "Gérez votre profil FlakeSecure, vos sessions actives et vos paramètres.",
+        title: "Portail du Compte & Sécurité",
+        subtitle: "Gérez votre profil FlakeSecure et vos sessions actives.",
         tabLogin: "🔑 Connexion",
         tabRegister: "✨ Inscription",
         tabProfile: "👤 Profil",
         tabDelete: "⚠️ Zone de Danger",
-        labelEmailOrUser: "Nom d'utilisateur ou E-mail",
+        labelEmailOrUser: "Identifiant ou E-mail",
         labelPassword: "Mot de passe",
-        btnLogin: "Se connecter au portail",
-        labelEmail: "Adresse E-mail",
+        btnLogin: "Se connecter",
+        labelEmail: "Adresse e-mail",
         labelUsername: "Nom d'utilisateur",
-        labelConfirmPass: "Confirmer le mot de passe",
-        btnSendOtp: "Envoyer le code de vérification",
+        labelConfirmPass: "Confirmer mot de passe",
+        btnSendOtp: "Envoyer le code",
         btnResendOtp: "Renvoyer le code",
-        labelOtp: "Code à 6 chiffres reçu par e-mail",
-        btnRegister: "Créer un compte FlakeSecure",
-        labelLanguage: "Langue de l'interface",
-        btnSaveProfile: "Enregistrer les modifications",
-        sessionsTitle: "Sessions actives & Appareils liés",
-        btnRevokeAll: "Déconnecter toutes les sessions",
-        dangerTitle: "Suppression définitive du compte",
-        dangerDesc: "La suppression de votre compte effacera immédiatement toutes les données synchronisées. Action irréversible.",
-        labelDeletePass: "Entrez votre mot de passe pour confirmer",
-        btnDeleteAccount: "Supprimer définitivement mon compte"
+        labelOtp: "Code à 6 chiffres",
+        btnRegister: "Créer un compte",
+        labelLanguage: "Langue",
+        btnSaveProfile: "Enregistrer",
+        sessionsTitle: "Sessions actives",
+        btnRevokeAll: "Fermer toutes les sessions",
+        dangerTitle: "Désactivation du compte (30 jours)",
+        dangerDesc: "Les données sont conservées pendant 30 jours pour des raisons de conformité avant suppression définitive.",
+        labelDeletePass: "Mot de passe de confirmation",
+        btnDeleteAccount: "Supprimer mon compte"
       },
       imprint: {
-        title: "Confidentialité & Mentions Légales",
-        subtitle: "Transparence, politique de confidentialité et informations légales pour FlakeSecure.",
-        backHome: "← Retour à l'accueil"
+        backHome: "← Accueil"
       },
       footer: {
-        tagline: "FlakeSecure v2.0.0 — Ouvert, Sécurisé, Zero-Knowledge.",
-        copyright: "© 2026 SchneeherzStudio. Tous droits réservés."
+        home: "Accueil",
+        features: "Fonctionnalités",
+        downloads: "Téléchargements",
+        account: "Portail Compte",
+        imprint: "Mentions Légales",
+        legal: "Confidentialité",
+        terms: "Conditions Générales"
       }
     },
     es: {
       nav: {
-        preview: "Vista previa",
-        security: "Seguridad",
-        howItWorks: "Cómo funciona",
         downloads: "Descargas",
-        account: "Portal de Cuenta 🔐",
+        features: "Funciones",
+        account: "🔐 Portal de Cuenta",
         legal: "Privacidad y Legal",
-        statusOnline: "Relé en línea"
+        statusOnline: "En línea"
       },
       hero: {
-        subtitle: "Gestor de contraseñas biométrico Zero-Knowledge y relé instantáneo para navegadores.",
-        tagline: "Cifrado de extremo a extremo • Sin contraseñas en servidores • Biometría de hardware",
-        btnApp: "📱 App Móvil",
-        btnExt: "🧩 Extensión Navegador",
-        btnFeatures: "✨ Explorar funciones",
-        metricRelay: "Conexión del Relé",
-        metricRelayVal: "Activo y Operativo",
+        badge: "Arquitectura Zero-Knowledge • Biometría",
+        subtitle: "Tu gestor de contraseñas y 2FA biométrico. Confirma inicios de sesión en tu smartphone con Face ID o huella.",
+        btnDownload: "⬇️ Descargar Apps y Extensiones",
+        btnAccount: "🔐 Gestionar Cuenta y Bóveda",
         metricCrypto: "Criptografía",
-        metricSessions: "Sesiones Efímeras"
+        metricRelay: "Estado del Relay",
+        metricRelayVal: "Activo y Cifrado E2E",
+        metricSessions: "Sesiones Activas"
       },
-      security: {
-        title: "Arquitectura Zero-Knowledge",
-        desc: "Tus contraseñas nunca llegan en texto plano a nuestros servidores. Todo se cifra directamente en tu dispositivo móvil.",
-        card1Title: "Derivación Argon2id",
-        card1Desc: "Algoritmo de hash de alta memoria que protege contra ataques de fuerza bruta y descifrado por GPU.",
-        card2Title: "AES-256-CTR Extremo a Extremo",
-        card2Desc: "Canales de comunicación en tiempo real protegidos con claves efímeras AES de 256 bits.",
-        card3Title: "Biometría de Hardware",
-        card3Desc: "Face ID, Touch ID y Biometría Android aseguran que solo tu presencia física autorice el inicio de sesión.",
+      features: {
+        badge: "Seguridad Central",
+        title: "Diseñado para Privacidad Absoluta",
+        subtitle: "Ninguna contraseña en texto plano llega al servidor.",
+        f1Title: "Bóveda Zero-Knowledge",
+        f1Desc: "Cifrado AES de 256 bits en el cliente con derivación PBKDF2 y Argon2id.",
+        f2Title: "Relay Biométrico de 1 Toque",
+        f2Desc: "Escanea un código QR en el navegador y rellena tus datos al instante.",
+        f3Title: "Autenticador 2FA Integrado",
+        f3Desc: "Generador TOTP RFC 6238 con temporizador en vivo."
+      },
+      showcase: {
+        c1Title: "Bóveda Maestra Biométrica",
+        c1Desc: "Organiza credenciales protegidas por el enclave seguro de tu teléfono.",
+        c2Title: "Autorización Instantánea",
+        c2Desc: "Confirma autorizaciones con biometría.",
+        c3Title: "Compartir P2P Seguro",
+        c3Desc: "Envía accesos con temporizadores de autoeliminación."
       },
       downloads: {
+        badge: "Comenzar",
         title: "Descargar FlakeSecure v2.0",
-        appTitle: "App Móvil (iOS y Android)",
-        appDesc: "Tu bóveda biométrica. Escanea códigos QR para rellenar inicios de sesión al instante.",
+        subtitle: "Disponible en móviles y navegadores.",
+        appTitle: "App Móvil (Android e iOS)",
+        appDesc: "Tu bóveda biométrica maestra.",
         btnAndroid: "Descargar APK Android",
-        btnIos: "Instalar en iOS (Expo)",
-        extTitle: "Extensiones para Navegadores",
-        extDesc: "Relé de inicio de sesión con un clic directamente en tu navegador.",
-        btnChrome: "Extensión Chrome",
-        btnFirefox: "Extensión Firefox"
+        btnIos: "iOS (Expo Go)",
+        btnChrome: "Extensión Chrome (.zip)",
+        btnFirefox: "Extensión Firefox (.zip)"
       },
       accountPortal: {
         title: "Portal de Cuenta y Seguridad",
-        subtitle: "Administra tu perfil FlakeSecure, sesiones activas y configuración de seguridad.",
-        tabLogin: "🔑 Iniciar sesión",
+        subtitle: "Gestiona tu perfil de FlakeSecure y sesiones activas.",
+        tabLogin: "🔑 Iniciar Sesión",
         tabRegister: "✨ Registrarse",
         tabProfile: "👤 Perfil",
         tabDelete: "⚠️ Zona de Peligro",
-        labelEmailOrUser: "Usuario o correo electrónico",
+        labelEmailOrUser: "Usuario o Correo",
         labelPassword: "Contraseña",
-        btnLogin: "Entrar al portal",
-        labelEmail: "Correo electrónico",
-        labelUsername: "Nombre de usuario",
-        labelConfirmPass: "Confirmar contraseña",
-        btnSendOtp: "Enviar código de verificación",
-        btnResendOtp: "Reenviar código",
-        labelOtp: "Código de verificación de 6 dígitos",
-        btnRegister: "Crear cuenta FlakeSecure",
-        labelLanguage: "Idioma de la interfaz",
-        btnSaveProfile: "Guardar cambios",
-        sessionsTitle: "Sesiones activas y dispositivos vinculados",
-        btnRevokeAll: "Cerrar todas las sesiones",
-        dangerTitle: "Eliminación permanente de cuenta",
-        dangerDesc: "Eliminar tu cuenta borrará inmediatamente todas las bóvedas sincronizadas. Esta acción no se puede deshacer.",
-        labelDeletePass: "Introduce tu contraseña para confirmar",
-        btnDeleteAccount: "Eliminar mi cuenta permanentemente"
+        btnLogin: "Entrar al Portal",
+        labelEmail: "Correo Electrónico",
+        labelUsername: "Nombre de Usuario",
+        labelConfirmPass: "Confirmar Contraseña",
+        btnSendOtp: "Enviar Código",
+        btnResendOtp: "Reenviar Código",
+        labelOtp: "Código de 6 Dígitos",
+        btnRegister: "Crear Cuenta",
+        labelLanguage: "Idioma",
+        btnSaveProfile: "Guardar Cambios",
+        sessionsTitle: "Sesiones Activas",
+        btnRevokeAll: "Cerrar Todas las Sesiones",
+        dangerTitle: "Desactivación de Cuenta (30 Días)",
+        dangerDesc: "Los datos se conservan durante 30 días por motivos de seguridad antes de su borrado permanente.",
+        labelDeletePass: "Contraseña de confirmación",
+        btnDeleteAccount: "Eliminar mi Cuenta"
       },
       imprint: {
-        title: "Privacidad y Aviso Legal",
-        subtitle: "Transparencia, privacidad de datos e información legal de FlakeSecure.",
-        backHome: "← Volver al inicio"
+        backHome: "← Inicio"
       },
       footer: {
-        tagline: "FlakeSecure v2.0.0 — Abierto, Seguro, Zero-Knowledge.",
-        copyright: "© 2026 SchneeherzStudio. Todos los derechos reservados."
+        home: "Inicio",
+        features: "Funciones",
+        downloads: "Descargas",
+        account: "Portal de Cuenta",
+        imprint: "Aviso Legal",
+        legal: "Privacidad",
+        terms: "Términos y Condiciones"
       }
     }
   };
@@ -363,6 +399,14 @@
       const key = el.getAttribute('data-i18n-placeholder');
       const text = getNestedTranslation(dict, key) || getNestedTranslation(TRANSLATIONS.en, key);
       if (text) el.setAttribute('placeholder', text);
+    });
+
+    document.querySelectorAll('[data-lang]').forEach((el) => {
+      if (el.getAttribute('data-lang') === lang) {
+        el.style.display = '';
+      } else {
+        el.style.display = 'none';
+      }
     });
 
     document.querySelectorAll('.fs-lang-select').forEach((sel) => {
