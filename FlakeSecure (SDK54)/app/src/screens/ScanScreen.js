@@ -25,7 +25,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
-import { i18n } from '../i18n';
+import { useLanguage } from '../context/LanguageContext';
 import { decryptCredentials } from '../utils/crypto';
 import { saveCredentials } from '../utils/storage';
 
@@ -34,6 +34,7 @@ const FRAME_SIZE = 250;
 
 export default function ScanScreen() {
   const navigation = useNavigation();
+  const { t } = useLanguage();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -181,15 +182,15 @@ export default function ScanScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
           <Text style={styles.permIcon}>📷</Text>
-          <Text style={styles.permTitle}>{i18n.t('scan.title')}</Text>
+          <Text style={styles.permTitle}>{t('scan.title')}</Text>
           <Text style={styles.permText}>
-            {i18n.t('scan.permission')}
+            {t('scan.permission')}
           </Text>
           <TouchableOpacity style={styles.permButton} onPress={requestPermission}>
-            <Text style={styles.permButtonText}>{i18n.t('scan.requestPermission')}</Text>
+            <Text style={styles.permButtonText}>{t('scan.requestPermission')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backLink}>{i18n.t('common.back')}</Text>
+            <Text style={styles.backLink}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -260,10 +261,10 @@ export default function ScanScreen() {
             ) : (
               <>
                 <Text style={styles.instruction}>
-                  {i18n.t('scan.title')}
+                  {t('scan.title')}
                 </Text>
                 <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
-                  <Text style={styles.cancelText}>{i18n.t('cancel')}</Text>
+                  <Text style={styles.cancelText}>{t('cancel')}</Text>
                 </TouchableOpacity>
               </>
             )}

@@ -1,55 +1,80 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Settings Screen (SettingsScreen)
+ * FlakeSecure Mobile App - Settings Screen v2.0
  * ============================================================================
  * 
  * FUNCTION OVERVIEW:
  * 
- * 1. ACCOUNT & LANGUAGE SETTINGS:
+ * 1. ACCOUNT & CLOUD VAULT SYNC:
  *    - Displays active user account information (username, email) and logout action.
- *    - handleLanguageChange(lang): Updates application locale (i18n) and syncs language with server profile.
+ *    - handleSyncVault(): Derives key from stored credentials and syncs encrypted vault with the server.
  * 
- * 2. DEFAULT AUTOFILL (Profile Presets):
- *    - loadProfile() / handleSaveProfile(): Manages default registration preset values (email, username, name, phone).
+ * 2. ACTIVE SESSIONS & SECURITY:
+ *    - fetchSessions() / handleTerminateSession(): Lists active login sessions across devices with remote revoke.
+ *    - Sharing permissions & whitelist recipient manager.
  * 
- * 3. SHARING & SECURITY PREFERENCES:
- *    - handleShareModeChange(mode): Configures sharing permissions (Only Me, Whitelist, Anyone).
- *    - fetchRestrictions() / handleAddRestriction() / handleRemoveRestriction(): Manages allowed recipients whitelist for credential sharing.
+ * 3. CUSTOMIZATION & PREFERENCES:
+ *    - Language selector (EN, DE, FR, ES) with instant reactive translation updates via useLanguage().
+ *    - Date format selector (System, German, ISO).
+ *    - Default autofill profile presets (email, username, names, phone).
  * 
- * 4. DATA, LOGS & ACCOUNT DELETION:
- *    - Navigation to Import/Export/Share flows and Activity Logs (LogsScreen).
- *    - handleDeleteAccount(): Permanently deletes account via API and purges local storage.
+ * 4. DANGER ZONE:
+ *    - handleDeleteAccount(): Double-confirmed account deletion via API with local vault purge.
  * ============================================================================
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, FlatList, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  TextInput,
+  FlatList,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { updateAccount, getRestrictions, addRestriction, removeRestriction, searchUsers, deleteAccount as apiDeleteAccount } from '../utils/api';
+import {
+  updateAccount,
+  getRestrictions,
+  addRestriction,
+  removeRestriction,
+  searchUsers,
+  deleteAccount as apiDeleteAccount,
+  getSessions,
+  deleteSession,
+} from '../utils/api';
 import { getDefaultProfile, saveDefaultProfile } from '../utils/storage';
-import { i18n } from '../i18n';
+import { syncVaultToServer } from '../utils/vault';
 
 export default function SettingsScreen({ navigation }) {
   const { user, logout, updateUser } = useAuth();
-  const { locale, changeLanguage } = useLanguage();
-  
-  const [currentLanguage, setCurrentLanguage] = useState(locale || 'en');
+  const { locale, changeLanguage, t } = useLanguage();
+
+  const [currentDateFormat, setCurrentDateFormat] = useState('system');
   const [currentShareMode, setCurrentShareMode] = useState(user?.share_mode || 'whitelist');
-  
+
   const [restrictions, setRestrictions] = useState([]);
   const [loadingRestrictions, setLoadingRestrictions] = useState(true);
+
+  const [sessions, setSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [syncingVault, setSyncingVault] = useState(false);
 
   const [profileEmail, setProfileEmail] = useState('');
   const [profileUsername, setProfileUsername] = useState('');
   const [profileFirstName, setProfileFirstName] = useState('');
   const [profileLastName, setProfileLastName] = useState('');
   const [profilePhone, setProfilePhone] = useState('');
-  
+
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -58,7 +83,23 @@ export default function SettingsScreen({ navigation }) {
   useEffect(() => {
     fetchRestrictions();
     loadProfile();
+    fetchActiveSessions();
+    loadDateFormat();
   }, []);
+
+  const loadDateFormat = async () => {
+    try {
+      const fmt = await AsyncStorage.getItem('date_format');
+      if (fmt) setCurrentDateFormat(fmt);
+    } catch (e) {}
+  };
+
+  const handleDateFormatChange = async (fmt) => {
+    try {
+      setCurrentDateFormat(fmt);
+      await AsyncStorage.setItem('date_format', fmt);
+    } catch (e) {}
+  };
 
   const loadProfile = async () => {
     try {
@@ -78,11 +119,11 @@ export default function SettingsScreen({ navigation }) {
         username: profileUsername.trim().toLowerCase(),
         firstName: profileFirstName.trim(),
         lastName: profileLastName.trim(),
-        phone: profilePhone.trim()
+        phone: profilePhone.trim(),
       });
-      Alert.alert('Gespeichert ✓', 'Standard-Angaben wurden erfolgreich gespeichert.');
+      Alert.alert(t('success'), t('settings.saveProfile') + ' ✓');
     } catch (e) {
-      Alert.alert('Fehler', 'Konnte Profil nicht speichern.');
+      Alert.alert(t('error'), 'Konnte Profil nicht speichern');
     }
   };
 
@@ -90,7 +131,7 @@ export default function SettingsScreen({ navigation }) {
     try {
       setLoadingRestrictions(true);
       const res = await getRestrictions();
-      setRestrictions(res.recipients || []);
+      setRestrictions(res.restrictions || []);
     } catch (e) {
       console.log('Failed to fetch restrictions', e);
     } finally {
@@ -98,11 +139,65 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
+  const fetchActiveSessions = async () => {
+    try {
+      setLoadingSessions(true);
+      const res = await getSessions();
+      setSessions(res.sessions || []);
+    } catch (e) {
+      console.log('Failed to fetch active sessions', e);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const handleTerminateSession = (sessionId) => {
+    Alert.alert(
+      t('settings.terminateConfirmTitle'),
+      t('settings.terminateConfirmMsg'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('settings.terminate'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteSession(sessionId);
+              fetchActiveSessions();
+            } catch (e) {
+              Alert.alert(t('error'), 'Konnte Sitzung nicht beenden');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleManualVaultSync = async () => {
+    try {
+      setSyncingVault(true);
+      const savedAuthCreds = await SecureStore.getItemAsync('auth_credentials');
+      if (savedAuthCreds) {
+        const { identifier, password } = JSON.parse(savedAuthCreds);
+        const success = await syncVaultToServer(password, identifier || user?.email);
+        if (success) {
+          Alert.alert(t('success'), t('settings.syncSuccess'));
+        } else {
+          Alert.alert(t('common.info'), t('settings.syncSuccess'));
+        }
+      } else {
+        Alert.alert(t('common.info'), t('settings.syncSuccess'));
+      }
+    } catch (e) {
+      Alert.alert(t('error'), 'Synchronisation fehlgeschlagen.');
+    } finally {
+      setSyncingVault(false);
+    }
+  };
+
   const handleLanguageChange = async (lang) => {
     try {
-      setCurrentLanguage(lang);
       await changeLanguage(lang);
-      await updateAccount({ language: lang });
     } catch (e) {
       console.log('Failed to update language', e);
     }
@@ -123,7 +218,7 @@ export default function SettingsScreen({ navigation }) {
       await removeRestriction(username);
       fetchRestrictions();
     } catch (e) {
-      Alert.alert('Error', 'Could not remove recipient');
+      Alert.alert(t('error'), 'Could not remove recipient');
     }
   };
 
@@ -149,44 +244,44 @@ export default function SettingsScreen({ navigation }) {
       setSearchResults([]);
       fetchRestrictions();
     } catch (e) {
-      Alert.alert('Error', 'Could not add recipient');
+      Alert.alert(t('error'), 'Could not add recipient');
     }
   };
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete Account',
-      'Are you absolutely sure? This action cannot be undone and you will lose all data.',
+      t('settings.deleteAccount'),
+      t('settings.deleteAccountConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete',
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('delete'),
           style: 'destructive',
           onPress: () => {
             Alert.alert(
-              'Confirm Deletion',
-              'Please confirm again. All your encrypted data will be permanently deleted.',
+              t('settings.deleteAccount'),
+              t('settings.deleteAccountFinalConfirm'),
               [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('cancel'), style: 'cancel' },
                 {
-                  text: 'Confirm & Delete',
+                  text: t('delete'),
                   style: 'destructive',
                   onPress: async () => {
                     try {
                       await apiDeleteAccount();
                       await AsyncStorage.clear();
-                      await SecureStore.deleteItemAsync('user_token');
-                      await SecureStore.deleteItemAsync('master_key');
+                      await SecureStore.deleteItemAsync('auth_token');
+                      await SecureStore.deleteItemAsync('auth_credentials');
                       logout();
                     } catch (e) {
-                      Alert.alert('Error', 'Failed to delete account');
+                      Alert.alert(t('error'), 'Konnte Account nicht löschen');
                     }
-                  }
-                }
+                  },
+                },
               ]
             );
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -198,74 +293,150 @@ export default function SettingsScreen({ navigation }) {
     { code: 'es', label: 'Español 🇪🇸' },
   ];
 
+  const dateFormats = [
+    { code: 'system', label: t('settings.dateFormatSystem') },
+    { code: 'german', label: t('settings.dateFormatGerman') },
+    { code: 'iso', label: t('settings.dateFormatIso') },
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.title}>{t('settings.title')}</Text>
       </View>
 
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
-        <Text style={styles.sectionHeader}>ACCOUNT</Text>
+        {/* Account Info Card */}
+        <Text style={styles.sectionHeader}>{t('settings.accountSection')}</Text>
         <View style={styles.card}>
-          <Text style={styles.label}>Username</Text>
-          <Text style={styles.value}>{user?.username || 'Unknown'}</Text>
+          <Text style={styles.label}>{t('settings.username')}</Text>
+          <Text style={styles.value}>{user?.username || '-'}</Text>
           <View style={styles.divider} />
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{user?.email || 'Unknown'}</Text>
+          <Text style={styles.label}>{t('settings.email')}</Text>
+          <Text style={styles.value}>{user?.email || '-'}</Text>
+
+          <TouchableOpacity
+            style={styles.syncVaultBtn}
+            onPress={handleManualVaultSync}
+            disabled={syncingVault}
+          >
+            {syncingVault ? (
+              <ActivityIndicator color="#6391ff" size="small" />
+            ) : (
+              <Text style={styles.syncVaultText}>{t('settings.syncVault')}</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
           <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-            <Text style={styles.logoutText}>Logout</Text>
+            <Text style={styles.logoutText}>{t('common.logout')}</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionHeader}>LANGUAGE</Text>
+        {/* Active Sessions */}
+        <Text style={styles.sectionHeader}>{t('settings.sessionsSection')} ({sessions.length})</Text>
+        <View style={styles.card}>
+          {loadingSessions ? (
+            <ActivityIndicator color="#6391ff" />
+          ) : sessions.length === 0 ? (
+            <Text style={styles.emptyText}>{t('settings.noSessions')}</Text>
+          ) : (
+            sessions.map((s, idx) => (
+              <View key={s.id || idx} style={[styles.sessionItem, idx !== sessions.length - 1 && styles.borderBottom]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sessionDevice} numberOfLines={1}>
+                    💻 {s.device_info ? s.device_info.substring(0, 35) : 'Device'}
+                  </Text>
+                  <Text style={styles.sessionIp}>IP: {s.ip_address || 'Local'}</Text>
+                </View>
+                <TouchableOpacity onPress={() => handleTerminateSession(s.id)}>
+                  <Text style={styles.removeText}>{t('settings.terminate')}</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* Shortcuts Section */}
+        <Text style={styles.sectionHeader}>{t('settings.shortcutsSection')}</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('Authenticator')}>
+            <Text style={styles.dataItemText}>{t('settings.authenticatorShortcut')}</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('Logs')}>
+            <Text style={styles.dataItemText}>{t('settings.logsShortcut')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Language Section */}
+        <Text style={styles.sectionHeader}>{t('settings.languageSection')}</Text>
         <View style={styles.card}>
           {languages.map((lang, index) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               key={lang.code}
               style={[styles.langItem, index !== languages.length - 1 && styles.borderBottom]}
               onPress={() => handleLanguageChange(lang.code)}
             >
-              <Text style={[styles.langText, currentLanguage === lang.code && styles.langSelected]}>
+              <Text style={[styles.langText, locale === lang.code && styles.langSelected]}>
                 {lang.label}
               </Text>
-              {currentLanguage === lang.code && <Text style={styles.checkMark}>✓</Text>}
+              {locale === lang.code && <Text style={styles.checkMark}>✓</Text>}
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.sectionHeader}>STANDARDAUSFÜLLUNG (PROFILE)</Text>
+        {/* Date Format Section */}
+        <Text style={styles.sectionHeader}>{t('settings.dateFormatSection')}</Text>
+        <View style={styles.card}>
+          {dateFormats.map((fmt, index) => (
+            <TouchableOpacity
+              key={fmt.code}
+              style={[styles.langItem, index !== dateFormats.length - 1 && styles.borderBottom]}
+              onPress={() => handleDateFormatChange(fmt.code)}
+            >
+              <Text style={[styles.langText, currentDateFormat === fmt.code && styles.langSelected]}>
+                {fmt.label}
+              </Text>
+              {currentDateFormat === fmt.code && <Text style={styles.checkMark}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Standard Profile Autofill */}
+        <Text style={styles.sectionHeader}>{t('settings.autofillSection')}</Text>
         <View style={styles.card}>
           <Text style={styles.profileHint}>
-            Diese Angaben werden verwendet, wenn du auf Websites automatisch neue Accounts erstellst.
+            {t('settings.autofillHint')}
           </Text>
 
-          <Text style={styles.inputLabel}>Standard E-Mail</Text>
+          <Text style={styles.inputLabel}>{t('settings.defaultEmail')}</Text>
           <TextInput
             style={styles.profileInput}
             value={profileEmail}
             onChangeText={setProfileEmail}
-            placeholder="deine@email.de"
+            placeholder="email@domain.com"
             placeholderTextColor="rgba(255,255,255,0.25)"
             autoCapitalize="none"
             keyboardType="email-address"
           />
 
-          <Text style={styles.inputLabel}>Standard Benutzername</Text>
+          <Text style={styles.inputLabel}>{t('settings.defaultUsername')}</Text>
           <TextInput
             style={styles.profileInput}
             value={profileUsername}
             onChangeText={setProfileUsername}
-            placeholder="benutzername"
+            placeholder="username"
             placeholderTextColor="rgba(255,255,255,0.25)"
             autoCapitalize="none"
           />
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.inputLabel}>Vorname</Text>
+              <Text style={styles.inputLabel}>{t('settings.firstName')}</Text>
               <TextInput
                 style={styles.profileInput}
                 value={profileFirstName}
@@ -276,7 +447,7 @@ export default function SettingsScreen({ navigation }) {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.inputLabel}>Nachname</Text>
+              <Text style={styles.inputLabel}>{t('settings.lastName')}</Text>
               <TextInput
                 style={styles.profileInput}
                 value={profileLastName}
@@ -288,7 +459,7 @@ export default function SettingsScreen({ navigation }) {
             </View>
           </View>
 
-          <Text style={styles.inputLabel}>Telefonnummer</Text>
+          <Text style={styles.inputLabel}>{t('settings.phone')}</Text>
           <TextInput
             style={styles.profileInput}
             value={profilePhone}
@@ -299,132 +470,128 @@ export default function SettingsScreen({ navigation }) {
           />
 
           <TouchableOpacity style={styles.saveProfileBtn} onPress={handleSaveProfile}>
-            <Text style={styles.saveProfileText}>💾 Angaben speichern</Text>
+            <Text style={styles.saveProfileBtnText}>{t('settings.saveProfile')}</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionHeader}>SHARING SETTINGS</Text>
+        {/* Sharing & Restrictions */}
+        <Text style={styles.sectionHeader}>{t('settings.securitySection')}</Text>
         <View style={styles.card}>
-          <Text style={styles.label}>Who can send you logins?</Text>
-          <View style={styles.segmentContainer}>
-            {[
-              { id: 'only_me', label: 'Only Me' },
-              { id: 'whitelist', label: 'Whitelist' },
-              { id: 'all', label: 'Anyone' }
-            ].map((mode) => (
+          <Text style={styles.subLabel}>{t('settings.whoCanSend')}</Text>
+          <View style={styles.shareModeContainer}>
+            {['only_me', 'whitelist', 'all'].map((mode) => (
               <TouchableOpacity
-                key={mode.id}
-                style={[styles.segmentBtn, currentShareMode === mode.id && styles.segmentBtnActive]}
-                onPress={() => handleShareModeChange(mode.id)}
+                key={mode}
+                style={[styles.shareModeBtn, currentShareMode === mode && styles.shareModeBtnActive]}
+                onPress={() => handleShareModeChange(mode)}
               >
-                <Text style={[styles.segmentText, currentShareMode === mode.id && styles.segmentTextActive]}>
-                  {mode.label}
+                <Text style={[styles.shareModeText, currentShareMode === mode && styles.shareModeTextActive]}>
+                  {mode === 'only_me' ? t('settings.onlyMe') : mode === 'whitelist' ? t('settings.whitelist') : t('settings.anyone')}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-        </View>
 
-        {currentShareMode === 'whitelist' && (
-          <>
-            <Text style={styles.sectionHeader}>ALLOWED RECIPIENTS</Text>
-            <View style={styles.card}>
+          {currentShareMode === 'whitelist' && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.recipientHeader}>
+                <Text style={styles.subLabel}>{t('settings.allowedRecipients')}</Text>
+                <TouchableOpacity onPress={() => setSearchModalVisible(true)}>
+                  <Text style={styles.addBtn}>{t('settings.addRecipient')}</Text>
+                </TouchableOpacity>
+              </View>
+
               {loadingRestrictions ? (
                 <ActivityIndicator color="#6391ff" />
+              ) : restrictions.length === 0 ? (
+                <Text style={styles.emptyText}>{t('settings.noRecipients')}</Text>
               ) : (
-                restrictions.map((recipient, index) => (
-                  <View key={index} style={[styles.recipientItem, index !== restrictions.length - 1 && styles.borderBottom]}>
-                    <Text style={styles.recipientText}>{recipient.username}</Text>
-                    <TouchableOpacity onPress={() => handleRemoveRestriction(recipient.username)}>
-                      <Text style={styles.removeText}>Remove</Text>
+                restrictions.map((r, idx) => (
+                  <View key={r.id || idx} style={[styles.recipientItem, idx !== restrictions.length - 1 && styles.borderBottom]}>
+                    <Text style={styles.recipientName}>👤 {r.recipient_username || r.username}</Text>
+                    <TouchableOpacity onPress={() => handleRemoveRestriction(r.recipient_username || r.username)}>
+                      <Text style={styles.removeText}>{t('delete')}</Text>
                     </TouchableOpacity>
                   </View>
                 ))
               )}
-              {restrictions.length === 0 && !loadingRestrictions && (
-                <Text style={styles.emptyText}>No allowed recipients</Text>
-              )}
-              <TouchableOpacity 
-                style={styles.addRecipientBtn} 
-                onPress={() => setSearchModalVisible(true)}
-              >
-                <Text style={styles.addRecipientText}>+ Add recipient</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
+            </>
+          )}
+        </View>
 
-        <Text style={styles.sectionHeader}>DATA & SHARING</Text>
+        {/* Data & Sharing Mode */}
+        <Text style={styles.sectionHeader}>{t('settings.dataSection')}</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('ShareImport', { mode: 'import' })}>
-            <Text style={styles.dataItemText}>Import from another device</Text>
+            <Text style={styles.dataItemText}>{t('settings.importDevice')}</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('ShareImport', { mode: 'export' })}>
-            <Text style={styles.dataItemText}>Export to another device</Text>
+            <Text style={styles.dataItemText}>{t('settings.exportDevice')}</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('ShareImport', { mode: 'share' })}>
-            <Text style={styles.dataItemText}>Send logins to user</Text>
+            <Text style={styles.dataItemText}>{t('settings.shareLogins')}</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionHeader}>ACTIVITY</Text>
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('Logs')}>
-            <Text style={styles.dataItemText}>View Login Logs</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={[styles.sectionHeader, styles.dangerHeader]}>DANGER ZONE</Text>
+        {/* Danger Zone */}
+        <Text style={[styles.sectionHeader, { color: '#ff4d4f' }]}>{t('settings.dangerSection')}</Text>
         <View style={[styles.card, styles.dangerCard]}>
           <TouchableOpacity style={styles.dangerBtn} onPress={handleDeleteAccount}>
-            <Text style={styles.dangerBtnText}>Delete Account</Text>
+            <Text style={styles.dangerText}>{t('settings.deleteAccount')}</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.bottomPadding} />
       </ScrollView>
 
+      {/* User Search Modal */}
       <Modal visible={searchModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Find User</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search username..."
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearchUsers}
-            />
-            <TouchableOpacity style={styles.searchActionBtn} onPress={handleSearchUsers}>
-              <Text style={styles.searchActionText}>Search</Text>
-            </TouchableOpacity>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('settings.addRecipient')}</Text>
+              <TouchableOpacity onPress={() => setSearchModalVisible(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchBox}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Username eingeben..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity style={styles.searchBtn} onPress={handleSearchUsers}>
+                <Text style={styles.searchBtnText}>🔍</Text>
+              </TouchableOpacity>
+            </View>
 
             {searching ? (
-              <ActivityIndicator color="#6391ff" style={{ marginVertical: 20 }} />
+              <ActivityIndicator color="#6391ff" style={{ marginTop: 20 }} />
             ) : (
               <FlatList
                 data={searchResults}
-                keyExtractor={(item, idx) => item.id?.toString() || idx.toString()}
+                keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <TouchableOpacity style={styles.searchResultItem} onPress={() => handleAddRestriction(item.username)}>
-                    <Text style={styles.searchResultText}>{item.username}</Text>
-                    <Text style={styles.addText}>Add</Text>
+                    <Text style={styles.searchResultText}>👤 {item.username}</Text>
+                    <Text style={styles.searchResultAdd}>+ Hinzufügen</Text>
                   </TouchableOpacity>
                 )}
-                ListEmptyComponent={<Text style={styles.emptyText}>No results</Text>}
+                ListEmptyComponent={
+                  searchQuery.length > 0 && !searching ? (
+                    <Text style={styles.emptyText}>Keine Benutzer gefunden</Text>
+                  ) : null
+                }
               />
             )}
-
-            <TouchableOpacity style={styles.closeModalBtn} onPress={() => setSearchModalVisible(false)}>
-              <Text style={styles.closeModalText}>Close</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 }
@@ -441,260 +608,318 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   backButton: {
-    marginRight: 15,
+    padding: 8,
+    marginRight: 10,
   },
   backButtonText: {
-    color: '#fff',
+    color: '#6391ff',
     fontSize: 24,
+    fontWeight: '600',
   },
   title: {
+    fontSize: 22,
+    fontWeight: '800',
     color: '#fff',
-    fontSize: 20,
-    fontWeight: '600',
+    letterSpacing: -0.5,
   },
   scrollContent: {
     flex: 1,
   },
   scrollContentContainer: {
     paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   sectionHeader: {
+    fontSize: 11,
+    fontWeight: '800',
     color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 25,
-    marginBottom: 8,
-    marginLeft: 10,
     letterSpacing: 1,
+    marginTop: 24,
+    marginBottom: 8,
   },
   card: {
     backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 15,
+    borderColor: 'rgba(255,255,255,0.07)',
   },
   label: {
+    fontSize: 11,
+    fontWeight: '600',
     color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
     marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  subLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 8,
   },
   value: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#fff',
-    fontSize: 16,
-    marginBottom: 15,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    marginVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginVertical: 12,
+  },
+  syncVaultBtn: {
+    marginTop: 12,
+    backgroundColor: 'rgba(99, 145, 255, 0.12)',
+    borderColor: 'rgba(99, 145, 255, 0.3)',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  syncVaultText: {
+    color: '#6391ff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   logoutBtn: {
     alignItems: 'center',
-    paddingVertical: 10,
-    marginTop: 5,
+    paddingVertical: 4,
   },
   logoutText: {
-    color: '#6391ff',
-    fontWeight: '600',
-  },
-  borderBottom: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.07)',
+    color: '#ff4d4f',
+    fontSize: 14,
+    fontWeight: '700',
   },
   langItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 12,
   },
   langText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 16,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
   },
   langSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: '#6391ff',
+    fontWeight: '700',
   },
   checkMark: {
     color: '#6391ff',
     fontSize: 16,
+    fontWeight: '800',
+  },
+  borderBottom: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  sessionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  sessionDevice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  sessionIp: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  profileHint: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.4)',
+    textTransform: 'uppercase',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  profileInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: '#fff',
+    fontSize: 13,
+  },
+  saveProfileBtn: {
+    marginTop: 16,
+    backgroundColor: 'rgba(99, 145, 255, 0.15)',
+    borderColor: 'rgba(99, 145, 255, 0.35)',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  saveProfileBtnText: {
+    color: '#6391ff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  shareModeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  shareModeBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+  },
+  shareModeBtnActive: {
+    backgroundColor: 'rgba(99, 145, 255, 0.15)',
+    borderColor: '#6391ff',
+  },
+  shareModeText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+  },
+  shareModeTextActive: {
+    color: '#6391ff',
+    fontWeight: '700',
+  },
+  recipientHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addBtn: {
+    fontSize: 12,
+    color: '#6391ff',
+    fontWeight: '700',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.3)',
+    fontStyle: 'italic',
+    paddingVertical: 6,
   },
   recipientItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  recipientText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  removeText: {
-    color: '#ff4d4f',
-    fontSize: 14,
-  },
-  addRecipientBtn: {
-    marginTop: 10,
     alignItems: 'center',
     paddingVertical: 8,
   },
-  addRecipientText: {
-    color: '#6391ff',
+  recipientName: {
+    fontSize: 14,
+    color: '#fff',
+  },
+  removeText: {
+    fontSize: 12,
+    color: '#ff4d4f',
     fontWeight: '600',
   },
-  emptyText: {
-    color: 'rgba(255,255,255,0.4)',
-    textAlign: 'center',
-    marginVertical: 10,
-  },
   dataItem: {
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   dataItemText: {
+    fontSize: 14,
     color: '#fff',
-    fontSize: 16,
-  },
-  dangerHeader: {
-    color: '#ff4d4f',
+    fontWeight: '500',
   },
   dangerCard: {
-    borderColor: 'rgba(255,77,79,0.2)',
+    borderColor: 'rgba(255,77,79,0.3)',
+    backgroundColor: 'rgba(255,77,79,0.04)',
   },
   dangerBtn: {
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 4,
   },
-  dangerBtnText: {
+  dangerText: {
     color: '#ff4d4f',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  bottomPadding: {
-    height: 40,
+    fontSize: 14,
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(9,11,20,0.9)',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#090b14',
-    borderColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 20,
+    backgroundColor: '#0f1220',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
     maxHeight: '80%',
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   modalTitle: {
-    color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  modalClose: {
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
   },
   searchInput: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     color: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    marginBottom: 10,
+    fontSize: 14,
   },
-  searchActionBtn: {
-    backgroundColor: '#6391ff',
-    borderRadius: 8,
-    paddingVertical: 12,
+  searchBtn: {
+    backgroundColor: 'rgba(99, 145, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(99, 145, 255, 0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
   },
-  searchActionText: {
-    color: '#fff',
-    fontWeight: '600',
+  searchBtnText: {
+    fontSize: 16,
   },
   searchResultItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.07)',
+    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   searchResultText: {
+    fontSize: 14,
     color: '#fff',
-    fontSize: 16,
-  },
-  addText: {
-    color: '#6391ff',
-    fontWeight: '600',
-  },
-  closeModalBtn: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  closeModalText: {
-    color: 'rgba(255,255,255,0.5)',
-  },
-  segmentContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 8,
-    padding: 4,
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  segmentBtnActive: {
-    backgroundColor: '#6391ff',
-  },
-  segmentText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
     fontWeight: '500',
   },
-  segmentTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  profileHint: {
+  searchResultAdd: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.45)',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-    marginTop: 4,
-  },
-  profileInput: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#fff',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  saveProfileBtn: {
-    marginTop: 6,
-    backgroundColor: 'rgba(99,145,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(99,145,255,0.3)',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  saveProfileText: {
     color: '#6391ff',
     fontWeight: '700',
-    fontSize: 14,
   },
 });

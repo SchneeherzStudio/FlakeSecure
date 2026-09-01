@@ -7,6 +7,7 @@
  * 
  * 1. DELETE /delete:
  *    - Permanently deletes the authenticated user from the database (CASCADE removes sessions, logs, and restrictions).
+ *    - Validates optional OTP verification token for high-security web/app deletion.
  * 
  * 2. PUT /update:
  *    - Updates user language preferences and sharing mode (share_mode: 'only_me', 'whitelist', 'all').
@@ -22,16 +23,37 @@
  * 
  * 6. GET /search?q=:
  *    - Searches registered users via case-insensitive ILIKE query (excludes self, limited to 10 results).
+ * 
+ * 7. GET /sessions:
+ *    - Lists all active login sessions for the authenticated user.
+ * 
+ * 8. DELETE /sessions/:sessionId:
+ *    - Terminates a specific active session.
  * ============================================================================
  */
 
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.delete('/delete', authMiddleware, async (req, res) => {
+    const { otpToken } = req.body || {};
+    const requireOtp = req.headers['x-require-otp'] === 'true';
+
+    if (requireOtp || otpToken) {
+        try {
+            const decoded = jwt.verify(otpToken, process.env.JWT_SECRET);
+            if (decoded.email !== req.user.email || decoded.purpose !== 'delete' || !decoded.verified) {
+                return res.status(400).json({ error: 'Invalid or expired OTP token for account deletion' });
+            }
+        } catch (otpErr) {
+            return res.status(400).json({ error: 'Email OTP verification required to delete account' });
+        }
+    }
+
     try {
         await db.query('DELETE FROM users WHERE id = $1', [req.user.id]);
         res.json({ message: 'Account deleted successfully' });
@@ -154,6 +176,36 @@ router.get('/search', authMiddleware, async (req, res) => {
         res.json({ users: rows });
     } catch (error) {
         console.error('Search error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/sessions', authMiddleware, async (req, res) => {
+    try {
+        const { rows } = await db.query(
+            'SELECT id, device_info, ip_address, created_at, expires_at FROM sessions WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC',
+            [req.user.id]
+        );
+        res.json({ sessions: rows });
+    } catch (error) {
+        console.error('Get sessions error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.delete('/sessions/:sessionId', authMiddleware, async (req, res) => {
+    const { sessionId } = req.params;
+    try {
+        const { rowCount } = await db.query(
+            'DELETE FROM sessions WHERE id = $1 AND user_id = $2',
+            [sessionId, req.user.id]
+        );
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+        res.json({ message: 'Session terminated successfully' });
+    } catch (error) {
+        console.error('Delete session error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

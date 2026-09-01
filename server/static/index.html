@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style/index.css" />
+  <script src="/js/i18n.js"></script>
 </head>
 <body>
 
@@ -41,16 +42,26 @@
       </a>
 
       <ul class="nav-menu">
-        <li><a href="#showcase">App Preview</a></li>
-        <li><a href="#security">Security</a></li>
-        <li><a href="#how-it-works">How It Works</a></li>
-        <li><a href="#downloads">Downloads</a></li>
-        <li><a href="/legal">Privacy &amp; Legal</a></li>
+        <li><a href="#showcase" data-i18n="nav.preview">App Preview</a></li>
+        <li><a href="#security" data-i18n="nav.security">Security</a></li>
+        <li><a href="#how-it-works" data-i18n="nav.howItWorks">How It Works</a></li>
+        <li><a href="#downloads" data-i18n="nav.downloads">Downloads</a></li>
+        <li><a href="/account" data-i18n="nav.account" style="color: #6391ff; font-weight: 700;">Account Portal 🔐</a></li>
+        <li><a href="/imprint" data-i18n="nav.legal">Privacy &amp; Legal</a></li>
       </ul>
 
-      <div class="nav-status-pill">
-        <div class="pulse-dot"></div>
-        <span id="nav-status-text">Relay Online</span>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <select class="fs-lang-select" aria-label="Language" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; outline: none;">
+          <option value="en" style="background: #111424; color: #fff;">🇬🇧 EN</option>
+          <option value="de" style="background: #111424; color: #fff;">🇩🇪 DE</option>
+          <option value="fr" style="background: #111424; color: #fff;">🇫🇷 FR</option>
+          <option value="es" style="background: #111424; color: #fff;">🇪🇸 ES</option>
+        </select>
+
+        <div class="nav-status-pill">
+          <div class="pulse-dot"></div>
+          <span id="nav-status-text" data-i18n="nav.statusOnline">Relay Online</span>
+        </div>
       </div>
     </header>
 
@@ -68,33 +79,33 @@
       </svg>
 
       <h1 class="hero-title">Flake<span>Secure</span></h1>
-      <p class="hero-subtitle">
+      <p class="hero-subtitle" data-i18n="hero.subtitle">
         Zero-Knowledge Biometric Password Manager &amp; Instant Browser Relay.
       </p>
-      <p class="hero-tagline">
+      <p class="hero-tagline" data-i18n="hero.tagline">
         End-to-End Encrypted &bull; No Passwords On Server &bull; Hardware Biometrics
       </p>
 
       <div class="hero-cta-group">
-        <a href="#downloads" class="btn btn-primary">📱 Get Mobile App</a>
-        <a href="#downloads" class="btn btn-secondary">🧩 Browser Extension</a>
-        <a href="#showcase" class="btn btn-secondary">✨ Explore Features</a>
+        <a href="#downloads" class="btn btn-primary" data-i18n="hero.btnApp">📱 Get Mobile App</a>
+        <a href="#downloads" class="btn btn-secondary" data-i18n="hero.btnExt">🧩 Browser Extension</a>
+        <a href="#showcase" class="btn btn-secondary" data-i18n="hero.btnFeatures">✨ Explore Features</a>
       </div>
 
       <!-- Live Server Metrics Card -->
       <div class="status-banner">
         <div class="metric-item">
-          <span class="metric-label">Relay Connection</span>
+          <span class="metric-label" data-i18n="hero.metricRelay">Relay Connection</span>
           <span class="metric-value live">
-            <span class="pulse-dot"></span> Active &amp; Operational
+            <span class="pulse-dot"></span> <span data-i18n="hero.metricRelayVal">Active &amp; Operational</span>
           </span>
         </div>
         <div class="metric-item">
-          <span class="metric-label">Cryptography</span>
+          <span class="metric-label" data-i18n="hero.metricCrypto">Cryptography</span>
           <span class="metric-value">AES-256-CTR &bull; Argon2id</span>
         </div>
         <div class="metric-item">
-          <span class="metric-label">Ephemeral Sessions</span>
+          <span class="metric-label" data-i18n="hero.metricSessions">Ephemeral Sessions</span>
           <span class="metric-value" id="active-sessions-count">0 in-memory</span>
         </div>
         <div class="metric-item">
@@ -264,7 +275,7 @@
     <section id="downloads" class="section">
       <div class="section-header">
         <span class="section-badge">Get Started</span>
-        <h2 class="section-title">Download FlakeSecure</h2>
+        <h2 class="section-title" data-i18n="downloads.title">Download FlakeSecure v2.0</h2>
         <p class="section-subtitle">
           Available on mobile and desktop platforms.
         </p>
@@ -273,30 +284,30 @@
       <div class="downloads-grid">
         <div class="download-card">
           <div class="download-icon">🤖</div>
-          <h3 class="download-title">Android App</h3>
-          <p class="download-meta">Requires Android 8.0+ &bull; BiometricPrompt</p>
-          <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" style="width: 100%; margin-top: auto;">Download APK</a>
+          <h3 class="download-title" data-i18n="downloads.appTitle">Mobile App (iOS &amp; Android)</h3>
+          <p class="download-meta" data-i18n="downloads.appDesc">Your biometric master vault. Scan QR codes to autofill logins instantly.</p>
+          <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" style="width: 100%; margin-top: auto;" data-i18n="downloads.btnAndroid">Download Android APK</a>
         </div>
 
         <div class="download-card">
           <div class="download-icon">🍏</div>
-          <h3 class="download-title">iOS App</h3>
+          <h3 class="download-title">iOS App (Expo)</h3>
           <p class="download-meta">Requires iOS 15.0+ &bull; Face ID / Touch ID</p>
-          <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" style="width: 100%; margin-top: auto;">App Store</a>
+          <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" style="width: 100%; margin-top: auto;" data-i18n="downloads.btnIos">Install on iOS (Expo)</a>
         </div>
 
         <div class="download-card">
           <div class="download-icon">🌐</div>
           <h3 class="download-title">Chrome / Edge / Brave</h3>
-          <p class="download-meta">Manifest V3 &bull; Chromium Extension</p>
-          <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" style="width: 100%; margin-top: auto;">Chrome Web Store</a>
+          <p class="download-meta">Manifest V3 &bull; Chromium Extension v2.0.0</p>
+          <a href="/browser-extension.zip" download="browser-extension.zip" class="btn btn-secondary" style="width: 100%; margin-top: auto;" data-i18n="downloads.btnChrome">Download Chrome Extension (.zip)</a>
         </div>
 
         <div class="download-card">
           <div class="download-icon">🦊</div>
           <h3 class="download-title">Firefox Add-on</h3>
-          <p class="download-meta">Manifest V2 &bull; Firefox Browser</p>
-          <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" style="width: 100%; margin-top: auto;">Firefox Add-ons</a>
+          <p class="download-meta">Manifest V3 &bull; Firefox Extension v2.0.0</p>
+          <a href="/browser-extension-firefox.zip" download="browser-extension-firefox.zip" class="btn btn-secondary" style="width: 100%; margin-top: auto;" data-i18n="downloads.btnFirefox">Download Firefox Extension (.zip)</a>
         </div>
       </div>
     </section>

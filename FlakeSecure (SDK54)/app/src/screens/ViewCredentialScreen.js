@@ -28,11 +28,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Clipboard from 'expo-clipboard';
 import { getCredentialsForDomain, saveCredentials, getCategories, saveCategory } from '../utils/storage';
-import { i18n } from '../i18n';
+import { useLanguage } from '../context/LanguageContext';
 
 const AVAILABLE_ICONS = ['👤', '💼', '💳', '💬', '🎮', '📁', '🛍️', '🛒', '🔒', '🏠', '✈️', '📧', '🎓', '💻', '🎵', '🍔', '🚗', '🏥', '🔑', '⭐'];
 
 export default function ViewCredentialScreen({ route, navigation }) {
+  const { t } = useLanguage();
   const { domain } = route.params;
   
   const [username, setUsername] = useState('');
@@ -60,13 +61,13 @@ export default function ViewCredentialScreen({ route, navigation }) {
     setAuthError('');
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: i18n.t('viewCredential.showCredentials', { domain }),
+        promptMessage: t('viewCredential.showCredentials', { domain }),
         fallbackLabel: 'PIN verwenden',
         disableDeviceFallback: false
       });
 
       if (!result.success) {
-        setAuthError(i18n.t('viewCredential.authFailed'));
+        setAuthError(t('viewCredential.authFailed'));
         setLoading(false);
         return;
       }
@@ -83,7 +84,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
           setPassword(creds.password);
         }
       } else {
-        setAuthError(i18n.t('viewCredential.noCredFound'));
+        setAuthError(t('viewCredential.noCredFound'));
       }
 
       try {
@@ -93,7 +94,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
 
       setIsAuthenticated(true);
     } catch (err) {
-      setAuthError(i18n.t('viewCredential.biometricError', { message: err.message }));
+      setAuthError(t('viewCredential.biometricError', { message: err.message }));
     } finally {
       setLoading(false);
     }
@@ -102,7 +103,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
   const handleCreateCategory = async () => {
     const cleanName = newCategoryName.trim();
     if (!cleanName) {
-      Alert.alert(i18n.t('error'), 'Please enter a category name');
+      Alert.alert(t('error'), 'Please enter a category name');
       return;
     }
 
@@ -117,13 +118,13 @@ export default function ViewCredentialScreen({ route, navigation }) {
       setNewCategoryIcon('🏷️');
       setShowCategoryModal(false);
     } catch (e) {
-      Alert.alert(i18n.t('error'), 'Failed to create category');
+      Alert.alert(t('error'), 'Failed to create category');
     }
   };
 
   const handleSave = async () => {
     if (!username.trim() || (!isHidden && !password.trim())) {
-      Alert.alert(i18n.t('error'), i18n.t('viewCredential.allFieldsRequired'));
+      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
 
@@ -133,12 +134,12 @@ export default function ViewCredentialScreen({ route, navigation }) {
         category: selectedCategory
       });
       Alert.alert(
-        i18n.t('viewCredential.savedTitle'),
-        i18n.t('viewCredential.savedMsg', { domain }),
-        [{ text: i18n.t('ok'), onPress: () => navigation.goBack() }]
+        t('viewCredential.savedTitle'),
+        t('viewCredential.savedMsg', { domain }),
+        [{ text: t('ok'), onPress: () => navigation.goBack() }]
       );
     } catch (err) {
-      Alert.alert(i18n.t('error'), i18n.t('viewCredential.saveFailed', { message: err.message }));
+      Alert.alert(t('error'), t('viewCredential.saveFailed', { message: err.message }));
     } finally {
       setSaving(false);
     }
@@ -146,7 +147,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
 
   const copyToClipboard = async (text, label) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert(i18n.t('viewCredential.copied'), i18n.t('viewCredential.copiedMsg', { label }), [{ text: i18n.t('ok') }]);
+    Alert.alert(t('viewCredential.copied'), t('viewCredential.copiedMsg', { label }), [{ text: t('ok') }]);
   };
 
   if (loading) {
@@ -154,7 +155,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#6391ff" />
-          <Text style={styles.loadingText}>{i18n.t('confirm.authenticating')}</Text>
+          <Text style={styles.loadingText}>{t('confirm.authenticating')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -165,15 +166,15 @@ export default function ViewCredentialScreen({ route, navigation }) {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backText}>‹ {i18n.t('common.back')}</Text>
+            <Text style={styles.backText}>‹ {t('common.back')}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.centerContent}>
           <Text style={styles.bigIcon}>🔒</Text>
-          <Text style={styles.stateTitle}>{i18n.t('viewCredential.accessDenied')}</Text>
+          <Text style={styles.stateTitle}>{t('viewCredential.accessDenied')}</Text>
           <Text style={styles.errorText}>{authError}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={authenticateAndLoad}>
-            <Text style={styles.retryBtnText}>{i18n.t('retry')}</Text>
+            <Text style={styles.retryBtnText}>{t('retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -189,10 +190,10 @@ export default function ViewCredentialScreen({ route, navigation }) {
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Text style={styles.backText}>‹ {i18n.t('common.back')}</Text>
+              <Text style={styles.backText}>‹ {t('common.back')}</Text>
             </TouchableOpacity>
             <Text style={styles.title}>{domain}</Text>
-            <Text style={styles.subtitle}>{i18n.t('viewCredential.viewAndEdit')}</Text>
+            <Text style={styles.subtitle}>{t('viewCredential.viewAndEdit')}</Text>
           </View>
 
           <View style={styles.form}>
@@ -207,7 +208,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
             ) : (
               <>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{i18n.t('viewCredential.usernameLabel')}</Text>
+                  <Text style={styles.label}>{t('viewCredential.usernameLabel')}</Text>
                   <View style={styles.inputRow}>
                     <TextInput
                       style={[styles.input, styles.inputFlex]}
@@ -221,7 +222,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
                     />
                     <TouchableOpacity
                       style={styles.copyBtn}
-                      onPress={() => copyToClipboard(username, i18n.t('viewCredential.usernameLabel'))}
+                      onPress={() => copyToClipboard(username, t('viewCredential.usernameLabel'))}
                     >
                       <Text style={styles.copyBtnText}>📋</Text>
                     </TouchableOpacity>
@@ -229,7 +230,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
                 </View>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{i18n.t('viewCredential.passwordLabel')}</Text>
+                  <Text style={styles.label}>{t('viewCredential.passwordLabel')}</Text>
                   <View style={styles.passwordRow}>
                     <TextInput
                       style={[styles.input, styles.passwordInput]}
@@ -249,7 +250,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.copyBtn}
-                      onPress={() => copyToClipboard(password, i18n.t('viewCredential.passwordLabel'))}
+                      onPress={() => copyToClipboard(password, t('viewCredential.passwordLabel'))}
                     >
                       <Text style={styles.copyBtnText}>📋</Text>
                     </TouchableOpacity>
@@ -257,7 +258,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
                 </View>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{i18n.t('credentials.categoryLabel')}</Text>
+                  <Text style={styles.label}>{t('credentials.categoryLabel')}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
                     <TouchableOpacity
                       style={[styles.categoryChip, !selectedCategory && styles.categoryChipActive]}
@@ -266,13 +267,13 @@ export default function ViewCredentialScreen({ route, navigation }) {
                     >
                       <Text style={styles.categoryChipIcon}>🚫</Text>
                       <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextActive]}>
-                        {i18n.t('credentials.categoryNone')}
+                        {t('credentials.categoryNone')}
                       </Text>
                     </TouchableOpacity>
 
                     {categories.map((cat) => {
                       const isSelected = selectedCategory === cat.id;
-                      const displayName = cat.isDefault ? (i18n.t(`categories.${cat.id}`) || cat.name) : cat.name;
+                      const displayName = cat.isDefault ? (t(`categories.${cat.id}`) || cat.name) : cat.name;
                       return (
                         <TouchableOpacity
                           key={cat.id}
@@ -294,7 +295,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
                       activeOpacity={0.7}
                     >
                       <Text style={styles.newCategoryChipIcon}>➕</Text>
-                      <Text style={styles.newCategoryChipText}>{i18n.t('credentials.addCategoryBtn')}</Text>
+                      <Text style={styles.newCategoryChipText}>{t('credentials.addCategoryBtn')}</Text>
                     </TouchableOpacity>
                   </ScrollView>
                 </View>
@@ -316,7 +317,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
                 style={styles.saveGradient}
               >
                 <Text style={styles.saveBtnText}>
-                  {saving ? i18n.t('viewCredential.saving') : i18n.t('viewCredential.saveChanges')}
+                  {saving ? t('viewCredential.saving') : t('viewCredential.saveChanges')}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -332,19 +333,19 @@ export default function ViewCredentialScreen({ route, navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{i18n.t('categories.newCategory')}</Text>
+            <Text style={styles.modalTitle}>{t('categories.newCategory')}</Text>
             
-            <Text style={styles.modalLabel}>{i18n.t('categories.categoryName')}</Text>
+            <Text style={styles.modalLabel}>{t('categories.categoryName')}</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder={i18n.t('categories.categoryNamePlaceholder')}
+              placeholder={t('categories.categoryNamePlaceholder')}
               placeholderTextColor="rgba(255,255,255,0.3)"
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               autoCapitalize="words"
             />
 
-            <Text style={styles.modalLabel}>{i18n.t('categories.selectIcon')}</Text>
+            <Text style={styles.modalLabel}>{t('categories.selectIcon')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconPickerScroll}>
               <View style={styles.iconPickerRow}>
                 {AVAILABLE_ICONS.map((icon) => (
@@ -364,7 +365,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
                 style={styles.modalCancelBtn}
                 onPress={() => setShowCategoryModal(false)}
               >
-                <Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text>
+                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalSaveBtn}
@@ -374,7 +375,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
                   colors={['#6391ff', '#7c6aff']}
                   style={styles.modalSaveGradient}
                 >
-                  <Text style={styles.modalSaveText}>{i18n.t('save')}</Text>
+                  <Text style={styles.modalSaveText}>{t('save')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>

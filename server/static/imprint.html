@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style/imprint.css" />
+  <script src="/js/i18n.js"></script>
 </head>
 <body>
 
@@ -39,7 +40,15 @@
         </svg>
         <h1 class="wordmark">Flake<span>Secure</span></h1>
       </a>
-      <span class="page-badge">Impressum / Imprint</span>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <select class="fs-lang-select" aria-label="Language" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; outline: none;">
+          <option value="en" style="background: #111424; color: #fff;">🇬🇧 EN</option>
+          <option value="de" style="background: #111424; color: #fff;">🇩🇪 DE</option>
+          <option value="fr" style="background: #111424; color: #fff;">🇫🇷 FR</option>
+          <option value="es" style="background: #111424; color: #fff;">🇪🇸 ES</option>
+        </select>
+        <a href="/" class="page-badge" data-i18n="imprint.backHome" style="text-decoration: none;">← Home</a>
+      </div>
     </header>
 
     <main class="card">

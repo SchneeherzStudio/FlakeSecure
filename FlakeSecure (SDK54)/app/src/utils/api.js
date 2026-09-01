@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - API Client Utility
+ * FlakeSecure Mobile App - API Client Utility v2.0
  * ============================================================================
  * 
  * FUNCTION OVERVIEW:
@@ -11,12 +11,28 @@
  *    - apiRequest(endpoint, options): Executes HTTP requests with automatic Bearer token injection and error handling.
  * 
  * 2. AUTH METHODS:
- *    - register(email, username, password), login(identifier, password), logout(), getMe()
+ *    - register(email, username, password, otpToken), login(identifier, password), logout(), getMe()
  * 
  * 3. ACCOUNT & SHARING METHODS:
- *    - deleteAccount(), updateAccount(data), getRestrictions(), addRestriction(username), removeRestriction(recipientId), searchUsers(query)
+ *    - deleteAccount(otpToken), updateAccount(data), getRestrictions(), addRestriction(username), removeRestriction(recipientId), searchUsers(query)
+ *    - getSessions(), deleteSession(sessionId)
  * 
- * 4. LOGS METHODS:
+ * 4. SYSTEM & ANNOUNCEMENT METHODS:
+ *    - getSystemStatus(), getAnnouncements(), dismissAnnouncement(id)
+ * 
+ * 5. OTP VERIFICATION METHODS:
+ *    - sendOtp(email, purpose), verifyOtp(email, code, purpose)
+ * 
+ * 6. VAULT SYNC METHODS:
+ *    - getVault(), syncVault(encryptedBlob, blobVersion), purgeVault()
+ * 
+ * 7. PUSH NOTIFICATION METHODS:
+ *    - registerPushToken(expoToken, deviceInfo), unregisterPushToken(expoToken), getPushStatus()
+ * 
+ * 8. RELAY & TOTP STREAMING METHODS:
+ *    - sendLogin(sid, payload), sendTotp(sid, payload)
+ * 
+ * 9. LOGS METHODS:
  *    - getLogs(page, limit), clearLogs()
  * ============================================================================
  */
@@ -27,16 +43,16 @@ import * as SecureStore from 'expo-secure-store';
 
 const DEFAULT_SERVER_URL = 'https://flakesecure.snowystudio.dev';
 
-async function getServerUrl() {
+export async function getServerUrl() {
   const url = await SecureStore.getItemAsync('server_url');
   return url || DEFAULT_SERVER_URL;
 }
 
-async function getToken() {
+export async function getToken() {
   return await SecureStore.getItemAsync('auth_token');
 }
 
-async function apiRequest(endpoint, options = {}) {
+export async function apiRequest(endpoint, options = {}) {
   const serverUrl = await getServerUrl();
   const token = await getToken();
   
@@ -54,7 +70,7 @@ async function apiRequest(endpoint, options = {}) {
     headers,
   });
   
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
   
   if (!response.ok) {
     throw new Error(data.error || `HTTP ${response.status}`);
@@ -63,10 +79,10 @@ async function apiRequest(endpoint, options = {}) {
   return data;
 }
 
-export async function register(email, username, password) {
+export async function register(email, username, password, otpToken = null) {
   return apiRequest('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, username, password }),
+    body: JSON.stringify({ email, username, password, otpToken }),
   });
 }
 
@@ -85,8 +101,11 @@ export async function getMe() {
   return apiRequest('/api/auth/me');
 }
 
-export async function deleteAccount() {
-  return apiRequest('/api/account/delete', { method: 'DELETE' });
+export async function deleteAccount(otpToken = null) {
+  return apiRequest('/api/account/delete', {
+    method: 'DELETE',
+    body: JSON.stringify({ otpToken }),
+  });
 }
 
 export async function updateAccount(data) {
@@ -115,6 +134,107 @@ export async function removeRestriction(recipientId) {
 
 export async function searchUsers(query) {
   return apiRequest(`/api/account/search?q=${encodeURIComponent(query)}`);
+}
+
+export async function getSessions() {
+  return apiRequest('/api/account/sessions');
+}
+
+export async function deleteSession(sessionId) {
+  return apiRequest(`/api/account/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getSystemStatus() {
+  return apiRequest('/api/system/status');
+}
+
+export async function getAnnouncements() {
+  return apiRequest('/api/system/announcements');
+}
+
+export async function dismissAnnouncement(id) {
+  return apiRequest(`/api/system/announcements/${id}/dismiss`, {
+    method: 'POST',
+  });
+}
+
+export async function sendOtp(email, purpose = 'register') {
+  return apiRequest('/api/otp/send', {
+    method: 'POST',
+    body: JSON.stringify({ email, purpose }),
+  });
+}
+
+export async function verifyOtp(email, code, purpose = 'register') {
+  return apiRequest('/api/otp/verify', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, purpose }),
+  });
+}
+
+export async function getVault() {
+  return apiRequest('/api/vault/sync');
+}
+
+export async function syncVault(encryptedBlob, blobVersion = 1) {
+  return apiRequest('/api/vault/sync', {
+    method: 'PUT',
+    body: JSON.stringify({ encrypted_blob: encryptedBlob, blob_version: blobVersion }),
+  });
+}
+
+export async function purgeVault() {
+  return apiRequest('/api/vault/purge', {
+    method: 'DELETE',
+  });
+}
+
+export async function registerPushToken(expoToken, deviceInfo = '') {
+  return apiRequest('/api/notifications/register', {
+    method: 'POST',
+    body: JSON.stringify({ expo_token: expoToken, device_info: deviceInfo }),
+  });
+}
+
+export async function unregisterPushToken(expoToken) {
+  return apiRequest('/api/notifications/unregister', {
+    method: 'DELETE',
+    body: JSON.stringify({ expo_token: expoToken }),
+  });
+}
+
+export async function getPushStatus() {
+  return apiRequest('/api/notifications/status');
+}
+
+export async function sendLogin(sid, payload) {
+  const serverUrl = await getServerUrl();
+  const token = await getToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  
+  const response = await fetch(`${serverUrl}/send-login`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ sid, payload }),
+  });
+  return await response.json();
+}
+
+export async function sendTotp(sid, payload) {
+  const serverUrl = await getServerUrl();
+  const token = await getToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  
+  const response = await fetch(`${serverUrl}/send-totp`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ sid, payload }),
+  });
+  return await response.json();
 }
 
 export async function getLogs(page = 1, limit = 20) {

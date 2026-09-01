@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Authentication Context & Provider
+ * FlakeSecure Mobile App - Authentication Context & Provider v2.0
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & WORKFLOW:
@@ -9,16 +9,14 @@
  *    - Checks for saved tokens (auth_token) in SecureStore upon app startup.
  *    - Fetches the user profile via getMe() or enters biometric unlock mode (needsBiometricUnlock).
  * 
- * 2. BIOMETRIC UNLOCK (biometricUnlock):
- *    - Performs local biometric authentication (Face ID / Fingerprint) via LocalAuthentication.
- *    - Decrypts stored credentials from SecureStore and refreshes the session token via the login API.
+ * 2. VAULT SYNCHRONIZATION:
+ *    - Automatically synchronizes zero-knowledge encrypted vault from server upon successful login/biometric unlock.
+ *    - Wipes local vault and cached credentials on logout.
  * 
  * 3. AUTHENTICATION ACTIONS:
- *    - register(email, username, password): Registers user, stores token and credentials in SecureStore.
- *    - login(identifier, password): Authenticates user and caches session data in SecureStore.
- *    - logout(): Logs out from server and cleans up local tokens and stored credentials.
- *    - switchToPasswordLogin(): Resets biometric prompt state and clears cached session keys.
- *    - updateUser(user): Updates the local user profile object in context.
+ *    - register(email, username, password, otpToken): Registers user with OTP verification, stores session.
+ *    - login(identifier, password): Authenticates user, restores server vault.
+ *    - logout(): Syncs vault to server, wipes local storage, cleans up session.
  * ============================================================================
  */
 
@@ -28,6 +26,7 @@ import React, { createContext, useState, useEffect, useCallback, useContext } fr
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { register as apiRegister, login as apiLogin, logout as apiLogout, getMe } from '../utils/api';
+import { syncVaultFromServer, syncVaultToServer, purgeLocalVault } from '../utils/vault';
 import { i18n } from '../i18n';
 
 const AuthContext = createContext(null);
@@ -59,7 +58,7 @@ export function AuthProvider({ children }) {
         await SecureStore.deleteItemAsync('auth_token');
         setToken(null);
         setUser(null);
-        
+
         try {
           const savedCredentials = await SecureStore.getItemAsync('auth_credentials');
           if (savedCredentials) {
@@ -76,18 +75,18 @@ export function AuthProvider({ children }) {
     try {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      
+
       if (!hasHardware || !isEnrolled) {
         await SecureStore.deleteItemAsync('auth_credentials');
         setNeedsBiometricUnlock(false);
         return { success: false, reason: 'no_hardware' };
       }
-      
+
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: i18n.t('biometricUnlock.unlockBtn') || 'Unlock FlakeSecure',
         fallbackLabel: i18n.t('biometricUnlock.usePassword') || 'Use password',
       });
-      
+
       if (result.success) {
         const savedCredentials = await SecureStore.getItemAsync('auth_credentials');
         if (savedCredentials) {
@@ -98,6 +97,8 @@ export function AuthProvider({ children }) {
             setToken(data.token);
             setUser(data.user);
             setNeedsBiometricUnlock(false);
+
+            syncVaultFromServer(password, identifier).catch(() => {});
             return { success: true };
           } catch (loginErr) {
             console.log('[Auth] Biometric auto-login failed on server:', loginErr.message);
@@ -123,13 +124,15 @@ export function AuthProvider({ children }) {
     setNeedsBiometricUnlock(false);
   }, []);
 
-  const register = useCallback(async (email, username, password) => {
-    const data = await apiRegister(email, username, password);
+  const register = useCallback(async (email, username, password, otpToken = null) => {
+    const data = await apiRegister(email, username, password, otpToken);
     await SecureStore.setItemAsync('auth_token', data.token);
     await SecureStore.setItemAsync('auth_credentials', JSON.stringify({ identifier: email, password }));
     setToken(data.token);
     setUser(data.user);
     setNeedsBiometricUnlock(false);
+
+    syncVaultToServer(password, email).catch(() => {});
     return data;
   }, []);
 
@@ -140,15 +143,27 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     setUser(data.user);
     setNeedsBiometricUnlock(false);
+
+    syncVaultFromServer(password, identifier).catch(() => {});
     return data;
   }, []);
 
   const logout = useCallback(async () => {
     try {
+      const savedCredentials = await SecureStore.getItemAsync('auth_credentials');
+      if (savedCredentials) {
+        const { identifier, password } = JSON.parse(savedCredentials);
+        await syncVaultToServer(password, identifier).catch(() => {});
+      }
+    } catch (e) {}
+
+    try {
       await apiLogout();
     } catch (err) {
       console.log('[Auth] Logout API error (clearing locally):', err.message);
     }
+
+    await purgeLocalVault();
     await SecureStore.deleteItemAsync('auth_token');
     await SecureStore.deleteItemAsync('auth_credentials');
     setToken(null);
@@ -174,11 +189,7 @@ export function AuthProvider({ children }) {
     updateUser,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

@@ -25,11 +25,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { saveCredentials, getCategories, saveCategory } from '../utils/storage';
-import { i18n } from '../i18n';
+import { useLanguage } from '../context/LanguageContext';
 
 const AVAILABLE_ICONS = ['👤', '💼', '💳', '💬', '🎮', '📁', '🛍️', '🛒', '🔒', '🏠', '✈️', '📧', '🎓', '💻', '🎵', '🍔', '🚗', '🏥', '🔑', '⭐'];
 
 export default function CredentialsScreen({ route, navigation }) {
+  const { t } = useLanguage();
   const prefillDomain = route.params?.prefillDomain || '';
   const [domain, setDomain] = useState(prefillDomain);
   const [username, setUsername] = useState('');
@@ -59,7 +60,7 @@ export default function CredentialsScreen({ route, navigation }) {
   const handleCreateCategory = async () => {
     const cleanName = newCategoryName.trim();
     if (!cleanName) {
-      Alert.alert(i18n.t('error'), 'Please enter a category name');
+      Alert.alert(t('error'), 'Please enter a category name');
       return;
     }
 
@@ -74,13 +75,13 @@ export default function CredentialsScreen({ route, navigation }) {
       setNewCategoryIcon('🏷️');
       setShowCategoryModal(false);
     } catch (e) {
-      Alert.alert(i18n.t('error'), 'Failed to create category');
+      Alert.alert(t('error'), 'Failed to create category');
     }
   };
 
   const handleSave = async () => {
     if (!domain.trim() || !username.trim() || !password.trim()) {
-      Alert.alert(i18n.t('error'), i18n.t('viewCredential.allFieldsRequired'));
+      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
 
@@ -93,12 +94,12 @@ export default function CredentialsScreen({ route, navigation }) {
         category: selectedCategory
       });
       Alert.alert(
-        i18n.t('credentials.savedTitle'),
-        i18n.t('credentials.savedMsg', { domain: normalizedDomain }),
-        [{ text: i18n.t('ok'), onPress: () => navigation.goBack() }]
+        t('credentials.savedTitle'),
+        t('credentials.savedMsg', { domain: normalizedDomain }),
+        [{ text: t('ok'), onPress: () => navigation.goBack() }]
       );
     } catch (err) {
-      Alert.alert(i18n.t('error'), i18n.t('viewCredential.saveFailed', { message: err.message }));
+      Alert.alert(t('error'), t('viewCredential.saveFailed', { message: err.message }));
     } finally {
       setSaving(false);
     }
@@ -113,9 +114,9 @@ export default function CredentialsScreen({ route, navigation }) {
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Text style={styles.backText}>‹ {i18n.t('common.back')}</Text>
+              <Text style={styles.backText}>‹ {t('common.back')}</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>{i18n.t('credentials.title')}</Text>
+            <Text style={styles.title}>{t('credentials.title')}</Text>
             <Text style={styles.subtitle}>End-to-end encrypted locally</Text>
           </View>
 
@@ -131,10 +132,10 @@ export default function CredentialsScreen({ route, navigation }) {
 
           <View style={styles.form}>
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{i18n.t('credentials.domainLabel')}</Text>
+              <Text style={styles.label}>{t('credentials.domainLabel')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={i18n.t('credentials.domainPlaceholder')}
+                placeholder={t('credentials.domainPlaceholder')}
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 value={domain}
                 onChangeText={setDomain}
@@ -146,10 +147,10 @@ export default function CredentialsScreen({ route, navigation }) {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{i18n.t('credentials.usernameLabel')}</Text>
+              <Text style={styles.label}>{t('credentials.usernameLabel')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder={i18n.t('credentials.usernamePlaceholder')}
+                placeholder={t('credentials.usernamePlaceholder')}
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 value={username}
                 onChangeText={setUsername}
@@ -160,11 +161,11 @@ export default function CredentialsScreen({ route, navigation }) {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{i18n.t('credentials.passwordLabel')}</Text>
+              <Text style={styles.label}>{t('credentials.passwordLabel')}</Text>
               <View style={styles.passwordRow}>
                 <TextInput
                   style={[styles.input, styles.passwordInput]}
-                  placeholder={i18n.t('credentials.passwordPlaceholder')}
+                  placeholder={t('credentials.passwordPlaceholder')}
                   placeholderTextColor="rgba(255,255,255,0.25)"
                   value={password}
                   onChangeText={setPassword}
@@ -182,7 +183,7 @@ export default function CredentialsScreen({ route, navigation }) {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{i18n.t('credentials.categoryLabel')}</Text>
+              <Text style={styles.label}>{t('credentials.categoryLabel')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
                 <TouchableOpacity
                   style={[styles.categoryChip, !selectedCategory && styles.categoryChipActive]}
@@ -191,13 +192,13 @@ export default function CredentialsScreen({ route, navigation }) {
                 >
                   <Text style={styles.categoryChipIcon}>🚫</Text>
                   <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextActive]}>
-                    {i18n.t('credentials.categoryNone')}
+                    {t('credentials.categoryNone')}
                   </Text>
                 </TouchableOpacity>
 
                 {categories.map((cat) => {
                   const isSelected = selectedCategory === cat.id;
-                  const displayName = cat.isDefault ? (i18n.t(`categories.${cat.id}`) || cat.name) : cat.name;
+                  const displayName = cat.isDefault ? (t(`categories.${cat.id}`) || cat.name) : cat.name;
                   return (
                     <TouchableOpacity
                       key={cat.id}
@@ -219,7 +220,7 @@ export default function CredentialsScreen({ route, navigation }) {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.newCategoryChipIcon}>➕</Text>
-                  <Text style={styles.newCategoryChipText}>{i18n.t('credentials.addCategoryBtn')}</Text>
+                  <Text style={styles.newCategoryChipText}>{t('credentials.addCategoryBtn')}</Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -238,7 +239,7 @@ export default function CredentialsScreen({ route, navigation }) {
               style={styles.saveGradient}
             >
               <Text style={styles.saveBtnText}>
-                {saving ? i18n.t('credentials.saving') : i18n.t('credentials.saveButton')}
+                {saving ? t('credentials.saving') : t('credentials.saveButton')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -253,19 +254,19 @@ export default function CredentialsScreen({ route, navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{i18n.t('categories.newCategory')}</Text>
+            <Text style={styles.modalTitle}>{t('categories.newCategory')}</Text>
             
-            <Text style={styles.modalLabel}>{i18n.t('categories.categoryName')}</Text>
+            <Text style={styles.modalLabel}>{t('categories.categoryName')}</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder={i18n.t('categories.categoryNamePlaceholder')}
+              placeholder={t('categories.categoryNamePlaceholder')}
               placeholderTextColor="rgba(255,255,255,0.3)"
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               autoCapitalize="words"
             />
 
-            <Text style={styles.modalLabel}>{i18n.t('categories.selectIcon')}</Text>
+            <Text style={styles.modalLabel}>{t('categories.selectIcon')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconPickerScroll}>
               <View style={styles.iconPickerRow}>
                 {AVAILABLE_ICONS.map((icon) => (
@@ -285,7 +286,7 @@ export default function CredentialsScreen({ route, navigation }) {
                 style={styles.modalCancelBtn}
                 onPress={() => setShowCategoryModal(false)}
               >
-                <Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text>
+                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalSaveBtn}
@@ -295,7 +296,7 @@ export default function CredentialsScreen({ route, navigation }) {
                   colors={['#6391ff', '#7c6aff']}
                   style={styles.modalSaveGradient}
                 >
-                  <Text style={styles.modalSaveText}>{i18n.t('save')}</Text>
+                  <Text style={styles.modalSaveText}>{t('save')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>

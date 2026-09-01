@@ -280,14 +280,20 @@
   <div class="header">
     <div class="logo-icon">❄️</div>
     <div class="logo-text">Flake<span>Secure</span></div>
-    <div class="version">v1.1.0</div>
+    <select id="ext-lang-select" aria-label="Language" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 2px 6px; font-size: 11px; cursor: pointer; outline: none; margin-left: auto;">
+      <option value="en" style="background: #111424; color: #fff;">🇬🇧 EN</option>
+      <option value="de" style="background: #111424; color: #fff;">🇩🇪 DE</option>
+      <option value="fr" style="background: #111424; color: #fff;">🇫🇷 FR</option>
+      <option value="es" style="background: #111424; color: #fff;">🇪🇸 ES</option>
+    </select>
+    <div class="version">v2.0.0</div>
   </div>
 
   <!-- Account / Auth Section -->
   <div id="auth-section">
     <!-- Logged out: Login Card -->
     <div class="auth-card" id="login-view" style="display: none;">
-      <div class="auth-title">Account Anmeldung</div>
+      <div class="auth-title" id="t-auth-title">Account Anmeldung</div>
       <div class="form-group">
         <input type="text" class="form-input" id="login-identifier" placeholder="Benutzername oder E-Mail" autocomplete="username">
       </div>
@@ -301,7 +307,7 @@
     <!-- Logged in: User Info Card -->
     <div class="user-card" id="user-view" style="display: none;">
       <div>
-        <div class="user-info-label">Angemeldet als</div>
+        <div class="user-info-label" id="t-logged-in-as">Angemeldet als</div>
         <div class="user-info-name" id="auth-username"></div>
       </div>
       <button class="logout-btn" id="logout-btn">Abmelden</button>
@@ -310,7 +316,7 @@
 
   <!-- Status Card -->
   <div class="status-card">
-    <div class="status-label">Status</div>
+    <div class="status-label" id="t-status-label">Status</div>
     <div class="status-value" id="status-text">
       <span class="status-dot"></span>
       <span id="status-msg">Bereit</span>
@@ -319,15 +325,15 @@
 
   <!-- Display Mode -->
   <div>
-    <div class="section-title">Anzeige-Modus</div>
+    <div class="section-title" id="t-display-mode-label">Anzeige-Modus</div>
     <div class="radio-group">
       <label class="radio-label">
         <input type="radio" name="display-mode" value="popup" id="mode-popup" checked>
-        Direkt Popup öffnen
+        <span id="t-mode-popup">Direkt Popup öffnen</span>
       </label>
       <label class="radio-label">
         <input type="radio" name="display-mode" value="button" id="mode-button">
-        "FlakeSecure" Button anzeigen
+        <span id="t-mode-button">"FlakeSecure" Button anzeigen</span>
       </label>
     </div>
   </div>
@@ -335,7 +341,7 @@
   <!-- Options & Details -->
   <div class="card" style="padding: 4px 12px; margin-bottom: 0;">
     <div class="info-row">
-      <span class="info-key">Auto-Login</span>
+      <span class="info-key" id="t-auto-login">Auto-Login</span>
       <label class="toggle">
         <input type="checkbox" id="auto-login" checked>
         <div class="toggle-track"></div>
@@ -344,7 +350,7 @@
     </div>
 
     <div class="info-row">
-      <span class="info-key">Overlay bei Passwortfeld</span>
+      <span class="info-key" id="t-auto-overlay">Overlay bei Passwortfeld</span>
       <label class="toggle">
         <input type="checkbox" id="auto-overlay" checked>
         <div class="toggle-track"></div>
@@ -353,12 +359,12 @@
     </div>
 
     <div class="info-row">
-      <span class="info-key">Verschlüsselung</span>
+      <span class="info-key" id="t-encryption">Verschlüsselung</span>
       <span class="info-val">AES-256 (Zero-Knowledge) ✓</span>
     </div>
   </div>
 
-  <div class="footer">FlakeSecure – Biometrische Sicherheit</div>
+  <div class="footer" id="t-footer">FlakeSecure – Biometrische Sicherheit</div>
 
   <script src="popup.js"></script>
 </body>

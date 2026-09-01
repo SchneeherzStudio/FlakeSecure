@@ -7,6 +7,7 @@
  * 
  * 1. GET /:
  *    - Retrieves paginated login and access activity logs for the authenticated user (sorted by created_at DESC).
+ *    - Enriches log items with human-readable action labels (Login, Credential Sent, QR Share, Account Created, Account Deleted).
  *    - Supports query parameters ?page= and ?limit=.
  * 
  * 2. DELETE /clear:
@@ -19,6 +20,14 @@ const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
+
+const ACTION_LABELS = {
+    'login': 'Login',
+    'credential_send': 'Credential Sent',
+    'qr_share': 'QR Share',
+    'register': 'Account Created',
+    'delete': 'Account Deleted'
+};
 
 router.get('/', authMiddleware, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
@@ -33,8 +42,13 @@ router.get('/', authMiddleware, async (req, res) => {
         const countRes = await db.query('SELECT COUNT(*) FROM login_logs WHERE user_id = $1', [req.user.id]);
         const total = parseInt(countRes.rows[0].count);
 
+        const enrichedLogs = rows.map(log => ({
+            ...log,
+            action_label: ACTION_LABELS[log.action] || log.action
+        }));
+
         res.json({
-            logs: rows,
+            logs: enrichedLogs,
             page,
             limit,
             total,

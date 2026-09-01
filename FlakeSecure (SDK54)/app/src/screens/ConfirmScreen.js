@@ -23,18 +23,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
-import { findCredentialsForDomain } from '../utils/storage';
+import { useLanguage } from '../context/LanguageContext';
+import { findCredentialsForDomain, getTotpItems } from '../utils/storage';
 import { encryptCredentials } from '../utils/crypto';
-import { i18n } from '../i18n';
 
 const SERVER_URL = 'https://flakesecure.snowystudio.dev';
 
 export default function ConfirmScreen({ route, navigation }) {
+  const { t } = useLanguage();
   const sid = route.params?.sid || route.params?.s;
   const key = route.params?.key || route.params?.k;
   const domain = route.params?.domain || route.params?.d;
   const [state, setState] = useState('loading');
   const [credentials, setCredentials] = useState(null);
+  const [matchingTotpItem, setMatchingTotpItem] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [biometricType, setBiometricType] = useState('Biometrie');
   const pulseAnim = new Animated.Value(1);
@@ -77,8 +79,8 @@ export default function ConfirmScreen({ route, navigation }) {
 
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: `${i18n.t('confirm.confirmLogin')} ${domain}`,
-        fallbackLabel: 'PIN verwenden',
+        promptMessage: `${t('confirm.confirmLogin')} ${domain}`,
+        fallbackLabel: 'PIN',
         disableDeviceFallback: false
       });
 
@@ -91,7 +93,7 @@ export default function ConfirmScreen({ route, navigation }) {
       await sendCredentials();
 
     } catch (err) {
-      setErrorMsg(i18n.t('confirm.biometricFailed', { message: err.message }));
+      setErrorMsg(t('confirm.biometricFailed', { message: err.message }));
       setState('error');
     }
   }
@@ -119,12 +121,22 @@ export default function ConfirmScreen({ route, navigation }) {
         throw new Error(data.error || 'Server error');
       }
 
-      setState('success');
-      setTimeout(() => navigation.navigate('Home'), 2500);
+      const totpItems = await getTotpItems();
+      const matchingTotp = totpItems.find(
+        (tItem) => (tItem.issuer || '').toLowerCase().includes(domain.toLowerCase()) ||
+               (domain.toLowerCase().includes((tItem.issuer || '').toLowerCase()))
+      );
 
+      setState('success');
+
+      if (matchingTotp) {
+        setMatchingTotpItem(matchingTotp);
+      } else {
+        setTimeout(() => navigation.navigate('Home'), 2500);
+      }
     } catch (err) {
       console.error("Detaillierter Netzwerkfehler:", err);
-      setErrorMsg(i18n.t('confirm.networkError', { message: err.message }));
+      setErrorMsg(t('confirm.networkError', { message: err.message }));
       setState('error');
     }
   }
@@ -135,7 +147,7 @@ export default function ConfirmScreen({ route, navigation }) {
         return (
           <View style={styles.centerContent}>
             <ActivityIndicator size="large" color="#6391ff" />
-            <Text style={styles.loadingText}>{i18n.t('confirm.searchingCredentials')}</Text>
+            <Text style={styles.loadingText}>{t('confirm.searchingCredentials')}</Text>
           </View>
         );
 
@@ -143,18 +155,18 @@ export default function ConfirmScreen({ route, navigation }) {
         return (
           <View style={styles.centerContent}>
             <Text style={styles.stateIcon}>🔍</Text>
-            <Text style={styles.stateTitle}>{i18n.t('confirm.noCredentials')}</Text>
+            <Text style={styles.stateTitle}>{t('confirm.noCredentials')}</Text>
             <Text style={styles.stateText}>
-              {i18n.t('confirm.noCredentialsFor', { domain })}
+              {t('confirm.noCredentialsFor', { domain })}
             </Text>
             <TouchableOpacity
               style={styles.addCredBtn}
               onPress={() => navigation.navigate('Credentials', { prefillDomain: domain })}
             >
-              <Text style={styles.addCredBtnText}>{i18n.t('confirm.addCredentials')}</Text>
+              <Text style={styles.addCredBtnText}>{t('confirm.addCredentials')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.goBack()}>
-              <Text style={styles.cancelLinkText}>{i18n.t('cancel')}</Text>
+              <Text style={styles.cancelLinkText}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -163,11 +175,11 @@ export default function ConfirmScreen({ route, navigation }) {
         return (
           <View style={styles.centerContent}>
             <View style={styles.domainCard}>
-              <Text style={styles.domainCardTitle}>{i18n.t('confirm.confirmLogin')}</Text>
+              <Text style={styles.domainCardTitle}>{t('confirm.confirmLogin')}</Text>
               <Text style={styles.domainCardDomain}>🌐 {domain}</Text>
               {credentials && (
                 <View style={styles.credPreview}>
-                  <Text style={styles.credLabel}>{i18n.t('confirm.user')}</Text>
+                  <Text style={styles.credLabel}>{t('confirm.user')}</Text>
                   <Text style={styles.credValue}>{credentials.username}</Text>
                 </View>
               )}
@@ -184,17 +196,14 @@ export default function ConfirmScreen({ route, navigation }) {
                 end={{ x: 1, y: 0 }}
                 style={styles.confirmGradient}
               >
-                <Text style={styles.biometricIcon}>
-                  {biometricType === 'Face ID' ? '👤' : '👆'}
-                </Text>
-                <Text style={styles.confirmBtnText}>
-                  {i18n.t('confirm.confirmWith', { biometricType })}
+                <Text style={styles.confirmButtonText}>
+                  {t('confirm.confirmWith', { biometricType })}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.goBack()}>
-              <Text style={styles.cancelLinkText}>{i18n.t('cancel')}</Text>
+              <Text style={styles.cancelLinkText}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -208,7 +217,7 @@ export default function ConfirmScreen({ route, navigation }) {
               {biometricType === 'Face ID' ? '👤' : '👆'}
             </Animated.Text>
             <Text style={styles.stateTitle}>{biometricType}</Text>
-            <Text style={styles.stateText}>{i18n.t('confirm.authenticating')}</Text>
+            <Text style={styles.stateText}>{t('confirm.authenticating')}</Text>
           </View>
         );
 
@@ -216,8 +225,8 @@ export default function ConfirmScreen({ route, navigation }) {
         return (
           <View style={styles.centerContent}>
             <ActivityIndicator size="large" color="#6391ff" />
-            <Text style={styles.stateTitle}>{i18n.t('confirm.sendingEncrypted')}</Text>
-            <Text style={styles.stateText}>{i18n.t('confirm.encryptionNote')}</Text>
+            <Text style={styles.stateTitle}>{t('confirm.sendingEncrypted')}</Text>
+            <Text style={styles.stateText}>{t('confirm.encryptionNote')}</Text>
           </View>
         );
 
@@ -225,10 +234,32 @@ export default function ConfirmScreen({ route, navigation }) {
         return (
           <View style={styles.centerContent}>
             <Text style={styles.bigIcon}>✅</Text>
-            <Text style={styles.stateTitle}>{i18n.t('confirm.success')}</Text>
+            <Text style={styles.stateTitle}>{t('confirm.success')}</Text>
             <Text style={styles.stateText}>
-              {i18n.t('confirm.successText')}
+              {t('confirm.successText')}
             </Text>
+
+            {matchingTotpItem && (
+              <TouchableOpacity
+                style={{ marginTop: 20, width: '100%' }}
+                onPress={() =>
+                  navigation.navigate('Authenticator', {
+                    relaySession: { sid, keyHex: key, domain },
+                  })
+                }
+              >
+                <LinearGradient
+                  colors={['#6391ff', '#7c6aff']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientBtn}
+                >
+                  <Text style={styles.confirmButtonText}>
+                    {t('confirm.streamTotp', { issuer: matchingTotpItem.issuer })}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
           </View>
         );
 
@@ -236,13 +267,13 @@ export default function ConfirmScreen({ route, navigation }) {
         return (
           <View style={styles.centerContent}>
             <Text style={styles.bigIcon}>⚠️</Text>
-            <Text style={styles.stateTitle}>{i18n.t('error')}</Text>
+            <Text style={styles.stateTitle}>{t('error')}</Text>
             <Text style={styles.errorText}>{errorMsg}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={() => setState('ready')}>
-              <Text style={styles.retryBtnText}>{i18n.t('retry')}</Text>
+              <Text style={styles.retryBtnText}>{t('retry')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.navigate('Home')}>
-              <Text style={styles.cancelLinkText}>{i18n.t('common.back')}</Text>
+              <Text style={styles.cancelLinkText}>{t('common.back')}</Text>
             </TouchableOpacity>
           </View>
         );

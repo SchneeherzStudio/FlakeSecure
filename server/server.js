@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Relay Server
+ * FlakeSecure Relay Server v2.0
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & ARCHITECTURE:
@@ -10,11 +10,15 @@
  *    - The server processes only ciphertext and never has access to plaintext credential data.
  * 
  * 2. API ROUTES & STATIC ASSETS:
- *    - /api/auth: User registration, login, token refresh, and session auth.
- *    - /api/account: Account management, recipient whitelisting, profile updates.
- *    - /api/logs: Querying and clearing login/access logs with GeoIP geolocation.
+ *    - /api/auth: User registration (with OTP), login (with push notification trigger), session auth.
+ *    - /api/account: Account management, recipient whitelisting, active sessions, profile updates.
+ *    - /api/logs: Querying and clearing login/access logs with GeoIP geolocation and action labels.
  *    - /api/share: Generating and consuming time-limited / hidden shared payloads.
- *    - /static / /public: Serves landing page, privacy policy, legal notices, and static assets.
+ *    - /api/system: Server status, version checks, admin-managed announcements, maintenance mode.
+ *    - /api/otp: OTP email verification for registration and account deletion.
+ *    - /api/vault: Encrypted credential vault sync (client-side encrypted, zero-knowledge).
+ *    - /api/notifications: Expo push notification token management and delivery.
+ *    - /static / /public: Serves landing page, account management, privacy policy, legal notices.
  *    - /health: Server health status, uptime, and active session counts.
  *    - /share & /auth: Universal link / deep-link fallback pages for mobile devices.
  * 
@@ -23,7 +27,8 @@
  *    - cleanExpiredSessions(): Periodic automated cleanup for expired sessions and shared payloads.
  *    - POST /send-login: Receives encrypted payload from mobile app and broadcasts it to the browser session room.
  *    - GET /session-status/:sid: Polling endpoint for session readiness and status checks.
- *    - Socket.IO Events: join-session, session-ready, login-data, session-expired, disconnect.
+ *    - Socket.IO Events: join-session, session-ready, login-data, totp-data, session-expired, disconnect.
+ *    - TOTP Streaming: Persistent socket connections (2-min TTL) for real-time authenticator code relay.
  * ============================================================================
  */
 
@@ -43,6 +48,10 @@ const authRoutes = require('./routes/auth');
 const accountRoutes = require('./routes/account');
 const logsRoutes = require('./routes/logs');
 const shareRoutes = require('./routes/share');
+const systemRoutes = require('./routes/system');
+const otpRoutes = require('./routes/otp');
+const vaultRoutes = require('./routes/vault');
+const { router: notificationRoutes } = require('./routes/notifications');
 const { authMiddleware } = require('./middleware/auth');
 
 const PORT = 4000;
@@ -73,6 +82,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/share', shareRoutes);
+app.use('/api/system', systemRoutes);
+app.use('/api/otp', otpRoutes);
+app.use('/api/vault', vaultRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 const activeSessions = new Map();
 
@@ -110,6 +123,10 @@ const STATIC_DIR = path.join(__dirname, 'static');
 
 app.get('/', (req, res) => {
   res.sendFile('index.html', { root: STATIC_DIR });
+});
+
+app.get('/account', (req, res) => {
+  res.sendFile('account.html', { root: STATIC_DIR });
 });
 
 app.get('/imprint', (req, res) => {
@@ -154,7 +171,14 @@ app.post('/send-login', async (req, res) => {
   }
 
   io.to(sid).emit('login-data', payload);
-  activeSessions.delete(sid);
+  session.loginCompleted = true;
+  session.loginCompletedAt = Date.now();
+
+  setTimeout(() => {
+    if (activeSessions.has(sid) && activeSessions.get(sid).loginCompleted) {
+      activeSessions.delete(sid);
+    }
+  }, 2 * 60 * 1000);
 
   console.log(`[FlakeSecure] Relayed login data for session ${sid.slice(0, 8)}... → domain: ${session.domain}`);
 
@@ -176,6 +200,26 @@ app.post('/send-login', async (req, res) => {
   }
 
   res.json({ success: true, message: 'Login data relayed successfully' });
+});
+
+app.post('/send-totp', async (req, res) => {
+  const { sid, payload } = req.body;
+
+  if (!isValidSid(sid)) {
+    return res.status(400).json({ error: 'Invalid or missing session ID' });
+  }
+
+  if (!isValidEncryptedPayload(payload)) {
+    return res.status(400).json({ error: 'Invalid or missing encrypted payload' });
+  }
+
+  const session = activeSessions.get(sid);
+  if (!session) {
+    return res.status(404).json({ error: 'Session not found or expired' });
+  }
+
+  io.to(sid).emit('totp-data', payload);
+  res.json({ success: true, message: 'TOTP data relayed successfully' });
 });
 
 app.get('/session-status/:sid', (req, res) => {
@@ -205,24 +249,42 @@ app.get('/session-status/:sid', (req, res) => {
 io.on('connection', (socket) => {
   console.log(`[FlakeSecure] Browser connected: ${socket.id}`);
 
-  socket.on('join-session', ({ sid }) => {
+  socket.on('join-session', async ({ sid, token, domain }) => {
     if (!isValidSid(sid)) {
       socket.emit('error', { message: 'Invalid session ID' });
       return;
     }
 
+    const sessionDomain = domain || 'unknown';
+
     activeSessions.set(sid, {
       socketId: socket.id,
       createdAt: Date.now(),
-      domain: 'unknown'
+      domain: sessionDomain
     });
 
     socket.join(sid);
     socket.sessionId = sid;
 
-    console.log(`[FlakeSecure] Session registered: ${sid.slice(0, 8)}... (socket: ${socket.id})`);
+    console.log(`[FlakeSecure] Session registered: ${sid.slice(0, 8)}... (socket: ${socket.id}, domain: ${sessionDomain})`);
 
     socket.emit('session-ready', { sid });
+
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const { sendPushToUser } = require('./routes/notifications');
+        await sendPushToUser(
+          decoded.id,
+          '🔐 Login-Anfrage',
+          `Anmeldung für ${sessionDomain} auf deinem Computer bestätigen`,
+          { type: 'auth_request', sid, domain: sessionDomain }
+        );
+      } catch (pushErr) {
+        console.log('[FlakeSecure] Push on join-session skipped:', pushErr.message);
+      }
+    }
 
     setTimeout(() => {
       if (activeSessions.has(sid)) {

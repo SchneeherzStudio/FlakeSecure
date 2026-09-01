@@ -36,7 +36,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
 
     socket.on('connect', () => {
       console.log('[FlakeSecure Background] Connected to relay server');
-      socket.emit('join-session', { sid: sessionId, token: token });
+      socket.emit('join-session', { sid: sessionId, token: token, domain: message.domain });
       if (sender.tab && sender.tab.id) {
         browser.tabs.sendMessage(sender.tab.id, { type: 'SOCKET_CONNECTED' }).catch(() => {});
       }
@@ -46,6 +46,13 @@ browser.runtime.onMessage.addListener((message, sender) => {
       console.log('[FlakeSecure Background] Received login data');
       if (sender.tab && sender.tab.id) {
         browser.tabs.sendMessage(sender.tab.id, { type: 'LOGIN_DATA', payload }).catch(() => {});
+      }
+    });
+
+    socket.on('totp-data', (payload) => {
+      console.log('[FlakeSecure Background] Received TOTP data');
+      if (sender.tab && sender.tab.id) {
+        browser.tabs.sendMessage(sender.tab.id, { type: 'TOTP_DATA', payload }).catch(() => {});
       }
     });
 

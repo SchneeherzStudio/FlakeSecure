@@ -6,7 +6,7 @@
  * FUNCTION OVERVIEW & ENDPOINTS:
  * 
  * 1. POST /register:
- *    - Validates email, lowercase username, and password rules (min. 8 characters, no whitespace).
+ *    - Validates email, lowercase username, password rules (min. 8 characters, no whitespace), and email OTP verification token.
  *    - Securely hashes password using argon2.hash.
  *    - Creates user in PostgreSQL, generates a 24h JWT, and stores the session in the sessions table.
  * 
@@ -14,6 +14,7 @@
  *    - Finds user by email or username (case-insensitive lowercase).
  *    - Verifies password with argon2.verify.
  *    - Creates a new 24h session and records the login with IP, GeoIP data (geoip-lite), and device info in login_logs.
+ *    - Triggers push notification to other active devices registered by the user.
  * 
  * 3. POST /logout:
  *    - Requires authentication.
@@ -28,13 +29,15 @@
 const express = require('express');
 const argon2 = require('argon2');
 const geoip = require('geoip-lite');
+const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware, createToken, hashToken } = require('../middleware/auth');
+const { sendPushToUser } = require('./notifications');
 
 const router = express.Router();
 
 router.post('/register', async (req, res) => {
-    let { email, username, password } = req.body;
+    let { email, username, password, otpToken } = req.body;
     if (!email || !username || !password) {
         return res.status(400).json({ error: 'Email, username, and password are required' });
     }
@@ -52,6 +55,17 @@ router.post('/register', async (req, res) => {
 
     if (password.length < 8) {
         return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    if (otpToken) {
+        try {
+            const decoded = jwt.verify(otpToken, process.env.JWT_SECRET);
+            if (decoded.email !== cleanEmail || decoded.purpose !== 'register' || !decoded.verified) {
+                return res.status(400).json({ error: 'Invalid or expired email verification token' });
+            }
+        } catch (otpErr) {
+            return res.status(400).json({ error: 'Email verification required. Please verify your email first.' });
+        }
     }
 
     try {
@@ -122,6 +136,18 @@ router.post('/login', async (req, res) => {
             'INSERT INTO login_logs (user_id, ip_address, city, region, country, device_info, action, domain) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
             [user.id, cleanIp, city, region, country, deviceInfo, 'login', domain]
         );
+
+        try {
+            const loginDevice = deviceInfo.substring(0, 50);
+            await sendPushToUser(
+                user.id,
+                '❄️ Neuer Login erkannt',
+                `Anmeldung von ${loginDevice} (${city || country || 'Unbekannter Ort'})`,
+                { type: 'new_login', device: loginDevice }
+            );
+        } catch (pushErr) {
+            console.log('[FlakeSecure] Push notification skipped:', pushErr.message);
+        }
 
         delete user.password_hash;
         res.json({ user, token });

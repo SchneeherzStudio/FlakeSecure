@@ -1,32 +1,44 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Login & Registration Screen (LoginScreen)
+ * FlakeSecure Mobile App - Login & Registration Screen v2.0
  * ============================================================================
  * 
  * FUNCTION OVERVIEW:
  * 
- * 1. AUTHENTICATION & REGISTRATION:
+ * 1. AUTHENTICATION & LOGIN:
  *    - handleLogin(): Validates credentials and logs user in via AuthContext.login.
- *    - handleRegister(): Enforces registration rules (lowercase username, no spaces, min 8 chars, matching passwords) and calls AuthContext.register.
  * 
- * 2. MODE SWITCHING & FORM CONTROL:
- *    - Toggles between login and registration views with responsive dynamic form inputs.
+ * 2. OTP EMAIL REGISTRATION:
+ *    - handleSendOtp(): Requests 6-digit verification code to user's email via /api/otp/send.
+ *    - handleRegister(): Verifies OTP code via /api/otp/verify and completes account registration.
+ * 
+ * 3. REACTIVE LOCALIZATION & FORM CONTROLS:
+ *    - Uses useLanguage() hook for multi-language support (EN, DE, FR, ES).
  * ============================================================================
  */
 
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  TextInput, Alert, KeyboardAvoidingView,
-  Platform, ScrollView, ActivityIndicator
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import { i18n } from '../i18n';
+import { useLanguage } from '../context/LanguageContext';
+import { sendOtp, verifyOtp } from '../utils/api';
 
 export default function LoginScreen({ navigation }) {
   const { login, register } = useAuth();
+  const { t } = useLanguage();
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
@@ -36,12 +48,16 @@ export default function LoginScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+
   const handleLogin = async () => {
     const cleanIdentifier = identifier.trim().toLowerCase();
     const cleanPassword = password.trim();
 
     if (!cleanIdentifier || !cleanPassword) {
-      Alert.alert(i18n.t('error'), i18n.t('viewCredential.allFieldsRequired'));
+      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
 
@@ -49,9 +65,28 @@ export default function LoginScreen({ navigation }) {
     try {
       await login(cleanIdentifier, cleanPassword);
     } catch (err) {
-      Alert.alert(i18n.t('login.failed'), err.message || i18n.t('login.invalidCredentials'));
+      Alert.alert(t('login.failed'), err.message || t('login.invalidCredentials'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      await sendOtp(cleanEmail, 'register');
+      setOtpSent(true);
+      Alert.alert(t('success'), `OTP sent to ${cleanEmail}`);
+    } catch (e) {
+      Alert.alert(t('error'), e.message || 'Could not send verification code.');
+    } finally {
+      setSendingOtp(false);
     }
   };
 
@@ -59,33 +94,46 @@ export default function LoginScreen({ navigation }) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim().toLowerCase();
     const cleanPassword = password.trim();
+    const cleanOtp = otpCode.trim();
 
     if (!cleanEmail || !cleanUsername || !cleanPassword) {
-      Alert.alert(i18n.t('error'), i18n.t('viewCredential.allFieldsRequired'));
+      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
     if (!/^[a-z0-9_-]+$/.test(cleanUsername)) {
-      Alert.alert(i18n.t('error'), i18n.t('onboarding.account.usernameRules'));
+      Alert.alert(t('error'), t('onboarding.account.usernameRules'));
       return;
     }
     if (/\s/.test(password)) {
-      Alert.alert(i18n.t('error'), i18n.t('onboarding.account.passwordNoSpaces'));
+      Alert.alert(t('error'), t('onboarding.account.passwordNoSpaces'));
       return;
     }
     if (cleanPassword.length < 8) {
-      Alert.alert(i18n.t('error'), i18n.t('onboarding.account.passwordMinLength'));
+      Alert.alert(t('error'), t('onboarding.account.passwordMinLength'));
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert(i18n.t('error'), i18n.t('onboarding.account.passwordsDoNotMatch'));
+      Alert.alert(t('error'), t('onboarding.account.passwordsDoNotMatch'));
+      return;
+    }
+
+    if (!otpSent) {
+      Alert.alert(t('error'), t('onboarding.account.otpLabel'));
+      return;
+    }
+
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      Alert.alert(t('error'), t('onboarding.account.otpLabel'));
       return;
     }
 
     setLoading(true);
     try {
-      await register(cleanEmail, cleanUsername, cleanPassword);
+      const verifyRes = await verifyOtp(cleanEmail, cleanOtp, 'register');
+      const otpToken = verifyRes.token;
+      await register(cleanEmail, cleanUsername, cleanPassword, otpToken);
     } catch (err) {
-      Alert.alert(i18n.t('error'), err.message || 'Registration failed.');
+      Alert.alert(t('error'), err.message || 'Registration failed.');
     } finally {
       setLoading(false);
     }
@@ -93,168 +141,177 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <Text style={styles.logoEmoji}>❄️</Text>
-            <Text style={styles.logoText}>
-              Flake<Text style={styles.logoAccent}>Secure</Text>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconText}>❄️</Text>
+            </View>
+            <Text style={styles.title}>
+              Flake<Text style={styles.titleHighlight}>Secure</Text>
             </Text>
             <Text style={styles.subtitle}>
-              {isRegisterMode ? i18n.t('login.registerSubtitle') : i18n.t('login.subtitle')}
+              {isRegisterMode ? t('login.registerTitle') : t('login.subtitle')}
             </Text>
           </View>
 
-          {isRegisterMode ? (
-            <View style={styles.form}>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>{i18n.t('onboarding.account.email')}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="you@example.com"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                />
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>{i18n.t('onboarding.account.username')}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="flakeuser"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
-                  value={username}
-                  onChangeText={(text) => setUsername(text.toLowerCase())}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <Text style={styles.inputHint}>{i18n.t('onboarding.account.usernameRuleHint')}</Text>
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>{i18n.t('onboarding.account.password')}</Text>
-                <View style={styles.passwordRow}>
+          <View style={styles.form}>
+            {isRegisterMode ? (
+              <>
+                <Text style={styles.inputLabel}>{t('onboarding.account.email')}</Text>
+                <View style={styles.otpRow}>
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
-                    placeholder="••••••••"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
+                    placeholder="email@domain.com"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
                     autoCapitalize="none"
                   />
                   <TouchableOpacity
-                    style={styles.showBtn}
-                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.sendOtpBtn}
+                    onPress={handleSendOtp}
+                    disabled={sendingOtp}
                   >
-                    <Text style={styles.showBtnText}>{showPassword ? '🙈' : '👁'}</Text>
+                    {sendingOtp ? (
+                      <ActivityIndicator color="#6391ff" size="small" />
+                    ) : (
+                      <Text style={styles.sendOtpText}>{otpSent ? t('login.resendOtp') : t('login.sendOtp')}</Text>
+                    )}
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.inputHint}>{i18n.t('onboarding.account.passwordRuleHint')}</Text>
-              </View>
 
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>{i18n.t('onboarding.account.confirmPassword')}</Text>
-                <View style={styles.passwordRow}>
-                  <TextInput
-                    style={[styles.input, { flex: 1 }]}
-                    placeholder="••••••••"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                  />
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.form}>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>{i18n.t('login.emailOrUsername')}</Text>
+                {otpSent && (
+                  <View style={styles.otpInputBox}>
+                    <Text style={styles.inputLabel}>{t('login.otpLabel')}</Text>
+                    <TextInput
+                      style={[styles.input, styles.otpCodeInput]}
+                      placeholder={t('login.otpPlaceholder')}
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={otpCode}
+                      onChangeText={setOtpCode}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                  </View>
+                )}
+
+                <Text style={styles.inputLabel}>{t('onboarding.account.username')}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="you@example.com"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholder="username"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                />
+
+                <Text style={styles.inputLabel}>{t('onboarding.account.password')}</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="••••••••"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.inputLabel}>{t('onboarding.account.confirmPassword')}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="••••••••"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showPassword}
+                />
+
+                <TouchableOpacity style={styles.submitBtn} onPress={handleRegister} disabled={loading}>
+                  <LinearGradient
+                    colors={['#6391ff', '#7c6aff']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradientBtn}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>{t('login.registerButton')}</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.inputLabel}>{t('login.emailOrUsername')}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="user@domain.com / username"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
                   value={identifier}
                   onChangeText={setIdentifier}
                   autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
                 />
-              </View>
 
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>{i18n.t('login.password')}</Text>
-                <View style={styles.passwordRow}>
+                <Text style={styles.inputLabel}>{t('login.password')}</Text>
+                <View style={styles.passwordContainer}>
                   <TextInput
-                    style={[styles.input, { flex: 1 }]}
+                    style={styles.passwordInput}
                     placeholder="••••••••"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
-                    autoCapitalize="none"
                   />
                   <TouchableOpacity
-                    style={styles.showBtn}
+                    style={styles.eyeButton}
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <Text style={styles.showBtnText}>{showPassword ? '🙈' : '👁'}</Text>
+                    <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            </View>
-          )}
 
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={isRegisterMode ? handleRegister : handleLogin}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={loading ? ['#333', '#444'] : ['#6391ff', '#7c6aff']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.loginGradient}
+                <TouchableOpacity style={styles.submitBtn} onPress={handleLogin} disabled={loading}>
+                  <LinearGradient
+                    colors={['#6391ff', '#7c6aff']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.gradientBtn}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>{t('login.loginButton')}</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={styles.toggleModeBtn}
+              onPress={() => {
+                setIsRegisterMode(!isRegisterMode);
+                setOtpSent(false);
+                setOtpCode('');
+              }}
             >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.loginBtnText}>
-                  {isRegisterMode ? i18n.t('login.createAccount') : i18n.t('login.loginButton')}
-                </Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.toggleModeBtn}
-            onPress={() => setIsRegisterMode(!isRegisterMode)}
-            disabled={loading}
-          >
-            <Text style={styles.toggleModeText}>
-              {isRegisterMode ? (
-                i18n.t('login.alreadyHaveAccount')
-              ) : (
-                <>
-                  <Text style={styles.toggleModeSub}>{i18n.t('login.noAccount')} </Text>
-                  <Text style={styles.toggleModeAccent}>{i18n.t('login.createAccount')}</Text>
-                </>
-              )}
-            </Text>
-          </TouchableOpacity>
+              <Text style={styles.toggleModeText}>
+                {isRegisterMode
+                  ? t('login.toggleToLogin')
+                  : t('login.toggleToRegister')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -262,43 +319,143 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#090b14' },
-  scroll: { padding: 24, paddingTop: 40, paddingBottom: 40, flexGrow: 1 },
-  header: { alignItems: 'center', marginBottom: 36 },
-  logoEmoji: { fontSize: 52, marginBottom: 10 },
-  logoText: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 6 },
-  logoAccent: { color: '#6391ff' },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
-  form: { gap: 18, marginBottom: 24 },
-  fieldGroup: { gap: 6 },
-  label: {
-    fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)',
-    textTransform: 'uppercase', letterSpacing: 0.08
+  container: {
+    flex: 1,
+    backgroundColor: '#090b14',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 30,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(99, 145, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  iconText: {
+    fontSize: 32,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.5,
+  },
+  titleHighlight: {
+    color: '#6391ff',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 4,
+  },
+  form: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 22,
+  },
+  inputLabel: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-    color: '#fff', fontSize: 15
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#fff',
+    fontSize: 14,
   },
-  inputHint: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.35)',
-    marginTop: 2,
+  otpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  passwordRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  showBtn: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 14, width: 50, height: 50,
-    alignItems: 'center', justifyContent: 'center'
+  sendOtpBtn: {
+    backgroundColor: 'rgba(99, 145, 255, 0.15)',
+    borderColor: 'rgba(99, 145, 255, 0.3)',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  showBtnText: { fontSize: 18 },
-  loginButton: { borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
-  loginGradient: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
-  loginBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
-  toggleModeBtn: { alignItems: 'center', paddingVertical: 12 },
-  toggleModeText: { color: '#6391ff', fontSize: 15, fontWeight: '600', textAlign: 'center' },
-  toggleModeSub: { color: 'rgba(255,255,255,0.4)', fontWeight: '400' },
-  toggleModeAccent: { color: '#6391ff', fontWeight: '700' },
+  sendOtpText: {
+    color: '#6391ff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  otpInputBox: {
+    marginTop: 6,
+  },
+  otpCodeInput: {
+    fontSize: 18,
+    letterSpacing: 4,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#fff',
+    fontSize: 14,
+  },
+  eyeButton: {
+    padding: 12,
+  },
+  eyeText: {
+    fontSize: 16,
+  },
+  submitBtn: {
+    marginTop: 20,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  gradientBtn: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  toggleModeBtn: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  toggleModeText: {
+    color: '#6391ff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });

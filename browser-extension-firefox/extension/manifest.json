@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FlakeSecure",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "Secure login via mobile app with biometric authentication",
   "browser_specific_settings": {
     "gecko": {

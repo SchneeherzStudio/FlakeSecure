@@ -1,18 +1,18 @@
 # ❄️ FlakeSecure
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](package.json)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Chrome%20%7C%20Firefox-success.svg)](#-platform-support)
 [![Security](https://img.shields.io/badge/encryption-AES--256--CTR%20%2B%20HMAC--SHA256-orange.svg)](#-security-architecture--protocols)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](#)
 
-> **Zero-Knowledge Biometric Cross-Platform Password & Login Manager**  
-> Scan QR code on your desktop browser → Confirm via Face ID / Touch ID / Fingerprint on your smartphone → Browser logs in automatically via end-to-end encryption.
+> **Zero-Knowledge Biometric Cross-Platform Password & 2FA Manager**  
+> Scan QR code on your desktop browser → Confirm via Face ID / Touch ID / Fingerprint on your smartphone → Browser logs in and auto-fills 2FA TOTP codes seamlessly via end-to-end encryption.
 
 ---
 
 ## 📋 Table of Contents
 
-- [✨ What's New in Version 1.2.0 (Changelog)](#-whats-new-in-version-120-changelog)
+- [✨ What's New in Version 2.0.0 (Changelog)](#-whats-new-in-version-200-changelog)
 - [✨ Core Features](#-core-features)
 - [🏗 Project Structure](#-project-structure)
 - [🚀 Setup & Installation](#-setup--installation)
@@ -21,72 +21,76 @@
   - [3. Firefox Extension](#3-firefox-extension)
   - [4. Mobile App (iOS / Android)](#4-mobile-app-ios--android)
 - [🔐 Security Architecture & Protocols](#-security-architecture--protocols)
+- [🌐 Scalability & Multi-Region Clustering](#-scalability--multi-region-clustering)
 - [📦 Dependencies & Tech Stack](#-dependencies--tech-stack)
 - [📄 License](#-license)
 
 ---
 
-## ✨ What's New in Version 1.2.0 (Changelog)
+## ✨ What's New in Version 2.0.0 (Changelog)
 
-With the **v1.2.0** release, FlakeSecure evolved from a lightweight login relay into a full-featured, zero-knowledge identity and credential ecosystem.
+With the **v2.0.0** release, FlakeSecure expands into a unified zero-knowledge security platform, introducing a built-in 2FA Authenticator, zero-knowledge cloud vault synchronization, email OTP verifications, in-app announcement pushups, maintenance blocking screens, and a revamped UI.
 
-### 🌟 Key Changes & Improvements:
+### 🌟 Key Changes & New Features:
 
-1. 🦊 **Firefox WebExtension Support (`browser-extension-firefox/`)**:
-   - Native Firefox extension powered by modern `browser.*` promise-based WebExtension APIs.
-   - Dedicated manifest configuration and a detailed [Firefox Installation Guide](browser-extension-firefox/INSTALL_FIREFOX.md).
-   - Modular CSS styling (`styles/content.css`) providing clean UI isolation on target web pages.
+1. 🔑 **Built-in 2FA TOTP Authenticator (`AuthenticatorScreen.js`, `totp.js`)**:
+   - Integrated **RFC 6238 TOTP engine** with pure JavaScript HMAC-SHA1 and Base32 decoding (zero external native dependencies).
+   - Rotating **30-second live countdown timer**, visual progress indicator, and 1-tap clipboard copying.
+   - Support for manual Base32 key entry and `otpauth://totp/...` URI parsing from QR codes.
+   - **Seamless Relay Streaming**: Socket.IO connection is maintained for 2 minutes after login relay, allowing 1-tap streaming of 2FA codes directly to browser extensions for automatic OTP autofill.
 
-2. 🛡️ **Account System & Cloud Infrastructure**:
-   - **PostgreSQL Backend**: Persistent relational database schema (`users`, `sessions`, `login_logs`, `allowed_recipients`, `shared_payloads`, `received_credentials`).
-   - **Argon2 Password Hashing**: State-of-the-art cryptographic password hashing for user accounts.
-   - **JWT Authentication & Session Management**: 24-hour token sessions with active monitoring and remote session revocation.
-   - **Biometric App Lock**: Instant biometric verification upon app launch or resume (`BiometricUnlockScreen`).
+2. ☁️ **Account-Bound Zero-Knowledge Cloud Vault Sync (`vault.js`, `/api/vault/sync`)**:
+   - Client-side 256-bit AES key derivation using PBKDF2 with SHA-256 iterations from user password and salt.
+   - Full end-to-end encrypted backup and synchronization of credentials, categories, autofill profile presets, and 2FA secrets.
+   - **Automatic restore on login** and **complete local SecureStore purge on logout** ensuring account-bound data isolation.
 
-3. 👥 **Secure Credential Sharing & Whitelist Control (`ShareImportScreen`)**:
-   - End-to-end encrypted sharing of credentials between users without exposing plaintext secrets (one-time E2E encryption).
-   - Configurable access permission modes: `only_me` (block inbound shares), `whitelist` (only trusted contacts), `all`.
-   - Whitelist recipient manager featuring live user search.
-   - Time-limited credential sharing with expiration timestamps (`expiresInHours`) and one-time consumption confirmation status.
+3. ✉️ **One-Time-Code (OTP) Email Verification (`/api/otp`, `nodemailer`)**:
+   - Cryptographically random 6-digit OTP verification codes delivered via branded HTML emails.
+   - Enforced during new account registration in the mobile app, onboarding, and the web portal.
+   - High-security double confirmation required for permanent account deletion.
 
-4. 📝 **Registration Autofill & Profile Presets (`RegisterFillScreen`)**:
-   - Smart detection of registration and sign-up forms across websites.
-   - Automated autofill of registration details (email, username, name, phone) directly from the mobile app.
-   - Default profile presets stored locally in the app for 1-tap website sign-ups.
-   - Integrated customizable random password generator.
+4. 📢 **Server Announcements & Pushup System (`/api/system/announcements`)**:
+   - Admin endpoints to broadcast maintenance alerts, updates, and notices.
+   - Support for **Popup Modals** upon app startup and **Top Banners** with customizable display behavior (`once` or `always`).
+   - Per-user dismissal tracking in PostgreSQL (`dismissed_announcements`).
 
-5. 🏷️ **Categories & Custom Icons**:
-   - Organize credentials into custom categories (e.g. Work, Finance, Social, Gaming, Shopping).
-   - Custom emoji/icon assignment (`👤`, `💼`, `💳`, `🎮`, `🛍️`, `🔑`, etc.).
-   - Fast filter bar on the HomeScreen with category counts and quick switching.
+5. 🛠️ **Maintenance Mode & Outdated Version Blocking (`MaintenanceScreen.js`)**:
+   - Real-time blocking screen triggered when a maintenance window is active or the client version is outdated.
+   - Offline connectivity indicator (*"Du bist zurzeit offline – Funktionen eingeschränkt"* / *"Server nicht erreichbar"*).
+   - Automated 30-second polling to smoothly resume app operation once the server is available.
 
-6. 🗺️ **Security Audit & GeoIP Login Logs (`LogsScreen`)**:
-   - Comprehensive audit logging for all authentication and credential relay operations.
-   - GeoIP location resolution (City, Region, Country) along with IP address and User-Agent tracking to identify suspicious access.
-   - User controls to review and clear audit history.
+6. 📋 **Fixed Activity Logs & Custom Date Formatting (`LogsScreen.js`)**:
+   - Fixed response object extraction bug for paginated audit logs.
+   - Enriched human-readable action labels (`Login`, `Credential Sent`, `QR Share`, `Account Created`, `Account Deleted`).
+   - Customizable timestamp formats in Settings: *Systemstandard*, German (*HH:MM TT.MM.JJJJ*), or ISO (*YYYY-MM-DD*).
+   - Filter chips for fast inspection (All, Logins, Transfers, Shares).
 
-7. 🌍 **Full Multi-Language Support (i18n)**:
-   - Complete localization in **German (DE)**, **English (EN)**, **Spanish (ES)**, and **French (FR)**.
-   - Automatic system language detection with in-app manual language switcher.
+7. 📱 **Mobile UI Redesign & Quick Action Navigation (`HomeScreen.js`)**:
+   - Current logged-in user pill badge prominently displayed in the top header.
+   - Quick Action Bar on the Home screen for immediate access to **2FA Codes**, **Logs**, **Neu (Add Login)**, and **Teilen (Share)**.
+   - Active session manager in `SettingsScreen.js` with remote session termination.
 
-8. 🌐 **Web Landing Page & Deep Link Routing**:
-   - Built-in web pages for Home (`/`), Imprint (`/imprint`), and Privacy Policy (`/legal`).
-   - Smart web redirect endpoints (`/auth`, `/share`) that automatically trigger deep linking into the native mobile app (`flakesecure://`).
+8. 🌐 **Web Account Portal (`/account`)**:
+   - Dedicated web interface for registration with OTP, login, active session inspection, and OTP-confirmed account deletion.
 
-9. 📱 **Modernized React Native & Expo SDK**:
-   - Upgraded to modern Expo SDK with React 19, `@react-navigation/native-stack` v7, and EAS Build support (`eas.json`).
-   - Refreshed onboarding walkthrough for first-time users (`OnboardingScreen`).
+9. 📲 **Push Notifications (Expo Server SDK)**:
+   - Push notifications dispatched to registered mobile devices upon new account logins and browser extension triggers.
+
+10. 🌍 **Scalability Architecture (`SCALABILITY.md`)**:
+    - Comprehensive technical specification for regional GeoDNS edge clusters (`de.flakesecure...`, `us.flakesecure...`), Socket.IO Redis pub/sub adapters, and Nginx sticky load balancing.
 
 ---
 
 ## ✨ Core Features
 
 - **⚡ Instant QR Login**: No need to type lengthy master passwords or secrets on public or desktop devices.
-- **🔒 End-to-End Encryption**: AES-256-CTR + HMAC-SHA256 with ephemeral session keys – the server never accesses plaintext data.
+- **🔑 Seamless 2FA Autofill**: Generate and stream 6-digit TOTP codes directly to browser extension input fields.
+- **🔒 End-to-End Encryption**: AES-256-CTR + HMAC-SHA256 with ephemeral session keys – the server processes only ciphertext.
+- **☁️ Zero-Knowledge Cloud Vault**: Client-side encrypted cloud backup and multi-device synchronization.
 - **🧬 Native Biometrics**: Face ID, Touch ID, or Android Biometric authentication required before releasing credentials.
-- **📂 Secure Storage**: All credentials stored encrypted inside the hardware-backed SecureStore (iOS Keychain / Android Keystore).
+- **📂 Secure Storage**: All credentials stored encrypted inside hardware-backed SecureStore (iOS Keychain / Android Keystore).
 - **🛡️ Whitelist Sharing**: Share credentials securely with friends, family, or colleagues with fine-grained permission control.
-- **📱 Universal Deep Linking**: Seamless QR code recognition via camera scan or direct web links.
+- **📱 Universal Deep Linking**: Seamless QR code recognition via camera scan or direct web links (`flakesecure://`).
 
 ---
 
@@ -97,64 +101,77 @@ flakesecure/
 ├── browser-extension/              # Chrome / Edge / Chromium Extension (Manifest V3)
 │   └── extension/
 │       ├── manifest.json
-│       ├── content.js              # Detects forms, injects overlay & QR modal
-│       ├── popup.html / popup.js   # Extension popup & settings (Relay URL)
+│       ├── content.js              # Detects forms, injects overlay, QR & TOTP autofill
+│       ├── popup.html / popup.js   # Extension popup, account login & settings
 │       ├── styles/content.css      # Isolated overlay stylesheet
 │       ├── lib/                    # qrcode.min.js & socket.io.min.js
 │       └── icons/
 │
-├── browser-extension-firefox/      # Native Mozilla Firefox Extension
+├── browser-extension-firefox/      # Native Mozilla Firefox Extension (Manifest V3)
 │   ├── INSTALL_FIREFOX.md          # Guide for temporary add-on installation
 │   └── extension/
 │       ├── manifest.json
-│       ├── background.js           # Firefox WebExtension background worker
-│       ├── content.js              # Form detection using browser.* API
+│       ├── background.js           # Firefox WebExtension background worker & TOTP relay
+│       ├── content.js              # Form detection & TOTP autofill using browser.* API
 │       ├── popup.html / popup.js
 │       ├── styles/content.css
 │       └── lib/ & icons/
 │
-├── server/                         # Node.js Relay, Auth & Web Server
-│   ├── server.js                   # Express + Socket.IO Relay + Web Routes
+├── server/                         # Node.js Relay, Auth, Vault & Web Server
+│   ├── server.js                   # Express + Socket.IO Relay + 2-min TOTP streaming
 │   ├── db.js                       # PostgreSQL Connection Pool
 │   ├── db/
-│   │   └── schema.sql              # Database schema & indexes
+│   │   └── schema.sql              # Database schema (users, vault, otp_codes, announcements)
 │   ├── middleware/
 │   │   └── auth.js                 # JWT & session token validation
 │   ├── routes/
-│   │   ├── auth.js                 # Register, Login, Logout, /me
-│   │   ├── account.js              # Profile, Whitelist, User search, Delete
-│   │   ├── logs.js                 # GeoIP audit logs & history
-│   │   └── share.js                # Encrypted P2P payloads & status
-│   ├── static/                     # Static HTML pages (Landing, Imprint, Legal)
+│   │   ├── auth.js                 # Register with OTP, Login (push trigger), /me
+│   │   ├── account.js              # Profile, Active Sessions, Whitelist, OTP Delete
+│   │   ├── logs.js                 # Paginated audit logs with enriched action labels
+│   │   ├── share.js                # Encrypted P2P payloads & status
+│   │   ├── system.js               # Status, maintenance window & announcements
+│   │   ├── otp.js                  # Email OTP generation & verification (nodemailer)
+│   │   ├── vault.js                # Encrypted zero-knowledge vault sync
+│   │   └── notifications.js        # Expo push notification manager
+│   ├── static/                     # Static HTML pages (index.html, account.html, imprint.html)
 │   └── public/                     # CSS stylesheets & image assets
 │
-└── FlakeSecure/                    # React Native Mobile App (Expo SDK)
-    ├── App.js                      # Root Navigator & Deep Link router
-    ├── app.json / eas.json         # Expo & EAS Build configuration
-    └── app/src/
-        ├── context/
-        │   ├── AuthContext.js      # Auth state, token management, auto-lock
-        │   └── LanguageContext.js  # Dynamic i18n language provider
-        ├── i18n/
-        │   ├── index.js            # i18n-js initialization
-        │   └── locales/            # de.json, en.json, es.json, fr.json
-        ├── screens/
-        │   ├── HomeScreen.js       # Vault overview, category filter, quick actions
-        │   ├── ScanScreen.js       # QR scanner for Auth, Share & Registration
-        │   ├── ConfirmScreen.js    # Biometric prompt & encrypted login dispatch
-        │   ├── CredentialsScreen.js # Add & categorize new credentials
-        │   ├── ViewCredentialScreen.js # Biometrically protected detail & edit view
-        │   ├── RegisterFillScreen.js # Registration autofill & password generator
-        │   ├── ShareImportScreen.js # Encrypted QR & server-based credential exchange
-        │   ├── LoginScreen.js      # Server account login & registration
-        │   ├── BiometricUnlockScreen.js # Quick unlock on app launch/resume
-        │   ├── OnboardingScreen.js # Initial setup & permissions walkthrough
-        │   ├── SettingsScreen.js   # Language, Whitelist, Profile presets & Account
-        │   └── LogsScreen.js       # Security audit logs with GeoIP location
-        └── utils/
-            ├── api.js              # REST API client
-            ├── crypto.js           # AES-256-CTR & HMAC-SHA256 encrypt/decrypt
-            └── storage.js          # SecureStore / AsyncStorage abstraction
+├── FlakeSecure (SDK57)/            # React Native Mobile App (Expo SDK 57 - Primary)
+│   ├── App.js                      # Root Navigator, system check & popup manager
+│   ├── app.json / eas.json         # Expo & EAS Build configuration
+│   └── app/src/
+│       ├── context/
+│       │   ├── AuthContext.js      # Auth state, vault auto-sync, auto-lock
+│       │   └── LanguageContext.js  # Dynamic i18n language provider
+│       ├── i18n/
+│       │   ├── index.js            # i18n-js initialization
+│       │   └── locales/            # de.json, en.json, es.json, fr.json
+│       ├── screens/
+│       │   ├── HomeScreen.js       # Vault overview, user badge, quick action bar, filters
+│       │   ├── ScanScreen.js       # QR scanner for Auth, Share & Registration
+│       │   ├── ConfirmScreen.js    # Biometric prompt & post-login 2FA streaming shortcut
+│       │   ├── AuthenticatorScreen.js # 2FA TOTP manager with 30s timer & streaming
+│       │   ├── MaintenanceScreen.js # Blocking maintenance / outdated / offline screen
+│       │   ├── CredentialsScreen.js # Add & categorize new credentials
+│       │   ├── ViewCredentialScreen.js # Biometrically protected detail & edit view
+│       │   ├── RegisterFillScreen.js # Registration autofill & password generator
+│       │   ├── ShareImportScreen.js # Encrypted QR & server-based credential exchange
+│       │   ├── LoginScreen.js      # Server login & OTP email registration
+│       │   ├── BiometricUnlockScreen.js # Quick unlock on app launch/resume
+│       │   ├── OnboardingScreen.js # Initial setup, language & OTP registration
+│       │   ├── SettingsScreen.js   # Active sessions, date formats, vault sync, profile
+│       │   └── LogsScreen.js       # Filterable security audit logs with custom dates
+│       └── utils/
+│           ├── api.js              # REST API client (v2.0 endpoints)
+│           ├── crypto.js           # AES-256-CTR & HMAC-SHA256 encrypt/decrypt
+│           ├── totp.js             # RFC 6238 TOTP generator, HMAC-SHA1, Base32
+│           ├── vault.js            # PBKDF2 key derivation & cloud vault synchronization
+│           └── storage.js          # SecureStore storage & TOTP item abstraction
+│
+├── FlakeSecure (SDK54)/            # Mirror synchronization build for SDK 54
+├── SCALABILITY.md                  # Regional clustering & Redis Socket.IO architecture
+├── browser-extension.zip           # Packaged Chrome extension archive
+└── browser-extension-firefox.zip   # Packaged Firefox add-on archive
 ```
 
 ---
@@ -166,6 +183,7 @@ flakesecure/
 #### Prerequisites:
 - Node.js (v18+)
 - PostgreSQL Database
+- SMTP Server credentials (for email OTPs)
 
 #### Installation:
 ```bash
@@ -181,8 +199,16 @@ PGHOST=localhost
 PGPORT=5432
 PGDATABASE=flakesecure
 PGUSER=postgres
-PGPASSWORD=your_password
-JWT_SECRET=your_super_secret_jwt_key_at_least_32_characters
+PGPASSWORD=your_postgres_password
+JWT_SECRET=your_super_secret_jwt_key_at_least_64_characters
+ADMIN_SECRET=your_secret_admin_header_key
+
+# SMTP Configuration for Email OTP:
+SMTP_HOST=smtp.your-provider.com
+SMTP_PORT=587
+SMTP_USER=noreply@flakesecure.snowystudio.dev
+SMTP_PASS=your_smtp_password
+SMTP_FROM=FlakeSecure <noreply@flakesecure.snowystudio.dev>
 ```
 
 #### Database Setup:
@@ -192,12 +218,12 @@ psql -U postgres -d flakesecure -f db/schema.sql
 
 #### Run Server:
 ```bash
-# Development mode with auto-reload:
+# Development mode:
 npm run dev
 
 # Production start:
 npm start
-# → Server runs by default on port 4000
+# → Server runs on port 4000
 ```
 
 ---
@@ -207,7 +233,7 @@ npm start
 1. Open `chrome://extensions` (or `edge://extensions`) in your browser.
 2. Enable **Developer mode** in the top right corner.
 3. Click **Load unpacked**.
-4. Select the folder `browser-extension/extension/`.
+4. Select the folder `browser-extension/extension/` (or extract `browser-extension.zip`).
 5. *(Optional)* Click the FlakeSecure icon in your toolbar to configure the Relay Server URL (Default: `https://flakesecure.snowystudio.dev`).
 
 ---
@@ -216,7 +242,7 @@ npm start
 
 1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
 2. Click **Load Temporary Add-on...**.
-3. Select the `manifest.json` file inside `browser-extension-firefox/extension/`.
+3. Select the `manifest.json` file inside `browser-extension-firefox/extension/` (or `browser-extension-firefox.zip`).
 4. The extension is immediately active. For details, see [INSTALL_FIREFOX.md](browser-extension-firefox/INSTALL_FIREFOX.md).
 
 ---
@@ -225,7 +251,7 @@ npm start
 
 #### Installation:
 ```bash
-cd FlakeSecure
+cd "FlakeSecure (SDK57)"
 npm install
 ```
 
@@ -249,9 +275,9 @@ eas build -p ios --profile preview
 
 ## 🔐 Security Architecture & Protocols
 
-FlakeSecure is built on the **Zero-Knowledge Principle**: The relay server only transports encrypted ciphertexts and never possesses cryptographic keys or plaintext credentials.
+FlakeSecure is built strictly upon the **Zero-Knowledge Principle**: The relay server transports only authenticated ciphertexts and never possesses cryptographic keys or plaintext passwords.
 
-### 🔄 Login Flow (Sequence Diagram)
+### 🔄 Login & 2FA Streaming Flow (Sequence Diagram)
 
 ```
 Browser Extension                Relay Server                   Mobile App
@@ -259,7 +285,7 @@ Browser Extension                Relay Server                   Mobile App
       │  ① Generate session & AES key │                              │
       │     (sid, key, domain)        │                              │
       │                               │                              │
-      │  ② Socket: join(sid) ────────►│                              │
+      │  ② Socket: join(sid, domain) ─►│                              │
       │                               │                              │
       │  ③ Display QR code:           │                              │
       │     flakesecure://auth?       │                              │
@@ -277,24 +303,36 @@ Browser Extension                Relay Server                   Mobile App
       │                               │     { sid, payload }         │
       │                               │◄─────────────────────────────│
       │                               │                              │
-      │  ⑧ Socket: login-data ◄───────│                              │
-      │     (Encrypted payload)       │  (Session purged from RAM)   │
+      │  ⑧ Socket: login-data ◄───────│  (Keep session open for 2m)  │
+      │     (Encrypted payload)       │                              │
       │                               │                              │
       │  ⑨ Decrypt with local key     │                              │
-      │     & verify HMAC tag         │                              │
+      │     & autofill login form     │                              │
       │                               │                              │
-      │  ⑩ Autofill form fields       │                              │
-      │     & optionally submit       │                              │
+      │                               │  ⑩ (Optional) Stream 2FA:    │
+      │                               │     POST /send-totp          │
+      │                               │◄─────────────────────────────│
+      │                               │                              │
+      │  ⑪ Socket: totp-data ◄────────│                              │
+      │     & autofill OTP input      │  (Session purged from RAM)   │
       ▼                               ▼                              ▼
 ```
 
-### 🛡️ Core Security Features:
-- **🔑 Authenticated Encryption**: AES-256-CTR combined with HMAC-SHA256 provides confidentiality and cryptographic integrity verification.
-- **🎲 Ephemeral Keys**: Each login and sharing session generates a fresh 256-bit key pair transmitted solely through the optical QR channel.
-- **⏱ Session TTL & One-Time Consumption**: Sessions expire within minutes and are instantly deleted upon relay retrieval.
-- **💾 Hardware-Backed Storage**: Sensitive credentials are kept in the iOS Keychain and Android Keystore via `expo-secure-store`.
-- **👤 Whitelist & Access Control**: Granular inbound sharing policies allow users to accept credentials only from verified accounts.
-- **🌍 GeoIP & Audit Logs**: Transparent activity logging including IP address, client device, and approximate location.
+### 🛡️ Security Highlights:
+- **🔑 Authenticated Encryption**: AES-256-CTR with HMAC-SHA256 (Encrypt-then-MAC) prevents both eavesdropping and tampering.
+- **🎲 Ephemeral Keys**: Unique 256-bit session keys transmitted exclusively over the physical optical QR channel.
+- **☁️ Zero-Knowledge Cloud Vault**: PBKDF2 (SHA-256) client-side derived key protects all server-stored vault backups.
+- **✉️ Cryptographic OTP**: Argon2 hashed OTP codes with 10-minute expiry and attempt rate-limiting.
+- **💾 Hardware-Backed Storage**: Credentials isolated in the iOS Keychain / Android Keystore via `expo-secure-store`.
+
+---
+
+## 🌐 Scalability & Multi-Region Clustering
+
+For large-scale deployments, FlakeSecure supports horizontal scaling and geo-distributed clustering. See [SCALABILITY.md](SCALABILITY.md) for details on:
+- **GeoDNS Regional Routing** (`de.flakesecure...`, `us.flakesecure...`, `ap.flakesecure...`).
+- **Socket.IO Redis Pub/Sub Adapter** (`@socket.io/redis-adapter`) for cross-instance WebSocket broadcasting.
+- **Nginx Sticky Session Load Balancing** and **PgBouncer Database Connection Pooling**.
 
 ---
 
@@ -302,13 +340,13 @@ Browser Extension                Relay Server                   Mobile App
 
 | Component | Technologies & Packages |
 |-----------|-------------------------|
-| **Server** | `Node.js`, `Express`, `Socket.IO`, `PostgreSQL` (`pg`), `Argon2`, `JSONWebToken`, `GeoIP-Lite`, `CORS`, `dotenv` |
+| **Server** | `Node.js`, `Express`, `Socket.IO`, `PostgreSQL` (`pg`), `Argon2`, `JSONWebToken`, `Nodemailer`, `Expo-Server-SDK`, `GeoIP-Lite`, `CORS`, `dotenv` |
 | **Chrome Extension** | Manifest V3, Web Crypto API (`crypto.subtle`), `qrcode.js`, `socket.io-client`, Vanilla JS & CSS3 |
 | **Firefox Extension** | Manifest V3 (Gecko WebExtension), `browser.*` API, Web Crypto API, `qrcode.js`, `socket.io-client` |
-| **Mobile App** | `React Native`, `Expo SDK`, `expo-camera`, `expo-local-authentication`, `expo-secure-store`, `expo-crypto`, `@react-navigation/native-stack`, `i18n-js`, `expo-linear-gradient`, `react-native-qrcode-svg` |
+| **Mobile App** | `React Native`, `Expo SDK 57`, `expo-camera`, `expo-local-authentication`, `expo-secure-store`, `expo-crypto`, `expo-clipboard`, `@react-navigation/native-stack`, `i18n-js`, `expo-linear-gradient`, `react-native-qrcode-svg` |
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License**. For privacy and legal terms, see `/legal` and `/imprint` in the web application.
+This project is licensed under the **MIT License**. For legal notices, see `/legal` and `/imprint` in the web application.

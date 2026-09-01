@@ -503,14 +503,49 @@
     } catch (e) {}
   }
 
+  function fillTotpCode(code) {
+    const totpSelectors = [
+      'input[autocomplete="one-time-code"]',
+      'input[name*="totp" i]',
+      'input[name*="otp" i]',
+      'input[name*="2fa" i]',
+      'input[name*="code" i]',
+      'input[id*="totp" i]',
+      'input[id*="otp" i]',
+      'input[id*="2fa" i]',
+      'input[id*="code" i]',
+      'input[placeholder*="code" i]',
+      'input[placeholder*="token" i]',
+      'input[placeholder*="2fa" i]',
+      'input[placeholder*="otp" i]',
+      'input[type="tel"]',
+      'input[type="number"]'
+    ];
+
+    for (const selector of totpSelectors) {
+      const fields = Array.from(document.querySelectorAll(selector)).filter(isVisible);
+      if (fields.length > 0) {
+        simulateInput(fields[0], code);
+        updateOverlayStatus('success', '2FA-Code automatisch eingefügt ✓');
+        setTimeout(() => {
+          submitForm(fields[0].closest('form'), fields[0]);
+        }, 300);
+        return true;
+      }
+    }
+    return false;
+  }
+
   function connectSocket(sessionId, keyHex, onData) {
+    const currentDomain = window.location.hostname;
     try {
       if (typeof browser !== 'undefined' && browser.runtime) {
         browser.storage.local.get(['authToken']).then(res => {
           browser.runtime.sendMessage({
             type: 'CONNECT',
             sessionId: sessionId,
-            token: res.authToken
+            token: res.authToken,
+            domain: currentDomain
           }).catch(err => console.error('[FlakeSecure] CONNECT error:', err));
         });
       } else if (typeof chrome !== 'undefined' && chrome.runtime) {
@@ -518,7 +553,8 @@
           chrome.runtime.sendMessage({
             type: 'CONNECT',
             sessionId: sessionId,
-            token: res.authToken
+            token: res.authToken,
+            domain: currentDomain
           });
         });
       }
@@ -535,6 +571,12 @@
           const decrypted = await decryptData(message.payload, keyHex);
           if (decrypted) {
             onData(decrypted);
+          }
+        } else if (message.type === 'TOTP_DATA') {
+          console.log('[FlakeSecure] Received TOTP data (via background)');
+          const decrypted = await decryptData(message.payload, keyHex);
+          if (decrypted && decrypted.code) {
+            fillTotpCode(decrypted.code);
           }
         } else if (message.type === 'SESSION_EXPIRED') {
           console.log('[FlakeSecure] Session expired (via background)');
@@ -599,9 +641,69 @@
     currentSessionId = null;
   }
 
-  function createOverlay(sessionId, deepLink, domain, isRegister = false) {
+  const OVERLAY_I18N = {
+    en: {
+      regSubtitle: 'Secure Account Creation',
+      loginSubtitle: 'Secure Biometric Login',
+      regInstructions: 'Scan the QR code with the <strong>FlakeSecure App</strong> to automatically fill and securely save your account details.',
+      loginInstructions: 'Scan the QR code with the <strong>FlakeSecure App</strong> and confirm with Face ID / Fingerprint.',
+      step1: 'Scan',
+      step2Reg: 'Customize',
+      step2Login: 'Confirm',
+      step3Reg: 'Filled',
+      step3Login: 'Logged in',
+      waiting: 'Waiting for scan…',
+      fallback: 'App installed?',
+      openDirectly: 'Open directly'
+    },
+    de: {
+      regSubtitle: 'Account sicher erstellen',
+      loginSubtitle: 'Sichere biometrische Anmeldung',
+      regInstructions: 'Scanne den QR-Code mit der <strong>FlakeSecure App</strong>, um deine Account-Daten automatisch auszufüllen und sicher zu speichern.',
+      loginInstructions: 'Scanne den QR-Code mit der <strong>FlakeSecure App</strong> und bestätige mit Face ID / Fingerabdruck.',
+      step1: 'Scannen',
+      step2Reg: 'Anpassen',
+      step2Login: 'Bestätigen',
+      step3Reg: 'Ausgefüllt',
+      step3Login: 'Eingeloggt',
+      waiting: 'Warte auf Scan…',
+      fallback: 'App installiert?',
+      openDirectly: 'Direkt öffnen'
+    },
+    fr: {
+      regSubtitle: 'Création sécurisée de compte',
+      loginSubtitle: 'Connexion biométrique sécurisée',
+      regInstructions: 'Scannez le code QR avec l\'<strong>Application FlakeSecure</strong> pour remplir et sauvegarder vos accès en toute sécurité.',
+      loginInstructions: 'Scannez le code QR avec l\'<strong>Application FlakeSecure</strong> et confirmez avec Face ID / Empreinte.',
+      step1: 'Scanner',
+      step2Reg: 'Personnaliser',
+      step2Login: 'Confirmer',
+      step3Reg: 'Rempli',
+      step3Login: 'Connecté',
+      waiting: 'En attente du scan…',
+      fallback: 'App installée ?',
+      openDirectly: 'Ouvrir directement'
+    },
+    es: {
+      regSubtitle: 'Creación segura de cuenta',
+      loginSubtitle: 'Inicio de sesión biométrico seguro',
+      regInstructions: 'Escanea el código QR con la <strong>App FlakeSecure</strong> para rellenar y guardar tus datos de forma segura.',
+      loginInstructions: 'Escanea el código QR con la <strong>App FlakeSecure</strong> y confirma con Face ID / Huella dactilar.',
+      step1: 'Escanear',
+      step2Reg: 'Personalizar',
+      step2Login: 'Confirmar',
+      step3Reg: 'Completado',
+      step3Login: 'Conectado',
+      waiting: 'Esperando escaneo…',
+      fallback: '¿App instalada?',
+      openDirectly: 'Abrir directamente'
+    }
+  };
+
+  function createOverlay(sessionId, deepLink, domain, isRegister = false, lang = 'en') {
     if (document.getElementById('flakesecure-overlay')) return;
 
+    const t = OVERLAY_I18N[lang] || OVERLAY_I18N.en;
     const overlay = document.createElement('div');
     overlay.id = 'flakesecure-overlay';
 
@@ -610,13 +712,13 @@
     overlay.innerHTML = `
       <link rel="stylesheet" href="${cssUrl}">
       <div class="fs-card">
-        <button class="fs-close-btn" id="fs-close" title="Schließen">✕</button>
+        <button class="fs-close-btn" id="fs-close" title="Close">✕</button>
 
         <div class="fs-logo">
           <div class="fs-logo-icon">❄️</div>
           <div class="fs-logo-text">Flake<span>Secure</span></div>
         </div>
-        <div class="fs-subtitle">${isRegister ? 'Account sicher erstellen' : 'Sichere biometrische Anmeldung'}</div>
+        <div class="fs-subtitle">${isRegister ? t.regSubtitle : t.loginSubtitle}</div>
 
         <div class="fs-qr-container">
           <div class="fs-qr-corner fs-qr-corner--tl"></div>
@@ -632,35 +734,32 @@
         </div>
 
         <div class="fs-instructions">
-          ${isRegister 
-            ? 'Scanne den QR-Code mit der <strong>FlakeSecure App</strong>, um deine Account-Daten automatisch auszufüllen und sicher zu speichern.'
-            : 'Scanne den QR-Code mit der <strong>FlakeSecure App</strong> und bestätige mit Face ID / Fingerabdruck.'
-          }
+          ${isRegister ? t.regInstructions : t.loginInstructions}
         </div>
 
         <div class="fs-steps">
           <div class="fs-step active" id="fs-step-1">
             <div class="fs-step-num">1</div>
-            Scannen
+            ${t.step1}
           </div>
           <div class="fs-step" id="fs-step-2">
             <div class="fs-step-num">2</div>
-            ${isRegister ? 'Anpassen' : 'Bestätigen'}
+            ${isRegister ? t.step2Reg : t.step2Login}
           </div>
           <div class="fs-step" id="fs-step-3">
             <div class="fs-step-num">3</div>
-            ${isRegister ? 'Ausgefüllt' : 'Eingeloggt'}
+            ${isRegister ? t.step3Reg : t.step3Login}
           </div>
         </div>
 
         <div>
           <span class="fs-status fs-status--waiting" id="flakesecure-status">
-            Warte auf Scan…
+            ${t.waiting}
           </span>
         </div>
 
         <div class="fs-fallback-link">
-          App installiert? <a href="${deepLink}" target="_blank">Direkt öffnen</a>
+          ${t.fallback} <a href="${deepLink}" target="_blank">${t.openDirectly}</a>
         </div>
       </div>
     `;
@@ -786,7 +885,17 @@
       deepLink = `flakesecure://auth?s=${sessionId}&k=${keyHex}&d=${encodeURIComponent(domain)}`;
     }
 
-    createOverlay(sessionId, deepLink, domain, isRegister);
+    const lang = await new Promise(resolve => {
+      if (typeof browser !== 'undefined' && browser.storage) {
+        browser.storage.sync.get(['app_language']).then(res => resolve(res.app_language || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en')));
+      } else if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.sync.get(['app_language'], res => resolve(res.app_language || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en')));
+      } else {
+        resolve('en');
+      }
+    });
+
+    createOverlay(sessionId, deepLink, domain, isRegister, lang);
 
     connectSocket(sessionId, keyHex, (data) => {
       const step2 = document.getElementById('fs-step-2');

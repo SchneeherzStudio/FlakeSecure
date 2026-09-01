@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Encrypted Local Storage & Category Store
+ * FlakeSecure Mobile App - Encrypted Local Storage & Category Store v2.0
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & WORKFLOW:
@@ -20,6 +20,16 @@
  *    - deleteCredentials(domain): Deletes credentials and updates domain index.
  *    - getAllCredentials(): Retrieves all stored credentials filtered against expired entries.
  *    - findCredentialsForDomain(domain): Finds credentials with subdomain hierarchy fallback (e.g. auth.ea.com -> ea.com).
+ * 
+ * 4. TOTP AUTHENTICATOR ITEMS STORAGE:
+ *    - getTotpItems(): Retrieves all saved TOTP secrets.
+ *    - saveTotpItem(item): Persists a new or updated TOTP secret entry.
+ *    - deleteTotpItem(id): Removes a TOTP secret.
+ * 
+ * 5. VAULT IMPORT / EXPORT & LOCAL WIPE:
+ *    - getFullVaultExport(): Exports complete credentials (including plaintext passwords), categories, profile, and TOTP items for encrypted cloud sync.
+ *    - importFullVault(vaultObj): Populates local storage from decrypted vault payload.
+ *    - clearAllLocalVaultData(): Wipes all credentials, TOTP secrets, and domain indices upon account logout.
  * ============================================================================
  */
 
@@ -31,6 +41,7 @@ const CREDENTIALS_KEY = 'flakesecure_credentials_v1';
 const INDEX_KEY = 'flakesecure_index_v1';
 const CATEGORIES_KEY = 'flakesecure_categories_v1';
 const DEFAULT_PROFILE_KEY = 'flakesecure_default_profile_v1';
+const TOTP_ITEMS_KEY = 'flakesecure_totp_items_v1';
 
 export const DEFAULT_CATEGORIES = [
   { id: 'personal', name: 'Personal', icon: '👤', isDefault: true },
@@ -190,4 +201,127 @@ export async function findCredentialsForDomain(domain) {
   }
 
   return null;
+}
+
+export async function getTotpItems() {
+  try {
+    const raw = await SecureStore.getItemAsync(TOTP_ITEMS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveTotpItem(item) {
+  const items = await getTotpItems();
+  const id = item.id || `totp_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+  const cleanIssuer = (item.issuer || '').trim();
+  const cleanAccount = (item.account || '').trim();
+  const cleanSecret = (item.secret || '').replace(/\s/g, '').toUpperCase();
+  const category = item.category || 'other';
+
+  const entry = {
+    id,
+    issuer: cleanIssuer,
+    account: cleanAccount,
+    secret: cleanSecret,
+    category,
+    digits: item.digits || 6,
+    period: item.period || 30,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const existingIdx = items.findIndex(t => t.id === id);
+  if (existingIdx >= 0) {
+    items[existingIdx] = entry;
+  } else {
+    items.push(entry);
+  }
+
+  await SecureStore.setItemAsync(TOTP_ITEMS_KEY, JSON.stringify(items));
+  return items;
+}
+
+export async function deleteTotpItem(id) {
+  let items = await getTotpItems();
+  items = items.filter(t => t.id !== id);
+  await SecureStore.setItemAsync(TOTP_ITEMS_KEY, JSON.stringify(items));
+  return items;
+}
+
+export async function getFullVaultExport() {
+  const index = await getDomainIndex();
+  const credentials = [];
+
+  for (const domain of index) {
+    const creds = await getCredentialsForDomain(domain);
+    if (creds) {
+      credentials.push({
+        domain,
+        username: creds.username,
+        password: creds.password,
+        updatedAt: creds.updatedAt,
+        category: creds.category || null,
+        hidden: creds.hidden || false,
+        expiresAt: creds.expiresAt || null,
+        sharedBy: creds.sharedBy || null,
+      });
+    }
+  }
+
+  const categories = await getCategories();
+  const profile = await getDefaultProfile();
+  const totpItems = await getTotpItems();
+
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    credentials,
+    categories,
+    profile,
+    totpItems,
+  };
+}
+
+export async function importFullVault(vaultObj) {
+  if (!vaultObj) return false;
+
+  if (Array.isArray(vaultObj.credentials)) {
+    for (const cred of vaultObj.credentials) {
+      if (cred.domain && cred.username) {
+        await saveCredentials(cred.domain, cred.username, cred.password || '', {
+          category: cred.category,
+          hidden: cred.hidden,
+          expiresAt: cred.expiresAt,
+          sharedBy: cred.sharedBy,
+        });
+      }
+    }
+  }
+
+  if (Array.isArray(vaultObj.categories) && vaultObj.categories.length > 0) {
+    await SecureStore.setItemAsync(CATEGORIES_KEY, JSON.stringify(vaultObj.categories));
+  }
+
+  if (vaultObj.profile) {
+    await saveDefaultProfile(vaultObj.profile);
+  }
+
+  if (Array.isArray(vaultObj.totpItems)) {
+    await SecureStore.setItemAsync(TOTP_ITEMS_KEY, JSON.stringify(vaultObj.totpItems));
+  }
+
+  return true;
+}
+
+export async function clearAllLocalVaultData() {
+  const index = await getDomainIndex();
+  for (const domain of index) {
+    const key = `${CREDENTIALS_KEY}_${domain.replace(/\./g, '_')}`;
+    await SecureStore.deleteItemAsync(key).catch(() => {});
+  }
+  await SecureStore.deleteItemAsync(INDEX_KEY).catch(() => {});
+  await SecureStore.deleteItemAsync(CATEGORIES_KEY).catch(() => {});
+  await SecureStore.deleteItemAsync(DEFAULT_PROFILE_KEY).catch(() => {});
+  await SecureStore.deleteItemAsync(TOTP_ITEMS_KEY).catch(() => {});
 }

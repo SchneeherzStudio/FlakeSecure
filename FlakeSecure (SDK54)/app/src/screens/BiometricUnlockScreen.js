@@ -19,10 +19,11 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import { i18n } from '../i18n';
+import { useLanguage } from '../context/LanguageContext';
 
 export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
   const { biometricUnlock, switchToPasswordLogin } = useAuth();
+  const { t } = useLanguage();
   const [error, setError] = useState(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
@@ -37,15 +38,15 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
       }
       
       if (res && res.reason === 'invalid_credentials') {
-        setError(i18n.t('biometricUnlock.accountNotFound'));
+        setError(t('biometricUnlock.accountNotFound'));
       } else if (res && res.reason === 'no_hardware') {
         const usePassFn = onUsePassword || switchToPasswordLogin;
         await usePassFn();
       } else {
-        setError(i18n.t('biometricUnlock.failed'));
+        setError(t('biometricUnlock.failed'));
       }
     } catch (e) {
-      setError(i18n.t('biometricUnlock.failed'));
+      setError(t('biometricUnlock.failed'));
     } finally {
       setIsAuthenticating(false);
     }
@@ -74,8 +75,8 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
           <Text style={styles.logoText}>
             Flake<Text style={styles.logoAccent}>Secure</Text>
           </Text>
-          <Text style={styles.title}>{i18n.t('biometricUnlock.title')}</Text>
-          <Text style={styles.subtitle}>{i18n.t('biometricUnlock.subtitle')}</Text>
+          <Text style={styles.title}>{t('biometricUnlock.title')}</Text>
+          <Text style={styles.subtitle}>{t('biometricUnlock.subtitle')}</Text>
         </View>
 
         {error ? (
@@ -104,7 +105,7 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
                 <>
                   <Text style={styles.unlockIcon}>👆</Text>
                   <Text style={styles.unlockButtonText}>
-                    {i18n.t('biometricUnlock.unlockBtn')}
+                    {t('biometricUnlock.unlockBtn')}
                   </Text>
                 </>
               )}
@@ -117,7 +118,7 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
             activeOpacity={0.7}
           >
             <Text style={styles.usePasswordText}>
-              {i18n.t('biometricUnlock.usePassword')}
+              {t('biometricUnlock.usePassword')}
             </Text>
           </TouchableOpacity>
         </View>

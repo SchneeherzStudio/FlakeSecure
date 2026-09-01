@@ -24,7 +24,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import { getAllCredentials, saveCredentials, getCredentialsForDomain } from '../utils/storage';
-import { i18n } from '../i18n';
+import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import * as SecureStore from 'expo-secure-store';
 import { encryptCredentials, decryptCredentials, hexToBytes, bytesToHex } from '../utils/crypto';
@@ -33,6 +33,7 @@ import * as ExpoCrypto from 'expo-crypto';
 const SERVER_URL = 'https://flakesecure.snowystudio.dev';
 
 export default function ShareImportScreen({ route, navigation }) {
+  const { t } = useLanguage();
   const { mode } = route.params || { mode: 'import' };
   const { user } = useAuth();
   
@@ -74,9 +75,9 @@ export default function ShareImportScreen({ route, navigation }) {
             setQrData(null);
             setActiveSid(null);
             Alert.alert(
-              i18n.t('success'),
-              mode === 'share' ? i18n.t('share.shareSuccessAlert') : i18n.t('share.exportSuccessAlert'),
-              [{ text: i18n.t('ok'), onPress: () => navigation.goBack() }]
+              t('success'),
+              mode === 'share' ? t('share.shareSuccessAlert') : t('share.exportSuccessAlert'),
+              [{ text: t('ok'), onPress: () => navigation.goBack() }]
             );
           }
         } else if (data.status === 'expired') {
@@ -84,7 +85,7 @@ export default function ShareImportScreen({ route, navigation }) {
           if (isMounted) {
             setQrData(null);
             setActiveSid(null);
-            Alert.alert(i18n.t('error'), i18n.t('share.exportFailedAlert'));
+            Alert.alert(t('error'), t('share.exportFailedAlert'));
           }
         }
       } catch (err) {
@@ -125,11 +126,11 @@ export default function ShareImportScreen({ route, navigation }) {
   const handleGenerateQR = async () => {
     const selectedList = credentials.filter(c => selectedCreds[c.domain]);
     if (selectedList.length === 0) {
-      Alert.alert(i18n.t('error'), i18n.t('share.nothingSelected') || 'No credentials selected');
+      Alert.alert(t('error'), t('share.nothingSelected') || 'No credentials selected');
       return;
     }
     if (mode === 'share' && !recipient.trim()) {
-      Alert.alert(i18n.t('error'), 'Please enter a recipient username');
+      Alert.alert(t('error'), 'Please enter a recipient username');
       return;
     }
 
@@ -148,7 +149,7 @@ export default function ShareImportScreen({ route, navigation }) {
         }
       }
       if (fullCredentials.length === 0) {
-        Alert.alert(i18n.t('error'), 'Could not read credential data');
+        Alert.alert(t('error'), 'Could not read credential data');
         setLoading(false);
         return;
       }
@@ -181,7 +182,7 @@ export default function ShareImportScreen({ route, navigation }) {
       setQrData(qrUrl);
       
     } catch (error) {
-      Alert.alert(i18n.t('error'), error.message || 'Failed to generate export data');
+      Alert.alert(t('error'), error.message || 'Failed to generate export data');
       console.log(error);
     } finally {
       setLoading(false);
@@ -343,7 +344,7 @@ export default function ShareImportScreen({ route, navigation }) {
       {qrData ? (
         <View style={styles.qrContainer}>
           <QRCode value={qrData} size={200} backgroundColor="transparent" color="#fff" />
-          <Text style={styles.qrInstructions}>{i18n.t('share.waitingForScan')}</Text>
+          <Text style={styles.qrInstructions}>{t('share.waitingForScan')}</Text>
           <TouchableOpacity
             style={styles.cancelQrBtn}
             onPress={async () => {
@@ -354,13 +355,13 @@ export default function ShareImportScreen({ route, navigation }) {
               setActiveSid(null);
             }}
           >
-            <Text style={styles.cancelQrBtnText}>{i18n.t('cancel')}</Text>
+            <Text style={styles.cancelQrBtnText}>{t('cancel')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <TouchableOpacity onPress={handleGenerateQR} disabled={loading}>
           <LinearGradient colors={['#6391ff', '#7c6aff']} style={styles.actionBtn}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>{i18n.t('share.showQr')}</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>{t('share.showQr')}</Text>}
           </LinearGradient>
         </TouchableOpacity>
       )}

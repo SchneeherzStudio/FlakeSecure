@@ -31,7 +31,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { encryptCredentials } from '../utils/crypto';
 import { saveCredentials, getCategories, saveCategory, getDefaultProfile, saveDefaultProfile } from '../utils/storage';
-import { i18n } from '../i18n';
+import { useLanguage } from '../context/LanguageContext';
 
 const SERVER_URL = 'https://flakesecure.snowystudio.dev';
 const AVAILABLE_ICONS = ['👤', '💼', '💳', '💬', '🎮', '📁', '🛍️', '🛒', '🔒', '🏠', '✈️', '📧', '🎓', '💻', '🎵', '🍔', '🚗', '🏥', '🔑', '⭐'];
@@ -48,6 +48,7 @@ const COMPACT_FIELD_MAP = {
 };
 
 export default function RegisterFillScreen({ route, navigation }) {
+  const { t } = useLanguage();
   const sid = route.params?.sid || route.params?.s;
   const key = route.params?.key || route.params?.k;
   const domain = route.params?.domain || route.params?.d;
@@ -225,7 +226,7 @@ export default function RegisterFillScreen({ route, navigation }) {
     const cleanPassword = password.trim();
 
     if (!cleanPassword) {
-      Alert.alert(i18n.t('error'), 'Bitte gib ein Passwort an oder generiere eines.');
+      Alert.alert(t('error'), 'Bitte gib ein Passwort an oder generiere eines.');
       return;
     }
 
@@ -233,15 +234,15 @@ export default function RegisterFillScreen({ route, navigation }) {
     const needsUsername = isFieldDetected('username');
 
     if (needsEmail && !cleanEmail) {
-      Alert.alert(i18n.t('error'), 'Bitte gib eine gültige E-Mail-Adresse an.');
+      Alert.alert(t('error'), 'Bitte gib eine gültige E-Mail-Adresse an.');
       return;
     }
     if (needsUsername && !cleanUsername && !cleanEmail) {
-      Alert.alert(i18n.t('error'), 'Bitte gib einen Benutzernamen an.');
+      Alert.alert(t('error'), 'Bitte gib einen Benutzernamen an.');
       return;
     }
     if (!cleanEmail && !cleanUsername && !cleanFirstName) {
-      Alert.alert(i18n.t('error'), 'Bitte fülle die erforderlichen Account-Angaben aus.');
+      Alert.alert(t('error'), 'Bitte fülle die erforderlichen Account-Angaben aus.');
       return;
     }
 
@@ -324,7 +325,7 @@ export default function RegisterFillScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backText}>‹ {i18n.t('common.back')}</Text>
+            <Text style={styles.backText}>‹ {t('common.back')}</Text>
           </TouchableOpacity>
 
           <View style={styles.domainBadge}>
@@ -332,8 +333,8 @@ export default function RegisterFillScreen({ route, navigation }) {
             <Text style={styles.domainText}>{domain}</Text>
           </View>
 
-          <Text style={styles.title}>{i18n.t('registerFill.title')}</Text>
-          <Text style={styles.subtitle}>{i18n.t('registerFill.subtitle')}</Text>
+          <Text style={styles.title}>{t('registerFill.title')}</Text>
+          <Text style={styles.subtitle}>{t('registerFill.subtitle')}</Text>
 
           {hasSpecificSchema && (
             <View style={styles.detectedFieldsPill}>
@@ -351,7 +352,7 @@ export default function RegisterFillScreen({ route, navigation }) {
             activeOpacity={0.8}
           >
             <Text style={[styles.presetTabText, profileMode === 'default' && styles.presetTabTextActive]}>
-              👤 {i18n.t('registerFill.standardProfile')}
+              👤 {t('registerFill.standardProfile')}
             </Text>
           </TouchableOpacity>
 
@@ -361,13 +362,13 @@ export default function RegisterFillScreen({ route, navigation }) {
             activeOpacity={0.8}
           >
             <Text style={[styles.presetTabText, profileMode === 'custom' && styles.presetTabTextActive]}>
-              ✏️ {i18n.t('registerFill.customProfile')}
+              ✏️ {t('registerFill.customProfile')}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>{i18n.t('registerFill.accountDetails')}</Text>
+          <Text style={styles.cardSectionTitle}>{t('registerFill.accountDetails')}</Text>
 
           {(showFirstNameInput || showLastNameInput) && (
             <View style={styles.row}>
@@ -460,12 +461,12 @@ export default function RegisterFillScreen({ route, navigation }) {
 
         <View style={styles.card}>
           <View style={styles.passwordHeader}>
-            <Text style={styles.cardSectionTitle}>{i18n.t('registerFill.passwordSection')}</Text>
+            <Text style={styles.cardSectionTitle}>{t('registerFill.passwordSection')}</Text>
             <TouchableOpacity
               style={styles.generateBtn}
               onPress={() => handleRegeneratePassword()}
             >
-              <Text style={styles.generateBtnText}>🎲 {i18n.t('registerFill.regenerate')}</Text>
+              <Text style={styles.generateBtnText}>🎲 {t('registerFill.regenerate')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -498,7 +499,7 @@ export default function RegisterFillScreen({ route, navigation }) {
             onPress={() => setShowGeneratorOptions(!showGeneratorOptions)}
           >
             <Text style={styles.toggleSettingsText}>
-              ⚙️ {i18n.t('registerFill.generatorSettings')} {showGeneratorOptions ? '▲' : '▼'}
+              ⚙️ {t('registerFill.generatorSettings')} {showGeneratorOptions ? '▲' : '▼'}
             </Text>
           </TouchableOpacity>
 
@@ -562,7 +563,7 @@ export default function RegisterFillScreen({ route, navigation }) {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>{i18n.t('credentials.categoryLabel')}</Text>
+          <Text style={styles.cardSectionTitle}>{t('credentials.categoryLabel')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
             <TouchableOpacity
               style={[styles.categoryChip, !selectedCategory && styles.categoryChipActive]}
@@ -570,13 +571,13 @@ export default function RegisterFillScreen({ route, navigation }) {
             >
               <Text style={styles.categoryChipIcon}>🚫</Text>
               <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextActive]}>
-                {i18n.t('credentials.categoryNone')}
+                {t('credentials.categoryNone')}
               </Text>
             </TouchableOpacity>
 
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat.id;
-              const displayName = cat.isDefault ? (i18n.t(`categories.${cat.id}`) || cat.name) : cat.name;
+              const displayName = cat.isDefault ? (t(`categories.${cat.id}`) || cat.name) : cat.name;
               return (
                 <TouchableOpacity
                   key={cat.id}
@@ -596,7 +597,7 @@ export default function RegisterFillScreen({ route, navigation }) {
               onPress={() => setShowCategoryModal(true)}
             >
               <Text style={styles.newCategoryChipIcon}>➕</Text>
-              <Text style={styles.newCategoryChipText}>{i18n.t('credentials.addCategoryBtn')}</Text>
+              <Text style={styles.newCategoryChipText}>{t('credentials.addCategoryBtn')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -617,7 +618,7 @@ export default function RegisterFillScreen({ route, navigation }) {
               <ActivityIndicator color="#fff" size="small" />
             ) : (
               <Text style={styles.submitBtnText}>
-                🔒 {i18n.t('registerFill.saveAndFill')}
+                🔒 {t('registerFill.saveAndFill')}
               </Text>
             )}
           </LinearGradient>
@@ -632,19 +633,19 @@ export default function RegisterFillScreen({ route, navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{i18n.t('categories.newCategory')}</Text>
+            <Text style={styles.modalTitle}>{t('categories.newCategory')}</Text>
             
-            <Text style={styles.modalLabel}>{i18n.t('categories.categoryName')}</Text>
+            <Text style={styles.modalLabel}>{t('categories.categoryName')}</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder={i18n.t('categories.categoryNamePlaceholder')}
+              placeholder={t('categories.categoryNamePlaceholder')}
               placeholderTextColor="rgba(255,255,255,0.3)"
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               autoCapitalize="words"
             />
 
-            <Text style={styles.modalLabel}>{i18n.t('categories.selectIcon')}</Text>
+            <Text style={styles.modalLabel}>{t('categories.selectIcon')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconPickerScroll}>
               <View style={styles.iconPickerRow}>
                 {AVAILABLE_ICONS.map((icon) => (
@@ -664,7 +665,7 @@ export default function RegisterFillScreen({ route, navigation }) {
                 style={styles.modalCancelBtn}
                 onPress={() => setShowCategoryModal(false)}
               >
-                <Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text>
+                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalSaveBtn}
@@ -674,7 +675,7 @@ export default function RegisterFillScreen({ route, navigation }) {
                   colors={['#6391ff', '#7c6aff']}
                   style={styles.modalSaveGradient}
                 >
-                  <Text style={styles.modalSaveText}>{i18n.t('save')}</Text>
+                  <Text style={styles.modalSaveText}>{t('save')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>

@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlakeSecure — Account Portal & Sicherheitsverwaltung</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style/index.css" />
+  <script src="/js/i18n.js"></script>
+  <style>
+    .portal-container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: 36px 30px;
+      backdrop-filter: blur(20px);
+    }
+    .portal-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .portal-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .portal-subtitle {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+    .tabs-nav {
+      display: flex;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 28px;
+      gap: 4px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.55);
+      font-weight: 600;
+      font-size: 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tab-btn.active {
+      background: rgba(99, 145, 255, 0.2);
+      color: #fff;
+      border: 1px solid rgba(99, 145, 255, 0.4);
+    }
+    .tab-btn.danger-tab.active {
+      background: rgba(255, 77, 79, 0.2);
+      border-color: rgba(255, 77, 79, 0.4);
+      color: #ff4d4f;
+    }
+    .tab-pane {
+      display: none;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus {
+      border-color: #6391ff;
+    }
+    .otp-row {
+      display: flex;
+      gap: 10px;
+    }
+    .otp-btn {
+      padding: 0 16px;
+      background: rgba(99, 145, 255, 0.15);
+      border: 1px solid rgba(99, 145, 255, 0.35);
+      border-radius: 12px;
+      color: #6391ff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .otp-btn:hover {
+      background: rgba(99, 145, 255, 0.25);
+    }
+    .action-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #6391ff, #7c6aff);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: opacity 0.2s;
+    }
+    .action-btn:hover {
+      opacity: 0.9;
+    }
+    .danger-btn {
+      background: linear-gradient(135deg, #ff4d4f, #d9363e);
+    }
+    .alert-box {
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .alert-box.success {
+      background: rgba(76, 217, 100, 0.15);
+      border: 1px solid rgba(76, 217, 100, 0.3);
+      color: #4cd964;
+      display: block;
+    }
+    .alert-box.error {
+      background: rgba(255, 77, 79, 0.15);
+      border: 1px solid rgba(255, 77, 79, 0.3);
+      color: #ff4d4f;
+      display: block;
+    }
+    .info-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .info-label {
+      color: rgba(255, 255, 255, 0.4);
+    }
+    .info-val {
+      color: #fff;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header class="navbar">
+      <a href="/" class="nav-brand">
+        <div class="nav-wordmark">Flake<span>Secure</span></div>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="/" data-i18n="imprint.backHome">Home</a></li>
+        <li><a href="/#downloads" data-i18n="nav.downloads">Downloads</a></li>
+        <li><a href="/imprint" data-i18n="nav.legal">Privacy &amp; Legal</a></li>
+      </ul>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <select class="fs-lang-select" aria-label="Language" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; outline: none;">
+          <option value="en" style="background: #111424; color: #fff;">🇬🇧 EN</option>
+          <option value="de" style="background: #111424; color: #fff;">🇩🇪 DE</option>
+          <option value="fr" style="background: #111424; color: #fff;">🇫🇷 FR</option>
+          <option value="es" style="background: #111424; color: #fff;">🇪🇸 ES</option>
+        </select>
+        <div class="nav-status-pill">
+          <div class="pulse-dot"></div>
+          <span data-i18n="nav.statusOnline">Relay Online</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="portal-container">
+      <div class="portal-header">
+        <div style="font-size: 40px; margin-bottom: 8px;">❄️</div>
+        <h1 class="portal-title" data-i18n="accountPortal.title">Account Portal</h1>
+        <p class="portal-subtitle" data-i18n="accountPortal.subtitle">Zero-Knowledge Identity &amp; Security Settings</p>
+      </div>
+
+      <div id="alertBox" class="alert-box"></div>
+
+      <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('register')" data-i18n="accountPortal.tabRegister">✨ Register</button>
+        <button class="tab-btn" onclick="switchTab('login')" data-i18n="accountPortal.tabLogin">🔑 Login</button>
+        <button class="tab-btn" onclick="switchTab('profile')" id="profileTabBtn" style="display:none;" data-i18n="accountPortal.tabProfile">👤 Profile</button>
+        <button class="tab-btn danger-tab" onclick="switchTab('delete')" data-i18n="accountPortal.tabDelete">⚠️ Danger Zone</button>
+      </div>
+
+      <!-- Tab 1: Register with OTP -->
+      <div id="tab-register" class="tab-pane active">
+        <form id="registerForm" onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label class="form-label">E-Mail-Adresse</label>
+            <div class="otp-row">
+              <input type="email" id="regEmail" class="form-input" placeholder="deine@email.de" required />
+              <button type="button" class="otp-btn" id="regOtpBtn" onclick="sendRegisterOtp()">Code senden</button>
+            </div>
+          </div>
+
+          <div class="form-group" id="regOtpGroup" style="display: none;">
+            <label class="form-label">6-Stelliger Bestätigungscode (per E-Mail)</label>
+            <input type="text" id="regOtpCode" class="form-input" placeholder="123456" maxlength="6" style="letter-spacing: 4px; text-align: center; font-size: 16px; font-weight: 700;" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Benutzername</label>
+            <input type="text" id="regUsername" class="form-input" placeholder="benutzername (a-z, 0-9, -, _)" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Passwort</label>
+            <input type="password" id="regPassword" class="form-input" placeholder="Mindestens 8 Zeichen" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Passwort wiederholen</label>
+            <input type="password" id="regConfirmPassword" class="form-input" placeholder="Passwort bestätigen" required />
+          </div>
+
+          <button type="submit" class="action-btn" id="regSubmitBtn">Account erstellen</button>
+        </form>
+      </div>
+
+      <!-- Tab 2: Login -->
+      <div id="tab-login" class="tab-pane">
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label class="form-label">Benutzername oder E-Mail</label>
+            <input type="text" id="loginIdentifier" class="form-input" placeholder="username oder email@domain.de" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Passwort</label>
+            <input type="password" id="loginPassword" class="form-input" placeholder="Dein Passwort" required />
+          </div>
+
+          <button type="submit" class="action-btn">Anmelden</button>
+        </form>
+      </div>
+
+      <!-- Tab 3: Profile & Active Sessions -->
+      <div id="tab-profile" class="tab-pane">
+        <div class="info-card" id="profileCard">
+          <div class="info-row">
+            <span class="info-label">Benutzername:</span>
+            <span class="info-val" id="profUsername">-</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">E-Mail:</span>
+            <span class="info-val" id="profEmail">-</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Sprache:</span>
+            <span class="info-val" id="profLang">-</span>
+          </div>
+        </div>
+
+        <h3 style="color: #fff; font-size: 15px; margin: 20px 0 10px;">Aktive Sitzungen</h3>
+        <div id="sessionsContainer"></div>
+
+        <button type="button" class="action-btn" onclick="handleLogout()" style="background: rgba(255,255,255,0.08); margin-top: 15px;">Abmelden</button>
+      </div>
+
+      <!-- Tab 4: Delete Account with OTP -->
+      <div id="tab-delete" class="tab-pane">
+        <form id="deleteForm" onsubmit="handleDeleteAccount(event)">
+          <p style="color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.5; margin-bottom: 20px;">
+            ⚠️ <strong>Dauerhafte Kontolöschung:</strong> Alle gespeicherten verschlüsselten Tresordaten, Sitzungen und Freigaben werden unwiderruflich gelöscht. Zur Sicherheit ist eine E-Mail-OTP-Verifizierung erforderlich.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Account E-Mail-Adresse</label>
+            <div class="otp-row">
+              <input type="email" id="delEmail" class="form-input" placeholder="deine@email.de" required />
+              <button type="button" class="otp-btn" id="delOtpBtn" onclick="sendDeleteOtp()">Code senden</button>
+            </div>
+          </div>
+
+          <div class="form-group" id="delOtpGroup" style="display: none;">
+            <label class="form-label">6-Stelliger Bestätigungscode (per E-Mail)</label>
+            <input type="text" id="delOtpCode" class="form-input" placeholder="123456" maxlength="6" style="letter-spacing: 4px; text-align: center; font-size: 16px; font-weight: 700;" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Passwort bestätigen</label>
+            <input type="password" id="delPassword" class="form-input" placeholder="Dein Passwort" required />
+          </div>
+
+          <button type="submit" class="action-btn danger-btn">Konto dauerhaft löschen</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentToken = localStorage.getItem('fs_auth_token') || null;
+    let registeredOtpVerifiedToken = null;
+    let deleteOtpVerifiedToken = null;
+
+    function showAlert(msg, isSuccess) {
+      const box = document.getElementById('alertBox');
+      box.textContent = msg;
+      box.className = `alert-box ${isSuccess ? 'success' : 'error'}`;
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      
+      const pane = document.getElementById(`tab-${tabId}`);
+      if (pane) pane.classList.add('active');
+
+      const btns = Array.from(document.querySelectorAll('.tab-btn'));
+      const activeBtn = btns.find(b => b.getAttribute('onclick')?.includes(tabId));
+      if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    async function sendRegisterOtp() {
+      const email = document.getElementById('regEmail').value.trim().toLowerCase();
+      if (!email || !email.includes('@')) {
+        showAlert('Bitte gib eine gültige E-Mail-Adresse ein.', false);
+        return;
+      }
+
+      const btn = document.getElementById('regOtpBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sende...';
+
+      try {
+        const res = await fetch('/api/otp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, purpose: 'register' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Fehler beim Senden des Codes');
+
+        document.getElementById('regOtpGroup').style.display = 'block';
+        showAlert('Ein 6-stelliger Bestätigungscode wurde an deine E-Mail gesendet.', true);
+        btn.textContent = 'Erneut senden';
+      } catch (err) {
+        showAlert(err.message, false);
+        btn.textContent = 'Code senden';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function sendDeleteOtp() {
+      const email = document.getElementById('delEmail').value.trim().toLowerCase();
+      if (!email || !email.includes('@')) {
+        showAlert('Bitte gib eine gültige E-Mail-Adresse ein.', false);
+        return;
+      }
+
+      const btn = document.getElementById('delOtpBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sende...';
+
+      try {
+        const res = await fetch('/api/otp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, purpose: 'delete' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Fehler beim Senden des Codes');
+
+        document.getElementById('delOtpGroup').style.display = 'block';
+        showAlert('Ein 6-stelliger Bestätigungscode wurde zur Kontolöschung gesendet.', true);
+        btn.textContent = 'Erneut senden';
+      } catch (err) {
+        showAlert(err.message, false);
+        btn.textContent = 'Code senden';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const email = document.getElementById('regEmail').value.trim().toLowerCase();
+      const username = document.getElementById('regUsername').value.trim().toLowerCase();
+      const password = document.getElementById('regPassword').value;
+      const confirmPassword = document.getElementById('regConfirmPassword').value;
+      const otpCode = document.getElementById('regOtpCode').value.trim();
+
+      if (password !== confirmPassword) {
+        showAlert('Die Passwörter stimmen nicht überein.', false);
+        return;
+      }
+
+      if (!otpCode || otpCode.length !== 6) {
+        showAlert('Bitte gib den 6-stelligen Bestätigungscode ein.', false);
+        return;
+      }
+
+      try {
+        const verifyRes = await fetch('/api/otp/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: otpCode, purpose: 'register' })
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyRes.ok) throw new Error(verifyData.error || 'Ungültiger OTP-Code');
+
+        const regRes = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, username, password, otpToken: verifyData.token })
+        });
+        const regData = await regRes.json();
+        if (!regRes.ok) throw new Error(regData.error || 'Registrierung fehlgeschlagen');
+
+        localStorage.setItem('fs_auth_token', regData.token);
+        currentToken = regData.token;
+        showAlert('Konto erfolgreich erstellt! Du bist jetzt angemeldet.', true);
+        loadProfile();
+      } catch (err) {
+        showAlert(err.message, false);
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const identifier = document.getElementById('loginIdentifier').value.trim().toLowerCase();
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Ungültige Anmeldedaten');
+
+        localStorage.setItem('fs_auth_token', data.token);
+        currentToken = data.token;
+        showAlert('Erfolgreich angemeldet ✓', true);
+        loadProfile();
+      } catch (err) {
+        showAlert(err.message, false);
+      }
+    }
+
+    async function loadProfile() {
+      if (!currentToken) return;
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error('Nicht angemeldet');
+
+        document.getElementById('profUsername').textContent = data.user.username;
+        document.getElementById('profEmail').textContent = data.user.email;
+        document.getElementById('profLang').textContent = (data.user.language || 'en').toUpperCase();
+
+        document.getElementById('profileTabBtn').style.display = 'block';
+        switchTab('profile');
+        loadSessions();
+      } catch (err) {
+        localStorage.removeItem('fs_auth_token');
+        currentToken = null;
+      }
+    }
+
+    async function loadSessions() {
+      try {
+        const res = await fetch('/api/account/sessions', {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const data = await res.json();
+        const container = document.getElementById('sessionsContainer');
+        container.innerHTML = '';
+
+        if (data.sessions && data.sessions.length > 0) {
+          data.sessions.forEach(s => {
+            const row = document.createElement('div');
+            row.className = 'info-card';
+            row.style.display = 'flex';
+            row.style.justifyContent = 'space-between';
+            row.style.alignItems = 'center';
+            row.innerHTML = `
+              <div>
+                <div style="font-weight: 600; color: #fff; font-size: 13px;">💻 ${s.device_info || 'Browser / Gerät'}</div>
+                <div style="color: rgba(255,255,255,0.4); font-size: 11px;">IP: ${s.ip_address || 'Lokal'}</div>
+              </div>
+              <button onclick="terminateSession('${s.id}')" style="background: rgba(255,77,79,0.2); border: 1px solid rgba(255,77,79,0.4); color: #ff4d4f; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px;">Beenden</button>
+            `;
+            container.appendChild(row);
+          });
+        } else {
+          container.innerHTML = '<div style="color: rgba(255,255,255,0.4); font-size: 13px;">Keine aktiven Sitzungen</div>';
+        }
+      } catch (e) {}
+    }
+
+    async function terminateSession(sid) {
+      try {
+        await fetch(`/api/account/sessions/${sid}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        loadSessions();
+      } catch (e) {}
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('fs_auth_token');
+      currentToken = null;
+      document.getElementById('profileTabBtn').style.display = 'none';
+      switchTab('login');
+      showAlert('Erfolgreich abgemeldet.', true);
+    }
+
+    async function handleDeleteAccount(e) {
+      e.preventDefault();
+      const email = document.getElementById('delEmail').value.trim().toLowerCase();
+      const password = document.getElementById('delPassword').value;
+      const otpCode = document.getElementById('delOtpCode').value.trim();
+
+      if (!otpCode || otpCode.length !== 6) {
+        showAlert('Bitte gib den 6-stelligen Bestätigungscode aus deiner E-Mail ein.', false);
+        return;
+      }
+
+      if (!confirm('Möchtest du deinen Account wirklich endgültig löschen?')) return;
+
+      try {
+        const verifyRes = await fetch('/api/otp/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: otpCode, purpose: 'delete' })
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyRes.ok) throw new Error(verifyData.error || 'Ungültiger Lösch-Code');
+
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: email, password })
+        });
+        const loginData = await loginRes.json();
+        if (!loginRes.ok) throw new Error('Passwort ist nicht korrekt.');
+
+        const delRes = await fetch('/api/account/delete', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${loginData.token}`
+          },
+          body: JSON.stringify({ otpToken: verifyData.token })
+        });
+        const delData = await delRes.json();
+        if (!delRes.ok) throw new Error(delData.error || 'Löschung fehlgeschlagen');
+
+        localStorage.removeItem('fs_auth_token');
+        currentToken = null;
+        showAlert('Account und Tresor wurden dauerhaft gelöscht.', true);
+        setTimeout(() => window.location.href = '/', 2000);
+      } catch (err) {
+        showAlert(err.message, false);
+      }
+    }
+
+    if (currentToken) {
+      loadProfile();
+    }
+  </script>
+</body>
+</html>

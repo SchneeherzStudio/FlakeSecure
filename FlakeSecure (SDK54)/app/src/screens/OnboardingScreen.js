@@ -28,7 +28,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
-import { i18n } from '../i18n';
+import { useLanguage } from '../context/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
@@ -41,21 +41,25 @@ const LANGUAGES = [
 
 export default function OnboardingScreen({ onComplete }) {
   const { register } = useAuth();
+  const { t, locale, changeLanguage: setAppLang } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
-  const [selectedLanguage, setSelectedLanguage] = useState(i18n.locale);
+  const [selectedLanguage, setSelectedLanguage] = useState(locale || 'en');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const totalSteps = 6;
 
   const changeLanguage = (code) => {
     setSelectedLanguage(code);
-    i18n.locale = code;
+    setAppLang(code);
   };
 
   const handleNext = () => {
@@ -70,38 +74,72 @@ export default function OnboardingScreen({ onComplete }) {
     }
   };
 
+  const handleSendOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      Alert.alert(t('error'), 'Bitte gib eine gültige E-Mail-Adresse ein.');
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const { sendOtp } = require('../utils/api');
+      await sendOtp(cleanEmail, 'register');
+      setOtpSent(true);
+      Alert.alert('Code gesendet 📧', `Wir haben einen 6-stelligen Bestätigungscode an ${cleanEmail} gesendet.`);
+    } catch (e) {
+      Alert.alert('Fehler', e.message || 'Konnte Verifizierungscode nicht senden.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
   const handleCreateAccount = async () => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim().toLowerCase();
     const cleanPassword = password.trim();
+    const cleanOtp = otpCode.trim();
 
     if (!cleanEmail || !cleanUsername || !cleanPassword) {
-      Alert.alert(i18n.t('error'), i18n.t('viewCredential.allFieldsRequired'));
+      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
     if (!/^[a-z0-9_-]+$/.test(cleanUsername)) {
-      Alert.alert(i18n.t('error'), i18n.t('onboarding.account.usernameRules'));
+      Alert.alert(t('error'), t('onboarding.account.usernameRules'));
       return;
     }
     if (/\s/.test(password)) {
-      Alert.alert(i18n.t('error'), i18n.t('onboarding.account.passwordNoSpaces'));
+      Alert.alert(t('error'), t('onboarding.account.passwordNoSpaces'));
       return;
     }
     if (cleanPassword.length < 8) {
-      Alert.alert(i18n.t('error'), i18n.t('onboarding.account.passwordMinLength'));
+      Alert.alert(t('error'), t('onboarding.account.passwordMinLength'));
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert(i18n.t('error'), i18n.t('onboarding.account.passwordsDoNotMatch'));
+      Alert.alert(t('error'), t('onboarding.account.passwordsDoNotMatch'));
+      return;
+    }
+
+    if (!otpSent) {
+      Alert.alert('E-Mail-Verifizierung', 'Bitte fordere zuerst einen Verifizierungscode für deine E-Mail an.');
+      return;
+    }
+
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      Alert.alert('Code erforderlich', 'Bitte gib den 6-stelligen Verifizierungscode aus deiner E-Mail ein.');
       return;
     }
 
     setRegistering(true);
     try {
-      await register(cleanEmail, cleanUsername, cleanPassword);
+      const { verifyOtp } = require('../utils/api');
+      const verifyRes = await verifyOtp(cleanEmail, cleanOtp, 'register');
+      const otpToken = verifyRes.token;
+      await register(cleanEmail, cleanUsername, cleanPassword, otpToken);
       handleNext();
     } catch (err) {
-      Alert.alert(i18n.t('error'), err.message);
+      Alert.alert(t('error'), err.message);
     } finally {
       setRegistering(false);
     }
@@ -115,16 +153,16 @@ export default function OnboardingScreen({ onComplete }) {
 
   const getPasswordStrength = () => {
     if (password.length === 0) return { level: 0, label: '', color: '#333' };
-    if (password.length < 6) return { level: 1, label: i18n.t('onboarding.account.weak'), color: '#ef4444' };
-    if (password.length < 8) return { level: 2, label: i18n.t('onboarding.account.fair'), color: '#f59e0b' };
+    if (password.length < 6) return { level: 1, label: t('onboarding.account.weak'), color: '#ef4444' };
+    if (password.length < 8) return { level: 2, label: t('onboarding.account.fair'), color: '#f59e0b' };
     const hasUpper = /[A-Z]/.test(password);
     const hasLower = /[a-z]/.test(password);
     const hasNum = /[0-9]/.test(password);
     const hasSpecial = /[^A-Za-z0-9]/.test(password);
     const score = [hasUpper, hasLower, hasNum, hasSpecial].filter(Boolean).length;
-    if (score >= 3 && password.length >= 10) return { level: 4, label: i18n.t('onboarding.account.strong'), color: '#22c55e' };
-    if (score >= 2) return { level: 3, label: i18n.t('onboarding.account.good'), color: '#6391ff' };
-    return { level: 2, label: i18n.t('onboarding.account.fair'), color: '#f59e0b' };
+    if (score >= 3 && password.length >= 10) return { level: 4, label: t('onboarding.account.strong'), color: '#22c55e' };
+    if (score >= 2) return { level: 3, label: t('onboarding.account.good'), color: '#6391ff' };
+    return { level: 2, label: t('onboarding.account.fair'), color: '#f59e0b' };
   };
 
   const renderStep = () => {
@@ -134,16 +172,16 @@ export default function OnboardingScreen({ onComplete }) {
           <View style={styles.slide}>
             <Text style={styles.welcomeEmoji}>❄️</Text>
             <Text style={styles.welcomeTitle}>
-              {i18n.t('common.appName').split('Secure')[0]}
+              {t('common.appName').split('Secure')[0]}
               <Text style={styles.accent}>Secure</Text>
             </Text>
-            <Text style={styles.welcomeSubtitle}>{i18n.t('onboarding.welcome.subtitle')}</Text>
+            <Text style={styles.welcomeSubtitle}>{t('onboarding.welcome.subtitle')}</Text>
             <View style={styles.featureList}>
               {['🔐', '🧬', '⚡'].map((icon, idx) => (
                 <View key={idx} style={styles.featureItem}>
                   <Text style={styles.featureIcon}>{icon}</Text>
                   <Text style={styles.featureText}>
-                    {i18n.t(`onboarding.welcome.feature${idx + 1}`)}
+                    {t(`onboarding.welcome.feature${idx + 1}`)}
                   </Text>
                 </View>
               ))}
@@ -154,7 +192,7 @@ export default function OnboardingScreen({ onComplete }) {
       case 1:
         return (
           <View style={styles.slide}>
-            <Text style={styles.slideTitle}>{i18n.t('onboarding.howItWorks.title')}</Text>
+            <Text style={styles.slideTitle}>{t('onboarding.howItWorks.title')}</Text>
             <View style={styles.stepsContainer}>
               {[1, 2, 3].map((step) => (
                 <View key={step} style={styles.stepItem}>
@@ -165,8 +203,8 @@ export default function OnboardingScreen({ onComplete }) {
                     <Text style={styles.stepNumberText}>{step}</Text>
                   </LinearGradient>
                   <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>{i18n.t(`onboarding.howItWorks.step${step}Title`)}</Text>
-                    <Text style={styles.stepDesc}>{i18n.t(`onboarding.howItWorks.step${step}`)}</Text>
+                    <Text style={styles.stepTitle}>{t(`onboarding.howItWorks.step${step}Title`)}</Text>
+                    <Text style={styles.stepDesc}>{t(`onboarding.howItWorks.step${step}`)}</Text>
                   </View>
                   {step < 3 && <View style={styles.stepConnector} />}
                 </View>
@@ -179,16 +217,16 @@ export default function OnboardingScreen({ onComplete }) {
         return (
           <View style={styles.slide}>
             <Text style={styles.bigEmoji}>🧩</Text>
-            <Text style={styles.slideTitle}>{i18n.t('onboarding.extension.title')}</Text>
-            <Text style={styles.slideText}>{i18n.t('onboarding.extension.description')}</Text>
+            <Text style={styles.slideTitle}>{t('onboarding.extension.title')}</Text>
+            <Text style={styles.slideText}>{t('onboarding.extension.description')}</Text>
             <View style={styles.browserCards}>
               <View style={styles.browserCard}>
                 <Text style={styles.browserIcon}>🌐</Text>
-                <Text style={styles.browserName}>{i18n.t('onboarding.extension.chrome')}</Text>
+                <Text style={styles.browserName}>{t('onboarding.extension.chrome')}</Text>
               </View>
               <View style={styles.browserCard}>
                 <Text style={styles.browserIcon}>🦊</Text>
-                <Text style={styles.browserName}>{i18n.t('onboarding.extension.firefox')}</Text>
+                <Text style={styles.browserName}>{t('onboarding.extension.firefox')}</Text>
               </View>
             </View>
           </View>
@@ -198,8 +236,8 @@ export default function OnboardingScreen({ onComplete }) {
         return (
           <View style={styles.slide}>
             <Text style={styles.bigEmoji}>🌍</Text>
-            <Text style={styles.slideTitle}>{i18n.t('onboarding.language.title')}</Text>
-            <Text style={styles.slideText}>{i18n.t('onboarding.language.subtitle')}</Text>
+            <Text style={styles.slideTitle}>{t('onboarding.language.title')}</Text>
+            <Text style={styles.slideText}>{t('onboarding.language.subtitle')}</Text>
             <View style={styles.languageList}>
               {LANGUAGES.map((lang) => (
                 <TouchableOpacity
@@ -232,24 +270,64 @@ export default function OnboardingScreen({ onComplete }) {
             style={styles.slide}
           >
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.accountSlide}>
-              <Text style={styles.slideTitle}>{i18n.t('onboarding.account.title')}</Text>
-              <Text style={styles.slideText}>{i18n.t('onboarding.account.subtitle')}</Text>
+              <Text style={styles.slideTitle}>{t('onboarding.account.title')}</Text>
+              <Text style={styles.slideText}>{t('onboarding.account.subtitle')}</Text>
               <View style={styles.form}>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{i18n.t('onboarding.account.email')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="you@example.com"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="email-address"
-                  />
+                  <Text style={styles.label}>{t('onboarding.account.email')}</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <TextInput
+                      style={[styles.input, { flex: 1 }]}
+                      placeholder="you@example.com"
+                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                    />
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: 'rgba(99, 145, 255, 0.15)',
+                        borderColor: 'rgba(99, 145, 255, 0.3)',
+                        borderWidth: 1,
+                        borderRadius: 12,
+                        paddingHorizontal: 12,
+                        paddingVertical: 12,
+                      }}
+                      onPress={handleSendOtp}
+                      disabled={sendingOtp}
+                    >
+                      {sendingOtp ? (
+                        <ActivityIndicator color="#6391ff" size="small" />
+                      ) : (
+                        <Text style={{ color: '#6391ff', fontSize: 12, fontWeight: '700' }}>
+                          {otpSent ? 'Erneut' : 'Code'}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
+
+                {otpSent && (
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.label}>E-Mail Bestätigungscode (6-stellig)</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        { fontSize: 18, letterSpacing: 4, textAlign: 'center', fontWeight: '700' },
+                      ]}
+                      placeholder="123456"
+                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      value={otpCode}
+                      onChangeText={setOtpCode}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                  </View>
+                )}
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{i18n.t('onboarding.account.username')}</Text>
+                  <Text style={styles.label}>{t('onboarding.account.username')}</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="flakeuser"
@@ -259,10 +337,10 @@ export default function OnboardingScreen({ onComplete }) {
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
-                  <Text style={styles.inputHint}>{i18n.t('onboarding.account.usernameRuleHint')}</Text>
+                  <Text style={styles.inputHint}>{t('onboarding.account.usernameRuleHint')}</Text>
                 </View>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{i18n.t('onboarding.account.password')}</Text>
+                  <Text style={styles.label}>{t('onboarding.account.password')}</Text>
                   <View style={styles.passwordRow}>
                     <TextInput
                       style={[styles.input, { flex: 1 }]}
@@ -280,7 +358,7 @@ export default function OnboardingScreen({ onComplete }) {
                       <Text style={styles.showBtnText}>{showPassword ? '🙈' : '👁'}</Text>
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.inputHint}>{i18n.t('onboarding.account.passwordRuleHint')}</Text>
+                  <Text style={styles.inputHint}>{t('onboarding.account.passwordRuleHint')}</Text>
                   {password.length > 0 && (
                     <View style={styles.strengthBar}>
                       <View style={styles.strengthTrack}>
@@ -301,7 +379,7 @@ export default function OnboardingScreen({ onComplete }) {
                   )}
                 </View>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{i18n.t('onboarding.account.confirmPassword')}</Text>
+                  <Text style={styles.label}>{t('onboarding.account.confirmPassword')}</Text>
                   <View style={styles.passwordRow}>
                     <TextInput
                       style={[styles.input, { flex: 1 }]}
@@ -330,7 +408,7 @@ export default function OnboardingScreen({ onComplete }) {
                   {registering ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.createAccountBtnText}>{i18n.t('onboarding.account.createButton')}</Text>
+                    <Text style={styles.createAccountBtnText}>{t('onboarding.account.createButton')}</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
@@ -341,7 +419,7 @@ export default function OnboardingScreen({ onComplete }) {
                 disabled={registering}
               >
                 <Text style={styles.alreadyHaveAccountText}>
-                  {i18n.t('onboarding.account.alreadyHaveAccount')}
+                  {t('onboarding.account.alreadyHaveAccount')}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -352,8 +430,8 @@ export default function OnboardingScreen({ onComplete }) {
         return (
           <View style={styles.slide}>
             <Text style={styles.doneEmoji}>🎉</Text>
-            <Text style={styles.doneTitle}>{i18n.t('onboarding.done.title')}</Text>
-            <Text style={styles.doneSubtitle}>{i18n.t('onboarding.done.subtitle')}</Text>
+            <Text style={styles.doneTitle}>{t('onboarding.done.title')}</Text>
+            <Text style={styles.doneSubtitle}>{t('onboarding.done.subtitle')}</Text>
             <TouchableOpacity
               style={styles.doneButton}
               onPress={handleFinish}
@@ -365,7 +443,7 @@ export default function OnboardingScreen({ onComplete }) {
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientBtn}
               >
-                <Text style={styles.doneBtnText}>{i18n.t('onboarding.done.button')}</Text>
+                <Text style={styles.doneBtnText}>{t('onboarding.done.button')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -396,7 +474,7 @@ export default function OnboardingScreen({ onComplete }) {
         <View style={styles.navRow}>
           {currentStep > 0 ? (
             <TouchableOpacity onPress={handleBack} style={styles.navBtn}>
-              <Text style={styles.navBtnText}>{i18n.t('common.back')}</Text>
+              <Text style={styles.navBtnText}>{t('common.back')}</Text>
             </TouchableOpacity>
           ) : (
             <View />
@@ -408,7 +486,7 @@ export default function OnboardingScreen({ onComplete }) {
               end={{ x: 1, y: 0 }}
               style={styles.navBtnGradient}
             >
-              <Text style={styles.navBtnNextText}>{i18n.t('onboarding.next')}</Text>
+              <Text style={styles.navBtnNextText}>{t('onboarding.next')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -416,7 +494,7 @@ export default function OnboardingScreen({ onComplete }) {
       {currentStep === 4 && (
         <View style={styles.navRow}>
           <TouchableOpacity onPress={handleBack} style={styles.navBtn}>
-            <Text style={styles.navBtnText}>{i18n.t('common.back')}</Text>
+            <Text style={styles.navBtnText}>{t('common.back')}</Text>
           </TouchableOpacity>
           <View />
         </View>
