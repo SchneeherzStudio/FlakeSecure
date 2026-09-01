@@ -1,0 +1,88 @@
+{
+  "expo": {
+    "name": "FlakeSecure",
+    "slug": "FlakeSecure",
+    "owner": "snowy.studio",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "flakesecure",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#090b14",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.snowy.studio.FlakeSecure",
+      "associatedDomains": [
+        "applinks:flakesecure.snowystudio.dev"
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#090b14"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.snowy.studio.FlakeSecure",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "flakesecure.snowystudio.dev",
+              "pathPrefix": "/share"
+            },
+            {
+              "scheme": "https",
+              "host": "flakesecure.snowystudio.dev",
+              "pathPrefix": "/auth"
+            },
+            {
+              "scheme": "flakesecure"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-camera",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#090b14",
+          "dark": {
+            "backgroundColor": "#090b14"
+          }
+        }
+      ],
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-localization",
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "28264741-e312-4036-b856-58b054137bc1"
+      }
+    }
+  }
+}
