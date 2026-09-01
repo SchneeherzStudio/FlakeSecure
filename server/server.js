@@ -172,6 +172,9 @@ app.get('/robots.txt', (req, res) => {
 app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml').sendFile('sitemap.xml', { root: PUBLIC_DIR });
 });
+app.get('/favicon.ico', (req, res) => {
+  res.type('image/png').sendFile('favicon.png', { root: PUBLIC_DIR });
+});
 
 app.get('/health', (req, res) => {
   res.json({

@@ -59,9 +59,12 @@ export default function ScanScreen() {
   const handleBarCodeScanned = async ({ data }) => {
     if (scanned || importing) return;
     
+    console.log('[FlakeSecure Scanner] Raw QR data:', JSON.stringify(data));
+    
     const hasSid = data.includes('sid=') || data.includes('s=');
     const hasKey = data.includes('key=') || data.includes('k=');
     if (!hasSid || !hasKey) {
+      console.log('[FlakeSecure Scanner] Not a FlakeSecure QR code, ignoring');
       return;
     }
 
@@ -75,15 +78,45 @@ export default function ScanScreen() {
       let action = null;
       let fieldsParam = null;
 
+      // Extract query string – support both ? and # separators
+      let queryString = '';
       if (data.includes('?')) {
-        const query = data.split('?')[1];
-        const urlParams = new URLSearchParams(query);
-        sid = urlParams.get('s') || urlParams.get('sid');
-        key = urlParams.get('k') || urlParams.get('key');
-        domain = urlParams.get('d') || urlParams.get('domain');
-        action = urlParams.get('a') || urlParams.get('action');
-        fieldsParam = urlParams.get('f') || urlParams.get('fields');
+        queryString = data.split('?')[1];
+      } else if (data.includes('#')) {
+        queryString = data.split('#')[1];
       }
+
+      if (queryString) {
+        // Try URLSearchParams first
+        try {
+          const urlParams = new URLSearchParams(queryString);
+          sid = urlParams.get('s') || urlParams.get('sid');
+          key = urlParams.get('k') || urlParams.get('key');
+          domain = urlParams.get('d') || urlParams.get('domain');
+          action = urlParams.get('a') || urlParams.get('action');
+          fieldsParam = urlParams.get('f') || urlParams.get('fields');
+        } catch (e) {
+          console.log('[FlakeSecure Scanner] URLSearchParams failed, using manual parser');
+        }
+
+        // Manual fallback if URLSearchParams didn't work
+        if (!sid || !key) {
+          const pairs = queryString.split('&');
+          for (const pair of pairs) {
+            const eqIdx = pair.indexOf('=');
+            if (eqIdx === -1) continue;
+            const k = decodeURIComponent(pair.substring(0, eqIdx)).toLowerCase();
+            const v = decodeURIComponent(pair.substring(eqIdx + 1));
+            if (k === 's' || k === 'sid') sid = v;
+            else if (k === 'k' || k === 'key') key = v;
+            else if (k === 'd' || k === 'domain') domain = v;
+            else if (k === 'a' || k === 'action') action = v;
+            else if (k === 'f' || k === 'fields') fieldsParam = v;
+          }
+        }
+      }
+
+      console.log('[FlakeSecure Scanner] Parsed: sid=', sid?.substring(0, 8), 'key=', key?.substring(0, 8), 'domain=', domain);
 
       if (!sid || !key) {
         throw new Error('Invalid QR code parameters');

@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Browser Extension Content Script (Firefox MV3)
+ * FlakeSecure - Browser Extension Content Script (Firefox MV3) v2.0.0
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & ARCHITECTURE:
@@ -9,55 +9,37 @@
  *    - generateSessionId(): Generates a cryptographically secure 16-byte hex session ID.
  *    - generateAESKey(): Generates a random 32-byte (256-bit) AES key as hex string for the QR code.
  *    - hexToBytes(hex) / bytesToHex(bytes): Converts between hexadecimal strings and Uint8Array byte arrays.
- *    - decryptData(encryptedPayload, keyHex): Decrypts received data via AES-256-CTR and validates integrity via HMAC-SHA256 (Encrypt-then-MAC).
+ *    - decryptData(encryptedPayload, keyHex): Decrypts received data via AES-256-CTR and validates HMAC-SHA256.
  * 
- * 2. DOM ANALYSIS & FORM DETECTION:
- *    - isVisible(el): Checks if a DOM element is visible and rendered (BoundingRect, computed styles, opacity).
- *    - findPasswordFields(): Searches for all visible password input fields using comprehensive selectors.
- *    - findUsernameFields(): Searches for visible username, email, and identifier fields.
- *    - findPrecedingTextInput(passwordField): Finds the preceding text input field relative to a password field.
- *    - analyzeForm(targetField): Distinguishes between login and registration forms based on fields/keywords and extracts required registration fields.
- *    - encodeFieldsCompact(fields): Encodes detected registration fields into compact URL codes for the QR code.
+ * 2. DOM ANALYSIS & AUTH DETECTION:
+ *    - isVisible(el): Reliable visibility checker for animated or dynamically rendering form fields.
+ *    - isNonAuthField(el): Filters out search boxes, chat/comment inputs, shipping/billing address inputs, quantity pickers.
+ *    - findPasswordFields(): Comprehensive search for password inputs.
+ *    - findUsernameFields(): Searches for authentic username/email fields.
  * 
- * 3. FORM FILLING & NATIVE EVENT SIMULATION:
- *    - simulateInput(element, value): Sets field values using native prototype setters and triggers input, change, and blur events.
- *    - fillRegistrationFields(fieldsData): Dynamically populates all account creation fields (firstName, lastName, email, username, password, phone).
- *    - fillLoginFields(username, password): Populates credentials (username and password) into login forms.
+ * 3. MULTI-STEP LOGIN & PERSISTENT DOMAIN CREDENTIAL CACHING:
+ *    - setCachedCredentials(data): Stores credentials in isolated browser.storage.local with 10-minute TTL.
+ *    - getCachedCredentials(): Retrieves cached credentials across page reloads and step transitions.
+ *    - checkAndAutoFillCachedCredentials(): Automatically applies username, password, or TOTP as soon as fields appear.
+ *    - startPersistentStepWatcher(): High-frequency polling window (15s) ensuring multi-step forms auto-fill immediately.
  * 
- * 4. DYNAMIC LOADING & MULTI-STEP LOGIN:
- *    - startDynamicPasswordWatcher(): Starts a polling window (15s) for forms with delayed password fields (e.g. gmx.net, SPAs).
- *    - checkAndFillPendingPassword(): Checks cached credentials in sessionStorage and fills passwords into dynamically rendered fields.
- * 
- * 5. SMART FORM SUBMISSION & SOCIAL BUTTON FILTERING:
- *    - isSocialOrNegativeButton(btn): Filters out third-party OAuth buttons (Google, Facebook, Apple, etc.) and cancel/forgot-password buttons.
- *    - findSubmitButton(form, targetField): Locates the primary submit/login button of the form excluding social login buttons.
- *    - submitForm(form, targetField): Executes safe form submission (button click, requestSubmit, submit, or Enter keydown).
- * 
- * 6. SOCKET.IO RELAY COMMUNICATION (VIA BACKGROUND SCRIPT):
- *    - connectSocket(sessionId, keyHex, onData): Sends CONNECT messages to the background script (Firefox MV3 WebSocket isolation) and receives decrypted payloads.
- * 
- * 7. USER INTERFACE (MODAL OVERLAY & BUTTON):
- *    - updateOverlayStatus(type, message): Updates the status message and visual feedback in the overlay.
- *    - createOverlay(sessionId, deepLink, domain, isRegister): Injects the FlakeSecure modal overlay with QR code and real-time status into the DOM.
- *    - removeOverlay(cancelled): Dismisses the overlay with exit animation, sends DISCONNECT to the background script, and resets state.
- *    - injectLoginButton(targetField): Injects the FlakeSecure button trigger when button display mode is active.
- *    - handlePasswordField(field): Checks saved display preferences (popup vs. button) and triggers display.
- *    - showOverlay(field): Initializes session, key, deep link, mounts overlay, and listens for incoming payload.
- * 
- * 8. ENTRY POINT & MUTATION OBSERVER:
- *    - checkForPasswordField(): Main detection loop to discover forms on the page.
- *    - Event listeners & MutationObserver: Initial execution on DOMContentLoaded, re-checks on focus/click, and continuous DOM observation.
+ * 4. OVERLAY & UI:
+ *    - createOverlay(): Mounts pixel-perfect FlakeSecure QR modal with stylesheet and smooth CSS animations.
+ *    - removeOverlay(): Dismisses overlay and signals background script to disconnect.
  * ============================================================================
  */
 
 (function () {
   'use strict';
 
+  const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes retention for multi-step flows
+
   let uiInjected = false;
   let userCancelled = false;
   let currentSessionId = null;
-  let activeWatcherTimer = null;
-  let activeWatcherEnd = 0;
+  let isAutoFilling = false;
+  let watcherTimer = null;
+  let watcherEndTime = 0;
 
   const SOCIAL_OR_NEGATIVE_KEYWORDS = [
     'facebook', 'google', 'apple', 'xbox', 'playstation', 'psn', 'nintendo',
@@ -74,6 +56,8 @@
     'iniciar sesion', 'acceder', 'submit-btn', 'auth-submit', 'login-button',
     'btn-submit', 'arrow-button', 'btn-login', 'arrow', 'proceed'
   ];
+
+  const NON_AUTH_NAME_REGEX = /search|suche|query|filter|find|comment|kommentar|message|nachricht|chat|address|adresse|street|strasse|city|stadt|zip|plz|country|land|phone|telefon|mobile|handy|qty|quantity|amount|menge|anzahl|coupon|gutschein|promo|discount|rabatt|tag|title|titel|subject|betreff|searchbox|searchinput/i;
 
   function generateSessionId() {
     const array = new Uint8Array(16);
@@ -131,12 +115,109 @@
     }
   }
 
+  function getEffectiveDomain() {
+    const hostname = (window.location.hostname || '').toLowerCase();
+    const parts = hostname.split('.');
+    if (parts.length <= 2) return hostname;
+    const secondLast = parts[parts.length - 2];
+    if (['co', 'com', 'org', 'net', 'edu', 'gov'].includes(secondLast) && parts.length >= 3) {
+      return parts.slice(-3).join('.');
+    }
+    return parts.slice(-2).join('.');
+  }
+
+  async function setCachedCredentials(data) {
+    const domain = getEffectiveDomain();
+    const payload = {
+      domain,
+      hostname: window.location.hostname,
+      username: data.username || '',
+      password: data.password || '',
+      totp: data.totp || data.code || null,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + CACHE_TTL_MS
+    };
+
+    try {
+      if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+        browser.storage.local.set({
+          [`fs_cache_${domain}`]: payload,
+          fs_active_creds: payload
+        });
+      }
+    } catch (e) {}
+  }
+
+  function clearCachedCredentials() {
+    const domain = getEffectiveDomain();
+    try {
+      if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+        browser.storage.local.remove([`fs_cache_${domain}`, 'fs_active_creds']);
+      }
+    } catch (e) {}
+  }
+
+  async function getCachedCredentials() {
+    const domain = getEffectiveDomain();
+
+    try {
+      if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+        const domainKey = `fs_cache_${domain}`;
+        const stored = await browser.storage.local.get([domainKey, 'fs_active_creds']);
+        const entry = stored ? (stored[domainKey] || stored.fs_active_creds) : null;
+        if (entry && entry.expiresAt && entry.expiresAt > Date.now()) {
+          return entry;
+        } else if (entry && entry.expiresAt && entry.expiresAt <= Date.now()) {
+          browser.storage.local.remove([domainKey, 'fs_active_creds']);
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
   function isVisible(el) {
     if (!el) return false;
-    const rect = el.getBoundingClientRect();
     const style = window.getComputedStyle(el);
-    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-    return (rect.width > 0 && rect.height > 0) || el.offsetParent !== null || style.position === 'fixed';
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    if (parseFloat(style.opacity) === 0 && !el.matches(':focus')) return false;
+    const rect = el.getBoundingClientRect();
+    return (rect.width > 0 && rect.height > 0) || el.offsetParent !== null || style.position === 'fixed' || style.position === 'absolute';
+  }
+
+  function isNonAuthField(el) {
+    if (!el) return true;
+    const type = (el.type || '').toLowerCase();
+    if (['search', 'number', 'tel', 'date', 'time', 'datetime-local', 'month', 'week', 'range', 'color', 'checkbox', 'radio', 'file', 'hidden', 'submit', 'button', 'reset', 'image'].includes(type)) {
+      return true;
+    }
+    if (el.readOnly || el.disabled) return true;
+
+    const role = (el.getAttribute('role') || '').toLowerCase();
+    if (role === 'searchbox' || role === 'search' || role === 'combobox') return true;
+
+    const name = el.getAttribute('name') || '';
+    const id = el.getAttribute('id') || '';
+    const placeholder = el.getAttribute('placeholder') || '';
+    const ariaLabel = el.getAttribute('aria-label') || '';
+    const className = typeof el.className === 'string' ? el.className : '';
+
+    const combined = `${name} ${id} ${placeholder} ${ariaLabel} ${className}`;
+    if (NON_AUTH_NAME_REGEX.test(combined)) {
+      return true;
+    }
+
+    const form = el.closest('form');
+    if (form) {
+      const formRole = (form.getAttribute('role') || '').toLowerCase();
+      const formAction = (form.getAttribute('action') || '').toLowerCase();
+      const formName = `${form.getAttribute('name') || ''} ${form.getAttribute('id') || ''} ${form.className || ''}`.toLowerCase();
+      if (formRole === 'search' || formAction.includes('search') || formAction.includes('suche') || formName.includes('search') || formName.includes('suche')) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   function findPasswordFields() {
@@ -152,7 +233,7 @@
       'input[autocomplete="new-password"]'
     ];
     const elements = Array.from(document.querySelectorAll(selectors.join(',')));
-    return elements.filter(isVisible);
+    return elements.filter(el => isVisible(el) && !el.disabled && !el.readOnly && !isNonAuthField(el));
   }
 
   function findUsernameFields() {
@@ -160,34 +241,38 @@
       'input[type="email"]',
       'input[autocomplete="username"]',
       'input[autocomplete="email"]',
-      'input[name*="user" i]',
-      'input[name*="email" i]',
-      'input[name*="login" i]',
+      'input[name*="username" i]',
+      'input[name*="user_name" i]',
       'input[name*="userid" i]',
+      'input[name*="user_id" i]',
+      'input[name*="login_id" i]',
+      'input[name*="login_email" i]',
       'input[name*="identifier" i]',
-      'input[name*="account" i]',
-      'input[id*="user" i]',
-      'input[id*="email" i]',
-      'input[id*="login" i]',
-      'input[id*="identifier" i]',
-      'input[id*="account" i]',
-      'input[type="text"]'
+      'input[id*="username" i]',
+      'input[id*="user_name" i]',
+      'input[id*="userid" i]',
+      'input[id*="user_id" i]',
+      'input[id*="login_id" i]',
+      'input[id*="login_email" i]',
+      'input[id*="identifier" i]'
     ];
     const elements = Array.from(document.querySelectorAll(selectors.join(',')));
     return elements.filter(el => {
-      if (!isVisible(el)) return false;
-      const type = (el.type || '').toLowerCase();
-      if (type === 'password' || type === 'hidden' || type === 'submit' || type === 'button' || type === 'checkbox' || type === 'radio') return false;
+      if (!isVisible(el) || el.disabled || el.readOnly) return false;
+      if (isNonAuthField(el)) return false;
       return true;
     });
   }
 
   function findPrecedingTextInput(passwordField) {
-    const allInputs = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"])'));
-    const idx = allInputs.indexOf(passwordField);
-    if (idx > 0) {
-      for (let i = idx - 1; i >= 0; i--) {
-        if (allInputs[i].type !== 'password' && isVisible(allInputs[i])) return allInputs[i];
+    if (!passwordField) return null;
+    const form = passwordField.closest('form') || passwordField.closest('.login-container, .auth-container, [role="main"]') || document;
+    const allInputs = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"])'));
+    for (const inp of allInputs) {
+      if (isVisible(inp) && !isNonAuthField(inp)) {
+        if (passwordField.compareDocumentPosition(inp) & Node.DOCUMENT_POSITION_PRECEDING) {
+          return inp;
+        }
       }
     }
     return null;
@@ -206,7 +291,8 @@
       }
       element.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
       element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-      element.dispatchEvent(new Event('blur', { bubbles: true, cancelable: true }));
+      element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', keyCode: 13 }));
+      element.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter', keyCode: 13 }));
     } catch (e) {
       try {
         element.value = value;
@@ -216,7 +302,6 @@
 
   function analyzeForm(targetField) {
     const pwFields = findPasswordFields();
-    const userFields = findUsernameFields();
     const form = targetField?.closest('form') || document;
 
     const pageUrl = window.location.href.toLowerCase();
@@ -249,8 +334,6 @@
       const usernameField = formScope.querySelector('input[autocomplete="username"], input[name*="username" i], input[name*="user" i], input[name*="benutzer" i], input[id*="username" i], input[id*="user" i]');
       if (usernameField && isVisible(usernameField) && usernameField !== emailField) {
         fields.push({ key: 'username', label: 'Benutzername', type: 'text', required: true });
-      } else if (!emailField && userFields.length > 0) {
-        fields.push({ key: 'username', label: 'Benutzername / E-Mail', type: 'text', required: true });
       }
 
       fields.push({ key: 'password', label: 'Passwort', type: 'password', required: true });
@@ -258,33 +341,12 @@
         fields.push({ key: 'confirmPassword', label: 'Passwort wiederholen', type: 'password', required: true });
       }
 
-      const firstNameField = formScope.querySelector('input[name*="first" i], input[name*="vorname" i], input[id*="first" i], input[id*="vorname" i], input[autocomplete="given-name"]');
-      if (firstNameField && isVisible(firstNameField)) {
-        fields.push({ key: 'firstName', label: 'Vorname', type: 'text', required: false });
-      }
-
-      const lastNameField = formScope.querySelector('input[name*="last" i], input[name*="nachname" i], input[id*="last" i], input[id*="nachname" i], input[autocomplete="family-name"]');
-      if (lastNameField && isVisible(lastNameField)) {
-        fields.push({ key: 'lastName', label: 'Nachname', type: 'text', required: false });
-      }
-
-      const fullNameField = formScope.querySelector('input[name*="fullname" i], input[name="name" i], input[id*="fullname" i], input[autocomplete="name"]');
-      if (fullNameField && isVisible(fullNameField) && !firstNameField && !lastNameField) {
-        fields.push({ key: 'fullName', label: 'Vollständiger Name', type: 'text', required: false });
-      }
-
-      const phoneField = formScope.querySelector('input[type="tel"], input[name*="phone" i], input[name*="telefon" i], input[name*="mobil" i], input[autocomplete="tel"]');
-      if (phoneField && isVisible(phoneField)) {
-        fields.push({ key: 'phone', label: 'Telefonnummer', type: 'tel', required: false });
-      }
-
       return {
         action: 'register',
         fields: fields.length > 0 ? fields : [
           { key: 'email', label: 'E-Mail', type: 'email', required: true },
           { key: 'username', label: 'Benutzername', type: 'text', required: true },
-          { key: 'password', label: 'Passwort', type: 'password', required: true },
-          { key: 'confirmPassword', label: 'Passwort wiederholen', type: 'password', required: true }
+          { key: 'password', label: 'Passwort', type: 'password', required: true }
         ]
       };
     }
@@ -300,10 +362,8 @@
     const name = (btn.getAttribute('name') || '').toLowerCase().trim();
     const id = (btn.getAttribute('id') || '').toLowerCase().trim();
     const className = (typeof btn.className === 'string' ? btn.className : '').toLowerCase();
-    const dataTestId = (btn.getAttribute('data-testid') || '').toLowerCase();
-    const dataProvider = (btn.getAttribute('data-provider') || '').toLowerCase();
 
-    const combined = `${text} ${aria} ${title} ${name} ${id} ${className} ${dataTestId} ${dataProvider}`;
+    const combined = `${text} ${aria} ${title} ${name} ${id} ${className}`;
     return SOCIAL_OR_NEGATIVE_KEYWORDS.some(kw => combined.includes(kw));
   }
 
@@ -325,26 +385,10 @@
       if (isSocialOrNegativeButton(btn)) continue;
       const text = (btn.innerText || btn.textContent || '').toLowerCase().trim();
       const aria = (btn.getAttribute('aria-label') || '').toLowerCase().trim();
-      const className = (typeof btn.className === 'string' ? btn.className : '').toLowerCase();
-      const id = (btn.getAttribute('id') || '').toLowerCase();
-      const combined = `${text} ${aria} ${className} ${id}`;
+      const combined = `${text} ${aria}`;
       if (POSITIVE_SUBMIT_KEYWORDS.some(kw => combined.includes(kw))) {
         return btn;
       }
-    }
-
-    if (targetField) {
-      const followingButtons = allButtons.filter(btn => {
-        if (isSocialOrNegativeButton(btn)) return false;
-        return targetField.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING;
-      });
-      if (followingButtons.length > 0) {
-        return followingButtons[0];
-      }
-    }
-
-    for (const btn of allButtons) {
-      if (!isSocialOrNegativeButton(btn)) return btn;
     }
 
     return null;
@@ -353,7 +397,6 @@
   function submitForm(form, targetField) {
     const submitBtn = findSubmitButton(form, targetField);
     if (submitBtn) {
-      console.log('[FlakeSecure] Triggering submit button:', submitBtn);
       submitBtn.click();
       return;
     }
@@ -379,65 +422,6 @@
     }
   }
 
-  function fillRegistrationFields(fieldsData) {
-    console.log('[FlakeSecure] Filling registration fields:', fieldsData);
-
-    const pwFields = findPasswordFields();
-    const password = fieldsData.password;
-    const confirmPassword = fieldsData.confirmPassword || fieldsData.password;
-
-    if (pwFields.length >= 2) {
-      if (password) simulateInput(pwFields[0], password);
-      if (confirmPassword) simulateInput(pwFields[1], confirmPassword);
-    } else if (pwFields.length === 1) {
-      if (password) simulateInput(pwFields[0], password);
-      const confirmInput = document.querySelector('input[name*="confirm" i], input[name*="repeat" i], input[name*="wiederhol" i], input[id*="confirm" i]');
-      if (confirmInput && isVisible(confirmInput)) {
-        simulateInput(confirmInput, confirmPassword);
-      }
-    }
-
-    if (fieldsData.email) {
-      const emailInput = document.querySelector('input[type="email"], input[name*="email" i], input[id*="email" i], input[autocomplete="email"]');
-      if (emailInput && isVisible(emailInput)) {
-        simulateInput(emailInput, fieldsData.email);
-      }
-    }
-
-    if (fieldsData.username) {
-      const usernameInput = document.querySelector('input[autocomplete="username"], input[name*="username" i], input[name*="user" i], input[name*="benutzer" i], input[id*="username" i], input[id*="user" i]');
-      if (usernameInput && isVisible(usernameInput)) {
-        simulateInput(usernameInput, fieldsData.username);
-      }
-    }
-
-    if (fieldsData.firstName) {
-      const fnInput = document.querySelector('input[name*="first" i], input[name*="vorname" i], input[id*="first" i], input[id*="vorname" i], input[autocomplete="given-name"]');
-      if (fnInput && isVisible(fnInput)) {
-        simulateInput(fnInput, fieldsData.firstName);
-      }
-    }
-    if (fieldsData.lastName) {
-      const lnInput = document.querySelector('input[name*="last" i], input[name*="nachname" i], input[id*="last" i], input[id*="nachname" i], input[autocomplete="family-name"]');
-      if (lnInput && isVisible(lnInput)) {
-        simulateInput(lnInput, fieldsData.lastName);
-      }
-    }
-    if (fieldsData.fullName) {
-      const fnInput = document.querySelector('input[name*="fullname" i], input[name="name" i], input[id*="fullname" i], input[autocomplete="name"]');
-      if (fnInput && isVisible(fnInput)) {
-        simulateInput(fnInput, fieldsData.fullName);
-      }
-    }
-
-    if (fieldsData.phone) {
-      const phoneInput = document.querySelector('input[type="tel"], input[name*="phone" i], input[name*="telefon" i], input[name*="mobil" i], input[autocomplete="tel"]');
-      if (phoneInput && isVisible(phoneInput)) {
-        simulateInput(phoneInput, fieldsData.phone);
-      }
-    }
-  }
-
   function fillLoginFields(username, password) {
     const pwFields = findPasswordFields();
     const userFields = findUsernameFields();
@@ -459,51 +443,8 @@
     return { filledUsername, filledPassword };
   }
 
-  function startDynamicPasswordWatcher() {
-    if (activeWatcherTimer) clearInterval(activeWatcherTimer);
-    activeWatcherEnd = Date.now() + 15000;
-
-    activeWatcherTimer = setInterval(() => {
-      if (Date.now() > activeWatcherEnd) {
-        clearInterval(activeWatcherTimer);
-        activeWatcherTimer = null;
-        return;
-      }
-      checkAndFillPendingPassword();
-    }, 150);
-  }
-
-  function checkAndFillPendingPassword() {
-    const cached = sessionStorage.getItem('fs_temp_cred');
-    if (!cached) return;
-
-    try {
-      const creds = JSON.parse(cached);
-      if (Date.now() - creds.timestamp > 5 * 60 * 1000) {
-        sessionStorage.removeItem('fs_temp_cred');
-        return;
-      }
-
-      const pwFields = findPasswordFields();
-      if (pwFields.length > 0) {
-        const pwField = pwFields[0];
-        if (pwField.value !== creds.password) {
-          console.log('[FlakeSecure] Dynamic password field detected, auto-filling...');
-          simulateInput(pwField, creds.password);
-          sessionStorage.removeItem('fs_temp_cred');
-          if (activeWatcherTimer) {
-            clearInterval(activeWatcherTimer);
-            activeWatcherTimer = null;
-          }
-          setTimeout(() => {
-            submitForm(pwField.closest('form'), pwField);
-          }, 350);
-        }
-      }
-    } catch (e) {}
-  }
-
   function fillTotpCode(code) {
+    if (!code) return false;
     const totpSelectors = [
       'input[autocomplete="one-time-code"]',
       'input[name*="totp" i]',
@@ -517,16 +458,13 @@
       'input[placeholder*="code" i]',
       'input[placeholder*="token" i]',
       'input[placeholder*="2fa" i]',
-      'input[placeholder*="otp" i]',
-      'input[type="tel"]',
-      'input[type="number"]'
+      'input[placeholder*="otp" i]'
     ];
 
     for (const selector of totpSelectors) {
-      const fields = Array.from(document.querySelectorAll(selector)).filter(isVisible);
+      const fields = Array.from(document.querySelectorAll(selector)).filter(el => isVisible(el) && !isNonAuthField(el));
       if (fields.length > 0) {
         simulateInput(fields[0], code);
-        updateOverlayStatus('success', '2FA-Code automatisch eingefügt ✓');
         setTimeout(() => {
           submitForm(fields[0].closest('form'), fields[0]);
         }, 300);
@@ -536,66 +474,105 @@
     return false;
   }
 
-  function connectSocket(sessionId, keyHex, onData) {
-    const currentDomain = window.location.hostname;
-    try {
-      if (typeof browser !== 'undefined' && browser.runtime) {
-        browser.storage.local.get(['authToken']).then(res => {
-          browser.runtime.sendMessage({
-            type: 'CONNECT',
-            sessionId: sessionId,
-            token: res.authToken,
-            domain: currentDomain
-          }).catch(err => console.error('[FlakeSecure] CONNECT error:', err));
-        });
-      } else if (typeof chrome !== 'undefined' && chrome.runtime) {
-        chrome.storage.local.get(['authToken'], (res) => {
-          chrome.runtime.sendMessage({
-            type: 'CONNECT',
-            sessionId: sessionId,
-            token: res.authToken,
-            domain: currentDomain
-          });
-        });
+  async function checkAndAutoFillCachedCredentials() {
+    if (isAutoFilling) return;
+    const cached = await getCachedCredentials();
+    if (!cached || !cached.password) return;
+
+    const pwFields = findPasswordFields();
+    const userFields = findUsernameFields();
+    let filledPassword = false;
+    let filledSomething = false;
+
+    // 1. Fill password if visible and not matching cached password
+    if (pwFields.length > 0) {
+      const pwField = pwFields[0];
+      if (pwField.value !== cached.password) {
+        console.log('[FlakeSecure Firefox] Cached password auto-filled for domain:', cached.domain);
+        simulateInput(pwField, cached.password);
+        filledPassword = true;
+        filledSomething = true;
       }
-    } catch (e) {
-      console.error('[FlakeSecure] Failed to send CONNECT message', e);
     }
 
-    if (!window.fsMessageListenerAdded) {
-      const listener = async (message) => {
-        if (message.type === 'SOCKET_CONNECTED') {
-          console.log('[FlakeSecure] Connected to relay server (via background)');
-        } else if (message.type === 'LOGIN_DATA') {
-          console.log('[FlakeSecure] Received payload (via background)');
-          const decrypted = await decryptData(message.payload, keyHex);
-          if (decrypted) {
-            onData(decrypted);
-          }
-        } else if (message.type === 'TOTP_DATA') {
-          console.log('[FlakeSecure] Received TOTP data (via background)');
-          const decrypted = await decryptData(message.payload, keyHex);
-          if (decrypted && decrypted.code) {
-            fillTotpCode(decrypted.code);
-          }
-        } else if (message.type === 'SESSION_EXPIRED') {
-          console.log('[FlakeSecure] Session expired (via background)');
+    // 2. Fill username if visible and empty
+    if (cached.username) {
+      const uField = userFields[0] || (pwFields[0] ? findPrecedingTextInput(pwFields[0]) : null);
+      if (uField && !uField.value) {
+        console.log('[FlakeSecure Firefox] Cached username auto-filled for domain:', cached.domain);
+        simulateInput(uField, cached.username);
+        filledSomething = true;
+      }
+    }
+
+    // 3. Fill TOTP if present
+    if (cached.totp) {
+      const totpFilled = fillTotpCode(cached.totp);
+      if (totpFilled) filledSomething = true;
+    }
+
+    if (filledSomething) {
+      isAutoFilling = true;
+      setTimeout(() => { isAutoFilling = false; }, 1000);
+
+      // 4. Auto-submit after filling password (multi-step login, e.g. ionos.de)
+      if (filledPassword) {
+        const settings = await getSettings();
+        if (settings.autoLogin) {
+          setTimeout(() => {
+            const target = pwFields[0];
+            const form = target ? target.closest('form') : null;
+            console.log('[FlakeSecure Firefox] Auto-submitting after cached password fill');
+            submitForm(form, target);
+            clearCachedCredentials();
+          }, 500);
+        } else {
+          clearCachedCredentials();
+        }
+      }
+    }
+  }
+
+  function startPersistentStepWatcher() {
+    if (watcherTimer) clearInterval(watcherTimer);
+    watcherEndTime = Date.now() + 20000; // Watch for 20 seconds during multi-step navigation
+
+    watcherTimer = setInterval(() => {
+      if (Date.now() > watcherEndTime) {
+        clearInterval(watcherTimer);
+        watcherTimer = null;
+        return;
+      }
+      checkAndAutoFillCachedCredentials();
+    }, 250);
+  }
+
+  function connectSocket(sessionId, keyHex, onData) {
+    if (typeof browser !== 'undefined' && browser.runtime) {
+      browser.storage.local.get(['authToken']).then((res) => {
+        browser.runtime.sendMessage({
+          type: 'CONNECT',
+          sessionId,
+          token: res ? res.authToken : null,
+          domain: window.location.hostname
+        }).catch(() => {});
+      });
+
+      const messageListener = async (msg) => {
+        if (msg.type === 'LOGIN_DATA') {
+          const decrypted = await decryptData(msg.payload, keyHex);
+          if (decrypted) onData(decrypted);
+        } else if (msg.type === 'TOTP_DATA') {
+          const decrypted = await decryptData(msg.payload, keyHex);
+          if (decrypted && decrypted.code) fillTotpCode(decrypted.code);
+        } else if (msg.type === 'SESSION_EXPIRED') {
           removeOverlay();
-        } else if (message.type === 'SOCKET_DISCONNECTED') {
-          console.log('[FlakeSecure] Disconnected from relay server (via background)');
-        } else if (message.type === 'SOCKET_ERROR') {
-          console.error('[FlakeSecure] Connection error (via background):', message.message);
+        } else if (msg.type === 'SOCKET_ERROR') {
           updateOverlayStatus('error', 'Server nicht erreichbar');
         }
       };
 
-      if (typeof browser !== 'undefined' && browser.runtime) {
-        browser.runtime.onMessage.addListener(listener);
-      } else if (typeof chrome !== 'undefined' && chrome.runtime) {
-        chrome.runtime.onMessage.addListener(listener);
-      }
-      
-      window.fsMessageListenerAdded = true;
+      browser.runtime.onMessage.addListener(messageListener);
     }
   }
 
@@ -616,26 +593,14 @@
         card.style.animation = 'fsCardOut 0.25s cubic-bezier(0.4, 0, 1, 1) forwards';
       }
       overlay.style.animation = 'fsOverlayOut 0.3s ease-in forwards';
-      observer.disconnect();
       setTimeout(() => {
         overlay.remove();
-        if (!cancelled) {
-          observer.observe(document.documentElement || document.body, { 
-            childList: true, 
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class', 'style', 'type', 'hidden']
-          });
-        }
       }, 300);
     }
-    try {
-      if (typeof browser !== 'undefined' && browser.runtime) {
-        browser.runtime.sendMessage({ type: 'DISCONNECT' }).catch(() => {});
-      } else if (typeof chrome !== 'undefined' && chrome.runtime) {
-        chrome.runtime.sendMessage({ type: 'DISCONNECT' });
-      }
-    } catch (e) {}
+
+    if (typeof browser !== 'undefined' && browser.runtime) {
+      browser.runtime.sendMessage({ type: 'DISCONNECT' }).catch(() => {});
+    }
 
     uiInjected = false;
     currentSessionId = null;
@@ -673,7 +638,7 @@
     fr: {
       regSubtitle: 'Création sécurisée de compte',
       loginSubtitle: 'Connexion biométrique sécurisée',
-      regInstructions: 'Scannez le code QR avec l\'<strong>Application FlakeSecure</strong> pour remplir et sauvegarder vos accès en toute sécurité.',
+      regInstructions: 'Scannez le code QR avec l\'<strong>Application FlakeSecure</strong> pour remplir vos accès.',
       loginInstructions: 'Scannez le code QR avec l\'<strong>Application FlakeSecure</strong> et confirmez avec Face ID / Empreinte.',
       step1: 'Scanner',
       step2Reg: 'Personnaliser',
@@ -687,8 +652,8 @@
     es: {
       regSubtitle: 'Creación segura de cuenta',
       loginSubtitle: 'Inicio de sesión biométrico seguro',
-      regInstructions: 'Escanea el código QR con la <strong>App FlakeSecure</strong> para rellenar y guardar tus datos de forma segura.',
-      loginInstructions: 'Escanea el código QR con la <strong>App FlakeSecure</strong> y confirma con Face ID / Huella dactilar.',
+      regInstructions: 'Escanea el código QR con la <strong>App FlakeSecure</strong> para rellenar tus credenciales.',
+      loginInstructions: 'Escanea el código QR mit der <strong>App FlakeSecure</strong> y confirma con Face ID / Huella.',
       step1: 'Escanear',
       step2Reg: 'Personalizar',
       step2Login: 'Confirmar',
@@ -711,15 +676,22 @@
 
     overlay.innerHTML = `
       <link rel="stylesheet" href="${cssUrl}">
-      <div class="fs-card">
-        <button class="fs-close-btn" id="fs-close" title="Close">✕</button>
-
+      <div class="fs-card" role="dialog" aria-modal="true">
+        <button id="fs-close" class="fs-close-btn" aria-label="Schließen">&times;</button>
         <div class="fs-logo">
-          <div class="fs-logo-icon">❄️</div>
-          <div class="fs-logo-text">Flake<span>Secure</span></div>
+          <div class="fs-logo-icon">
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
+              <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round"/>
+              <rect x="22" y="44" width="56" height="44" rx="8" fill="#ffffff"/>
+            </svg>
+          </div>
+          <h2 class="fs-logo-text">Flake<span>Secure</span></h2>
         </div>
-        <div class="fs-subtitle">${isRegister ? t.regSubtitle : t.loginSubtitle}</div>
-
+        <p class="fs-subtitle">${isRegister ? t.regSubtitle : t.loginSubtitle}</p>
+        <div class="fs-domain-badge">
+          <span class="fs-domain-dot"></span>
+          <span class="fs-domain-text">${domain}</span>
+        </div>
         <div class="fs-qr-container">
           <div class="fs-qr-corner fs-qr-corner--tl"></div>
           <div class="fs-qr-corner fs-qr-corner--tr"></div>
@@ -727,40 +699,29 @@
           <div class="fs-qr-corner fs-qr-corner--br"></div>
           <div id="flakesecure-qrcode"></div>
         </div>
-
-        <div class="fs-domain-badge">
-          <div class="fs-domain-dot"></div>
-          ${domain}
-        </div>
-
-        <div class="fs-instructions">
+        <p class="fs-instructions">
           ${isRegister ? t.regInstructions : t.loginInstructions}
+        </p>
+        <ul class="fs-steps">
+          <li class="fs-step active" id="fs-step-1">
+            <span class="fs-step-num">1</span>
+            <span class="fs-step-label">${t.step1}</span>
+          </li>
+          <li class="fs-step" id="fs-step-2">
+            <span class="fs-step-num">2</span>
+            <span class="fs-step-label">${isRegister ? t.step2Reg : t.step2Login}</span>
+          </li>
+          <li class="fs-step" id="fs-step-3">
+            <span class="fs-step-num">3</span>
+            <span class="fs-step-label">${isRegister ? t.step3Reg : t.step3Login}</span>
+          </li>
+        </ul>
+        <div class="fs-status-wrap">
+          <div id="flakesecure-status" class="fs-status fs-status--waiting">${t.waiting}</div>
         </div>
-
-        <div class="fs-steps">
-          <div class="fs-step active" id="fs-step-1">
-            <div class="fs-step-num">1</div>
-            ${t.step1}
-          </div>
-          <div class="fs-step" id="fs-step-2">
-            <div class="fs-step-num">2</div>
-            ${isRegister ? t.step2Reg : t.step2Login}
-          </div>
-          <div class="fs-step" id="fs-step-3">
-            <div class="fs-step-num">3</div>
-            ${isRegister ? t.step3Reg : t.step3Login}
-          </div>
-        </div>
-
-        <div>
-          <span class="fs-status fs-status--waiting" id="flakesecure-status">
-            ${t.waiting}
-          </span>
-        </div>
-
-        <div class="fs-fallback-link">
+        <p class="fs-fallback-link">
           ${t.fallback} <a href="${deepLink}" target="_blank">${t.openDirectly}</a>
-        </div>
+        </p>
       </div>
     `;
 
@@ -798,27 +759,27 @@
   }
 
   function injectLoginButton(targetField) {
-    if (document.getElementById('fs-login-btn')) return;
+    if (document.getElementById('fs-login-btn') || !targetField || !targetField.parentNode) return;
 
     const btn = document.createElement('button');
     btn.id = 'fs-login-btn';
     btn.type = 'button';
     btn.innerHTML = '❄️ FlakeSecure';
     btn.style.cssText = `
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       background: linear-gradient(135deg, #6391ff, #7c6aff);
       color: #fff;
       border: none;
       border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 14px;
+      padding: 6px 12px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 6px;
       box-shadow: 0 4px 12px rgba(99, 145, 255, 0.3);
-      font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+      font-family: -apple-system, sans-serif;
       z-index: 9999;
     `;
 
@@ -831,37 +792,35 @@
     targetField.parentNode.insertBefore(btn, targetField.nextSibling);
   }
 
-  const FIELD_TO_COMPACT = {
-    email: 'e',
-    username: 'u',
-    password: 'p',
-    confirmPassword: 'cp',
-    firstName: 'fn',
-    lastName: 'ln',
-    fullName: 'name',
-    phone: 'ph'
-  };
-
-  function encodeFieldsCompact(fields) {
-    if (!fields || !Array.isArray(fields)) return '';
-    return fields.map(f => FIELD_TO_COMPACT[f.key] || f.key).join(',');
-  }
-
-  async function handlePasswordField(field) {
-    if (uiInjected) return;
-    uiInjected = true;
-
-    const mode = await new Promise(resolve => {
-      if (typeof browser !== 'undefined' && browser.storage) {
-        browser.storage.sync.get(['displayMode']).then(res => resolve(res.displayMode || 'popup'));
-      } else if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.sync.get(['displayMode'], res => resolve(res.displayMode || 'popup'));
+  async function getSettings() {
+    return new Promise(resolve => {
+      if (typeof browser !== 'undefined' && browser.storage && browser.storage.sync) {
+        browser.storage.sync.get(['displayMode', 'autoLogin', 'autoOverlay', 'app_language']).then(res => {
+          resolve({
+            displayMode: res?.displayMode || 'popup',
+            autoLogin: res?.autoLogin !== false,
+            autoOverlay: res?.autoOverlay !== false,
+            app_language: res?.app_language || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en')
+          });
+        }).catch(() => {
+          resolve({ displayMode: 'popup', autoLogin: true, autoOverlay: true, app_language: 'en' });
+        });
       } else {
-        resolve('popup');
+        resolve({
+          displayMode: 'popup',
+          autoLogin: true,
+          autoOverlay: true,
+          app_language: navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en'
+        });
       }
     });
+  }
 
-    if (mode === 'button') {
+  async function handlePasswordField(field, settings) {
+    if (uiInjected || userCancelled) return;
+
+    const s = settings || await getSettings();
+    if (s.displayMode === 'button') {
       injectLoginButton(field);
     } else {
       showOverlay(field);
@@ -869,6 +828,9 @@
   }
 
   async function showOverlay(field) {
+    if (uiInjected) return;
+    uiInjected = true;
+
     const domain = window.location.hostname;
     const sessionId = generateSessionId();
     const { keyHex } = await generateAESKey();
@@ -879,23 +841,13 @@
 
     let deepLink = '';
     if (isRegister) {
-      const compactFields = encodeFieldsCompact(formInfo.fields);
-      deepLink = `flakesecure://register?s=${sessionId}&k=${keyHex}&d=${encodeURIComponent(domain)}&f=${compactFields}`;
+      deepLink = `flakesecure://register?s=${sessionId}&k=${keyHex}&d=${encodeURIComponent(domain)}`;
     } else {
       deepLink = `flakesecure://auth?s=${sessionId}&k=${keyHex}&d=${encodeURIComponent(domain)}`;
     }
 
-    const lang = await new Promise(resolve => {
-      if (typeof browser !== 'undefined' && browser.storage) {
-        browser.storage.sync.get(['app_language']).then(res => resolve(res.app_language || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en')));
-      } else if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.sync.get(['app_language'], res => resolve(res.app_language || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en')));
-      } else {
-        resolve('en');
-      }
-    });
-
-    createOverlay(sessionId, deepLink, domain, isRegister, lang);
+    const settings = await getSettings();
+    createOverlay(sessionId, deepLink, domain, isRegister, settings.app_language);
 
     connectSocket(sessionId, keyHex, (data) => {
       const step2 = document.getElementById('fs-step-2');
@@ -913,11 +865,8 @@
       } else {
         updateOverlayStatus('success', '✅ Anmeldedaten empfangen – logge dich ein…');
 
-        sessionStorage.setItem('fs_temp_cred', JSON.stringify({
-          username: data.username,
-          password: data.password,
-          timestamp: Date.now()
-        }));
+        // Persist in cache for multi-step reload (password step after page transition)
+        setCachedCredentials(data);
 
         setTimeout(() => {
           const { filledUsername, filledPassword } = fillLoginFields(data.username, data.password);
@@ -930,73 +879,112 @@
             const form = target ? target.closest('form') : null;
 
             if (filledPassword || pwFields.length > 0) {
-              sessionStorage.removeItem('fs_temp_cred');
-              submitForm(form, target);
+              if (settings.autoLogin) {
+                submitForm(form, target);
+              }
+              // Password was filled and submitted — cache no longer needed
+              clearCachedCredentials();
             } else {
-              console.log('[FlakeSecure] Step 1 filled (username only). Submitting step 1 and starting dynamic password watcher...');
-              submitForm(form, target);
-              startDynamicPasswordWatcher();
+              console.log('[FlakeSecure Firefox] Step 1 filled (username only). Watching for Step 2 password field...');
+              if (settings.autoLogin) {
+                submitForm(form, target);
+              }
+              startPersistentStepWatcher();
             }
-          }, 500);
-        }, 500);
+          }, 400);
+        }, 400);
       }
     });
   }
 
-  function checkForPasswordField() {
-    if (userCancelled) return;
-    
-    checkAndFillPendingPassword();
+  let scheduleCheckTimeout = null;
 
-    if (uiInjected) return;
-    
+  function scheduleCheck(forceUserTrigger = false) {
+    if (scheduleCheckTimeout) clearTimeout(scheduleCheckTimeout);
+    scheduleCheckTimeout = setTimeout(() => {
+      runSmartDetection(forceUserTrigger);
+    }, 150);
+  }
+
+  async function runSmartDetection(forceUserTrigger = false) {
+    // 1. Auto-fill from cache if credentials already exist
+    await checkAndAutoFillCachedCredentials();
+
+    if (userCancelled || uiInjected) return;
+
+    const settings = await getSettings();
+
+    // If autoOverlay is disabled and user didn't explicitly focus an auth field, do nothing
+    if (!settings.autoOverlay && !forceUserTrigger && settings.displayMode !== 'button') {
+      return;
+    }
+
     const pwFields = findPasswordFields();
     const userFields = findUsernameFields();
 
     let targetField = null;
+
     if (pwFields.length > 0) {
       targetField = pwFields[0];
     } else if (userFields.length > 0) {
       for (const uf of userFields) {
-        const form = uf.closest('form');
-        const isUsername = uf.getAttribute('autocomplete') === 'username' || uf.getAttribute('type') === 'email';
-        if (form) {
-          const text = form.textContent.toLowerCase();
-          if (text.includes('login') || text.includes('sign in') || text.includes('anmelden') || text.includes('einloggen') || text.includes('weiter') || text.includes('next') || text.includes('register') || text.includes('registrieren') || text.includes('konto erstellen') || isUsername) {
-            targetField = uf;
-            break;
-          }
-        } else if (isUsername) {
+        const isAuthType = uf.type === 'email' || uf.getAttribute('autocomplete') === 'username' || uf.getAttribute('autocomplete') === 'email';
+        if (isAuthType || !isNonAuthField(uf)) {
           targetField = uf;
           break;
         }
       }
     }
 
-    if (targetField) {
-      handlePasswordField(targetField);
+    if (!targetField) return;
+
+    if (!forceUserTrigger && settings.displayMode === 'popup' && (!settings.autoOverlay || pwFields.length === 0)) {
+      return;
     }
+
+    handlePasswordField(targetField, settings);
   }
+
+  // --- EVENT LISTENERS ---
+
+  // 1. Focused input listener: only trigger on genuine auth inputs
+  document.addEventListener('focusin', (e) => {
+    const target = e.target;
+    if (!target || target.tagName !== 'INPUT') return;
+    if (isNonAuthField(target)) return;
+
+    const type = (target.type || '').toLowerCase();
+    const isPw = type === 'password';
+    const isAuthUser = type === 'email' || target.getAttribute('autocomplete') === 'username' || /username|user_name|userid|login/i.test(target.name || target.id || '');
+
+    if (isPw || isAuthUser) {
+      scheduleCheck(true);
+    }
+  }, { passive: true });
+
+  // 2. Initial load & multi-step check
+  checkAndAutoFillCachedCredentials();
+  startPersistentStepWatcher();
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', checkForPasswordField);
+    document.addEventListener('DOMContentLoaded', () => {
+      scheduleCheck(false);
+      startPersistentStepWatcher();
+    });
   } else {
-    setTimeout(checkForPasswordField, 400);
+    scheduleCheck(false);
+    startPersistentStepWatcher();
   }
 
-  document.addEventListener('focusin', (e) => {
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) {
-      checkForPasswordField();
-    }
-  }, { passive: true });
-
-  document.addEventListener('click', () => {
-    setTimeout(checkForPasswordField, 300);
-  }, { passive: true });
-
-  var observer = new MutationObserver(() => {
-    checkForPasswordField();
+  window.addEventListener('load', () => {
+    checkAndAutoFillCachedCredentials();
   });
+
+  // 3. Mutation Observer: monitors DOM for dynamic password fields
+  const observer = new MutationObserver(() => {
+    checkAndAutoFillCachedCredentials();
+  });
+
   observer.observe(document.documentElement || document.body, { 
     childList: true, 
     subtree: true,

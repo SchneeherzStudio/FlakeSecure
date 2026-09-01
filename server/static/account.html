@@ -3,7 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FlakeSecure — Account Portal & Sicherheitsverwaltung</title>
+  <title>FlakeSecure — Account Portal &amp; Sicherheitsverwaltung</title>
+  <meta name="description" content="Verwalten Sie Ihr FlakeSecure-Benutzerkonto, aktive Geräte, Sicherheitseinstellungen und Cloud-Tresore." />
+  <meta name="author" content="SchneeherzStudio / Snowy Studio" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#07090e" />
+
+  <!-- Favicons / Icons -->
+  <link rel="icon" type="image/png" href="/images/splash-icon.png" />
+  <link rel="shortcut icon" href="/images/splash-icon.png" />
+  <link rel="apple-touch-icon" href="/images/splash-icon.png" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="FlakeSecure" />
+  <meta property="og:title" content="FlakeSecure — Account Portal &amp; Sicherheitsverwaltung" />
+  <meta property="og:description" content="Sicheres Webportal für die Kontoverwaltung und Gerätesteuerung bei FlakeSecure." />
+  <meta property="og:url" content="https://flakesecure.snowystudio.dev/account" />
+  <meta property="og:image" content="https://flakesecure.snowystudio.dev/images/splash-icon.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="FlakeSecure Logo" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="FlakeSecure — Account Portal" />
+  <meta name="twitter:description" content="Sichere Verwaltung Ihres FlakeSecure Kontos und Ihrer aktiven Geräte." />
+  <meta name="twitter:image" content="https://flakesecure.snowystudio.dev/images/splash-icon.png" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style/index.css" />
@@ -164,6 +191,7 @@
       justify-content: space-between;
       margin-bottom: 8px;
       font-size: 13px;
+      word-break: break-word;
     }
     .info-label {
       color: rgba(255, 255, 255, 0.4);
@@ -171,6 +199,32 @@
     .info-val {
       color: #fff;
       font-weight: 600;
+      word-break: break-all;
+    }
+    @media (max-width: 600px) {
+      .portal-container {
+        padding: 22px 14px;
+        margin: 18px auto;
+        border-radius: 16px;
+      }
+      .tabs-nav {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .tab-btn {
+        padding: 8px 6px;
+        font-size: 12px;
+        text-align: center;
+      }
+      .otp-row {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .otp-btn {
+        width: 100%;
+        padding: 12px;
+      }
     }
   </style>
 </head>
