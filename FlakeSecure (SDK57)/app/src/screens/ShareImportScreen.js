@@ -24,6 +24,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import { getAllCredentials, saveCredentials, getCredentialsForDomain } from '../utils/storage';
+import FaviconImage from '../components/FaviconImage';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import * as SecureStore from 'expo-secure-store';
@@ -330,8 +331,9 @@ export default function ShareImportScreen({ route, navigation }) {
             style={[styles.credItem, selectedCreds[cred.domain] && styles.credItemSelected]}
             onPress={() => toggleSelection(cred.domain)}
           >
+            <FaviconImage domain={cred.domain} size={36} borderRadius={10} style={{ marginRight: 12 }} />
             <View style={styles.credInfo}>
-              <Text style={styles.credTitle}>{cred.title}</Text>
+              <Text style={styles.credTitle}>{cred.domain}</Text>
               <Text style={styles.credUsername}>{cred.username}</Text>
             </View>
             <View style={[styles.checkbox, selectedCreds[cred.domain] && styles.checkboxChecked]}>

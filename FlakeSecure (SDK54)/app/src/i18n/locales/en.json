@@ -212,6 +212,7 @@
     "email": "Email",
     "username": "Username",
     "syncVault": "☁️ Sync Vault to Cloud Now",
+    "restoreVault": "📥 Restore Vault from Cloud",
     "syncing": "Syncing…",
     "syncSuccess": "Vault synchronized successfully.",
     "sessionsSection": "ACTIVE SESSIONS",
@@ -278,6 +279,7 @@
     "registerTitle": "Create New Account",
     "email": "Email",
     "username": "Username",
+    "emailOrUsername": "Email or Username",
     "password": "Password",
     "confirmPassword": "Confirm Password",
     "loginButton": "Login",
@@ -337,5 +339,26 @@
     "exportSuccessAlert": "Exported successfully!",
     "shareSuccessAlert": "Logins sent successfully!",
     "exportFailedAlert": "Export session expired or failed."
+  },
+  "vaultTransfer": {
+    "title": "Cloud Vault Restore",
+    "biometricPrompt": "Authenticate to restore cloud vault",
+    "downloading": "Restoring cloud vault…",
+    "restoreSuccess": "Cloud vault restored successfully! (%{count} logins loaded)",
+    "restoreFailed": "Could not restore cloud vault. Please verify your connection or transfer from another device.",
+    "tryDeviceTransfer": "Transfer from another device",
+    "generatingSession": "Generating secure transfer session…",
+    "waitingForScan": "Waiting for authorized device to scan…",
+    "decrypting": "Decrypting transferred vault key…",
+    "transferSuccess": "Vault key transferred! %{count} logins restored on this device.",
+    "localKeyFoundTitle": "Key Present on Device",
+    "localKeyFoundDesc": "Your master credentials are saved on this device. You can directly decrypt and restore your cloud vault.",
+    "restoreNowBtn": "Restore Cloud Vault",
+    "transferFromOtherDevice": "Transfer from Another Device instead",
+    "scanFromOtherDeviceTitle": "Authorize via Other Device",
+    "scanFromOtherDeviceDesc": "Scan this QR code with your other device where FlakeSecure is already unlocked. The encryption key will be sent end-to-end encrypted.",
+    "noKeyOnDeviceToAuthorize": "This device does not have stored master credentials to authorize another device.",
+    "authorizeBiometricPrompt": "Authorize new device for Cloud Vault",
+    "authorizeSentSuccess": "Key transferred successfully! The other device is now restoring the vault."
   }
 }

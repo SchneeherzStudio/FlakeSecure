@@ -212,6 +212,7 @@
     "email": "E-Mail",
     "username": "Benutzername",
     "syncVault": "☁️ Tresor jetzt in Cloud synchronisieren",
+    "restoreVault": "📥 Tresor aus Cloud wiederherstellen",
     "syncing": "Synchronisiere…",
     "syncSuccess": "Tresor erfolgreich synchronisiert.",
     "sessionsSection": "AKTIVE SITZUNGEN",
@@ -278,6 +279,7 @@
     "registerTitle": "Neuen Account erstellen",
     "email": "E-Mail",
     "username": "Benutzername",
+    "emailOrUsername": "E-Mail oder Benutzername",
     "password": "Passwort",
     "confirmPassword": "Passwort wiederholen",
     "loginButton": "Anmelden",
@@ -336,6 +338,27 @@
     "scanInstructions": "Scanne den auf dem anderen Gerät angezeigten QR-Code.",
     "exportSuccessAlert": "Erfolgreich exportiert!",
     "shareSuccessAlert": "Logins erfolgreich gesendet!",
-    "exportFailedAlert": "Sitzung abgelaufen oder fehlgeschlagen."
+    "exportFailedAlert": "Export-Sitzung ist abgelaufen oder fehlgeschlagen."
+  },
+  "vaultTransfer": {
+    "title": "Cloud-Tresor wiederherstellen",
+    "biometricPrompt": "Mit Biometrie bestätigen, um Tresor wiederherzustellen",
+    "downloading": "Cloud-Tresor wird wiederhergestellt…",
+    "restoreSuccess": "Cloud-Tresor erfolgreich wiederhergestellt! (%{count} Logins geladen)",
+    "restoreFailed": "Tresor konnte nicht wiederhergestellt werden. Bitte Verbindung prüfen oder von anderem Gerät übertragen.",
+    "tryDeviceTransfer": "Von anderem Gerät übertragen",
+    "generatingSession": "Sichere Übertragungssitzung wird erstellt…",
+    "waitingForScan": "Warte auf Scan durch autorisiertes Gerät…",
+    "decrypting": "Übertragener Tresor-Schlüssel wird entschlüsselt…",
+    "transferSuccess": "Schlüssel übertragen! %{count} Logins auf diesem Gerät wiederhergestellt.",
+    "localKeyFoundTitle": "Schlüssel auf Gerät vorhanden",
+    "localKeyFoundDesc": "Deine Zugangsdaten sind auf diesem Gerät gespeichert. Du kannst deinen Cloud-Tresor direkt entschlüsseln und laden.",
+    "restoreNowBtn": "Cloud-Tresor jetzt laden",
+    "transferFromOtherDevice": "Stattdessen von anderem Gerät übertragen",
+    "scanFromOtherDeviceTitle": "Über anderes Gerät autorisieren",
+    "scanFromOtherDeviceDesc": "Scanne diesen QR-Code mit deinem anderen Gerät, auf dem FlakeSecure bereits entsperrt ist. Der Schlüssel wird Ende-zu-Ende verschlüsselt übertragen.",
+    "noKeyOnDeviceToAuthorize": "Dieses Gerät besitzt keine gespeicherten Zugangsdaten zur Autorisierung.",
+    "authorizeBiometricPrompt": "Neues Gerät für Cloud-Tresor autorisieren",
+    "authorizeSentSuccess": "Schlüssel erfolgreich übertragen! Das andere Gerät lädt nun den Tresor."
   }
 }

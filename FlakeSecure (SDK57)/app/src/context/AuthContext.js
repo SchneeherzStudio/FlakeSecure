@@ -90,15 +90,26 @@ export function AuthProvider({ children }) {
       if (result.success) {
         const savedCredentials = await SecureStore.getItemAsync('auth_credentials');
         if (savedCredentials) {
-          const { identifier, password } = JSON.parse(savedCredentials);
+          const { identifier, password, email } = JSON.parse(savedCredentials);
           try {
             const data = await apiLogin(identifier, password);
             await SecureStore.setItemAsync('auth_token', data.token);
+            await SecureStore.setItemAsync('auth_credentials', JSON.stringify({ 
+              identifier, 
+              email: data.user?.email || email || identifier, 
+              username: data.user?.username || identifier,
+              password 
+            }));
             setToken(data.token);
             setUser(data.user);
             setNeedsBiometricUnlock(false);
 
-            syncVaultFromServer(password, identifier).catch(() => {});
+            try {
+              await syncVaultFromServer(password, identifier, data.user?.email || email);
+            } catch (syncErr) {
+              console.log('[Auth] Biometric vault sync warning:', syncErr.message);
+            }
+
             return { success: true };
           } catch (loginErr) {
             console.log('[Auth] Biometric auto-login failed on server:', loginErr.message);
@@ -127,36 +138,49 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (email, username, password, otpToken = null) => {
     const data = await apiRegister(email, username, password, otpToken);
     await SecureStore.setItemAsync('auth_token', data.token);
-    await SecureStore.setItemAsync('auth_credentials', JSON.stringify({ identifier: email, password }));
+    await SecureStore.setItemAsync('auth_credentials', JSON.stringify({ 
+      identifier: email, 
+      email: data.user?.email || email,
+      username: data.user?.username || username,
+      password 
+    }));
     setToken(data.token);
     setUser(data.user);
     setNeedsBiometricUnlock(false);
 
-    syncVaultToServer(password, email).catch(() => {});
+    try {
+      await syncVaultToServer(password, email, data.user?.email || email);
+    } catch (syncErr) {
+      console.log('[Auth] Register vault sync warning:', syncErr.message);
+    }
+
     return data;
   }, []);
 
   const login = useCallback(async (identifier, password) => {
     const data = await apiLogin(identifier, password);
     await SecureStore.setItemAsync('auth_token', data.token);
-    await SecureStore.setItemAsync('auth_credentials', JSON.stringify({ identifier, password }));
+    await SecureStore.setItemAsync('auth_credentials', JSON.stringify({ 
+      identifier, 
+      email: data.user?.email || identifier,
+      username: data.user?.username || identifier,
+      password 
+    }));
     setToken(data.token);
     setUser(data.user);
     setNeedsBiometricUnlock(false);
 
-    syncVaultFromServer(password, identifier).catch(() => {});
+    // Synchronously restore vault from server before switching screens
+    try {
+      await syncVaultFromServer(password, identifier, data.user?.email);
+    } catch (syncErr) {
+      console.log('[Auth] Login vault sync warning:', syncErr.message);
+    }
+
     return data;
   }, []);
 
   const logout = useCallback(async () => {
-    try {
-      const savedCredentials = await SecureStore.getItemAsync('auth_credentials');
-      if (savedCredentials) {
-        const { identifier, password } = JSON.parse(savedCredentials);
-        await syncVaultToServer(password, identifier).catch(() => {});
-      }
-    } catch (e) {}
-
     try {
       await apiLogout();
     } catch (err) {

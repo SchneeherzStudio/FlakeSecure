@@ -51,6 +51,7 @@ const shareRoutes = require('./routes/share');
 const systemRoutes = require('./routes/system');
 const otpRoutes = require('./routes/otp');
 const vaultRoutes = require('./routes/vault');
+const embedRoutes = require('./routes/embed');
 const { router: notificationRoutes } = require('./routes/notifications');
 const { authMiddleware } = require('./middleware/auth');
 
@@ -86,6 +87,10 @@ app.use('/api/system', systemRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/vault', vaultRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/embed', embedRoutes);
+app.get('/embed.js', (req, res) => {
+  res.type('application/javascript').sendFile('embed.js', { root: path.join(__dirname, 'public') });
+});
 
 const activeSessions = new Map();
 

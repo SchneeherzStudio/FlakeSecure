@@ -26,8 +26,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../context/LanguageContext';
-import { decryptCredentials } from '../utils/crypto';
-import { saveCredentials } from '../utils/storage';
+import * as SecureStore from 'expo-secure-store';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { encryptCredentials, decryptCredentials } from '../utils/crypto';
+import { saveCredentials, getFullVaultExport } from '../utils/storage';
 
 const SERVER_URL = 'https://flakesecure.snowystudio.dev';
 const FRAME_SIZE = 250;
@@ -122,10 +124,80 @@ export default function ScanScreen() {
         throw new Error('Invalid QR code parameters');
       }
 
-      const isRegister = action === 'register' || action === 'r' || data.includes('register') || !!fieldsParam;
-      const isShare = (data.includes('share') || !domain) && !isRegister;
+      const isVaultTransfer = action === 'vault_key_transfer' || action === 'vault-transfer' || data.includes('vault-transfer');
+      const isRegister = !isVaultTransfer && (action === 'register' || action === 'r' || data.includes('register') || !!fieldsParam);
+      const isShare = !isVaultTransfer && (data.includes('share') || !domain) && !isRegister;
 
-      if (isRegister && domain) {
+      if (isVaultTransfer) {
+        setImporting(true);
+        const rawCreds = await SecureStore.getItemAsync('auth_credentials');
+        if (!rawCreds) {
+          Alert.alert(
+            t('error'),
+            t('vaultTransfer.noKeyOnDeviceToAuthorize') || 'Dieses Gerät besitzt keine gespeicherten Tresor-Schlüssel zur Autorisierung.'
+          );
+          setScanned(false);
+          setImporting(false);
+          return;
+        }
+
+        const localCreds = JSON.parse(rawCreds);
+        if (!localCreds || !localCreds.password) {
+          Alert.alert(
+            t('error'),
+            t('vaultTransfer.noKeyOnDeviceToAuthorize') || 'Dieses Gerät besitzt keine gespeicherten Tresor-Schlüssel zur Autorisierung.'
+          );
+          setScanned(false);
+          setImporting(false);
+          return;
+        }
+
+        // Request biometric approval on authorizing device
+        const authResult = await LocalAuthentication.authenticateAsync({
+          promptMessage: t('vaultTransfer.authorizeBiometricPrompt') || 'Neues Gerät für Cloud-Tresor autorisieren',
+          fallbackLabel: 'PIN verwenden',
+          disableDeviceFallback: false,
+        });
+
+        if (!authResult.success) {
+          setScanned(false);
+          setImporting(false);
+          return;
+        }
+
+        // Retrieve local vault data to include in direct device-to-device transfer
+        const localVault = await getFullVaultExport();
+
+        // Encrypt the master credentials payload and full vault data with the scanned ephemeral key
+        const packetToEncrypt = {
+          password: localCreds.password,
+          identifier: localCreds.identifier || localCreds.email,
+          email: localCreds.email || localCreds.identifier,
+          username: localCreds.username || '',
+          vaultData: localVault,
+          transferredAt: new Date().toISOString()
+        };
+
+        const encrypted = await encryptCredentials(packetToEncrypt, key);
+
+        // Send to share relay endpoint for one-time pickup
+        const response = await fetch(`${SERVER_URL}/api/share/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sid, payload: encrypted, hidden: false, expiresInHours: 1 })
+        });
+
+        if (!response.ok) {
+          throw new Error('Fehler beim Senden des Autorisierungs-Schlüssels.');
+        }
+
+        Alert.alert(
+          t('success'),
+          t('vaultTransfer.authorizeSentSuccess') || 'Schlüssel erfolgreich übertragen! Das andere Gerät stellt den Tresor nun wieder her.',
+          [{ text: t('ok'), onPress: () => navigation.navigate('Home') }]
+        );
+        return;
+      } else if (isRegister && domain) {
         let fields = [];
         if (fieldsParam) {
           const decoded = decodeURIComponent(fieldsParam).trim();

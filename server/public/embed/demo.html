@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlakeSecure - Embeddable Iframe & Drop-In SDK Demo</title>
+  <style>
+    :root {
+      --bg: #090b14;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text: #ffffff;
+      --text-muted: rgba(255, 255, 255, 0.6);
+      --accent: #6391ff;
+      --accent-grad: linear-gradient(135deg, #6391ff, #7c6aff);
+      --success: #10b981;
+      --code-bg: #0d1117;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 30px 20px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(99, 145, 255, 0.15);
+      border: 1px solid rgba(99, 145, 255, 0.3);
+      color: #8eb0ff;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    h1 span {
+      background: var(--accent-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.sub {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    /* Grid Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    @media (max-width: 860px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 26px;
+      backdrop-filter: blur(10px);
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Simulated Website Form */
+    .mock-site {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 24px;
+    }
+
+    .mock-site-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 14px;
+      margin-bottom: 20px;
+    }
+
+    .mock-brand {
+      font-weight: 700;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+
+    input[type="text"], input[type="email"], input[type="password"] {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    .submit-btn {
+      width: 100%;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 6px;
+    }
+
+    .submit-btn:hover {
+      background: #1d4ed8;
+    }
+
+    .divider {
+      text-align: center;
+      margin: 18px 0;
+      position: relative;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 42%;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+
+    /* Live Event Logs */
+    .log-box {
+      background: var(--code-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #a5b4fc;
+      height: 180px;
+      overflow-y: auto;
+      margin-top: 16px;
+      white-space: pre-wrap;
+    }
+
+    .log-entry {
+      margin-bottom: 4px;
+    }
+    .log-entry.success { color: var(--success); }
+    .log-entry.info { color: #38bdf8; }
+    .log-entry.highlight { color: #f59e0b; }
+
+    /* Code Snippets Section */
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 10px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: rgba(99, 145, 255, 0.15);
+      color: #8eb0ff;
+    }
+
+    .tab-pane {
+      display: none;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13px;
+      color: #e2e8f0;
+      position: relative;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Simulation Controls */
+    .sim-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .sim-btn {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .sim-btn:hover {
+      background: rgba(16, 185, 129, 0.25);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="badge">🔒 Zero-Knowledge Authentication</div>
+      <h1>Flake<span>Secure</span> Embeddable Iframe & Drop-In SDK</h1>
+      <p class="sub">
+        Ermöglicht es Website-Betreibern, biometrischen FlakeSecure QR-Login direkt via Iframe in ihre Seiten einzubinden.
+        Der Server des Betreibers erhält die Daten über den normalen Login-Weg, während der FlakeSecure-Server die Zugangsdaten niemals unverschlüsselt sieht.
+      </p>
+    </header>
+
+    <div class="grid">
+      <!-- Left: Simulated Website -->
+      <div class="card">
+        <div class="card-title">
+          <span>🌐</span> Beispiel-Website des Anbieters (z. B. Acme Portal)
+        </div>
+
+        <div class="mock-site">
+          <div class="mock-site-header">
+            <div class="mock-brand">🏢 Acme Cloud Portal</div>
+            <span style="font-size:12px;color:var(--text-muted);">https://portal.acme-corp.com</span>
+          </div>
+
+          <!-- Standard Provider Login Form -->
+          <form id="acme-login-form" onsubmit="handleAcmeSubmit(event)">
+            <div class="form-group">
+              <label for="acme-username">E-Mail oder Benutzername</label>
+              <input type="text" id="acme-username" name="username" placeholder="name@beispiel.de" required autocomplete="username">
+            </div>
+
+            <div class="form-group">
+              <label for="acme-password">Passwort</label>
+              <input type="password" id="acme-password" name="password" placeholder="••••••••••••" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="submit-btn" id="acme-submit-btn">Bei Acme anmelden</button>
+
+            <div class="divider">ODER MIT BIOMETRIE</div>
+
+            <!-- FlakeSecure Embed Widget Container -->
+            <div id="flakesecure-container" style="min-height: 380px;"></div>
+          </form>
+        </div>
+
+        <!-- Simulation Toolbar -->
+        <div class="sim-bar">
+          <button class="sim-btn" onclick="simulateMobileAuth()">
+            📱 Smartphone-Scan simulieren
+          </button>
+          <button class="sim-btn" style="color:#60a5fa;border-color:rgba(96,165,250,0.4);background:rgba(96,165,250,0.1);" onclick="resetDemo()">
+            🔄 Zurücksetzen
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Real-time Event Log & Flow Inspector -->
+      <div class="card">
+        <div class="card-title">
+          <span>⚡</span> Live-Inspektor & Zero-Knowledge Protokoll
+        </div>
+
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+          Beobachte in Echtzeit, wie der Schlüssel im Browser generiert wird, wie die verschlüsselten Daten ankommen und wie die Host-Seite die Eingabefelder ausfüllt:
+        </p>
+
+        <div class="log-box" id="demo-logs">
+[Bereit] Initialisiere FlakeSecure Embed SDK...
+[Init] Iframe geladen von: https://flakesecure.snowystudio.dev/embed/login
+[Sicherheit] 256-Bit AES-Schlüssel lokal im Iframe generiert.
+[Zero-Knowledge] FlakeSecure-Relay besitzt den Schlüssel NICHT.
+[Status] Warte auf Scan via FlakeSecure Mobile App...
+        </div>
+
+        <div style="margin-top:20px;">
+          <h4 style="font-size:14px;margin-bottom:8px;">Sicherheits-Garantien:</h4>
+          <ul style="font-size:12px;color:var(--text-muted);list-style:none;display:flex;flex-direction:column;gap:6px;">
+            <li>✅ <strong>Ende-zu-Ende verschlüsselt:</strong> Der AES-256-CTR Schlüssel existiert nur im Browser des Nutzers.</li>
+            <li>✅ <strong>FlakeSecure Relay Server:</strong> Sieht zu keinem Zeitpunkt unverschlüsselte Daten (nur Ciphertext).</li>
+            <li>✅ <strong>Betreiber-Integration:</strong> Der Server des Anbieters erhält die Zugangsdaten über das gewohnte Form-POST.</li>
+            <li>✅ <strong>Cross-Origin Schutz:</strong> Iframe kommuniziert sicher via postMessage mit Domain-Validierung.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Integration Code Snippets -->
+    <div class="card" id="docs">
+      <div class="card-title">
+        <span>💻</span> Integrations-Anleitung für Website-Betreiber
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-script')">1. Script-Tag (Empfohlen)</button>
+        <button class="tab-btn" onclick="switchTab('tab-container')">2. Fester Container</button>
+        <button class="tab-btn" onclick="switchTab('tab-button')">3. Modal-Button</button>
+        <button class="tab-btn" onclick="switchTab('tab-iframe')">4. Reines HTML-Iframe</button>
+      </div>
+
+      <!-- Tab 1: Script Tag -->
+      <div id="tab-script" class="tab-pane active">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">
+          Füge einfach das SDK-Script vor dem schließenden <code>&lt;/body&gt;</code>-Tag deiner Login-Seite ein. Es erkennt das Formular automatisch:
+        </p>
+        <pre><code>&lt;!-- FlakeSecure Drop-In SDK: Automatische Formular-Erkennung &amp; Autofill --&gt;
+&lt;script src="https://flakesecure.snowystudio.dev/embed.js" 
+        data-auto-mount="true" 
+        data-theme="dark" 
+        data-auto-submit="true"&gt;
+&lt;/script&gt;</code><button class="copy-btn" onclick="copySnippet(this)">Kopieren</button></pre>
+      </div>
+
+      <!-- Tab 2: Container -->
+      <div id="tab-container" class="tab-pane">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">
+          Platziere das Widget an einer beliebigen Stelle in deinem eigenen HTML-Layout:
+        </p>
+        <pre><code>&lt;!-- Platzhalter im Formular --&gt;
+&lt;div id="flakesecure-widget"&gt;&lt;/div&gt;
+
+&lt;!-- SDK laden und im Container einhängen --&gt;
+&lt;script src="https://flakesecure.snowystudio.dev/embed.js" 
+        data-container="#flakesecure-widget" 
+        data-theme="dark"&gt;
+&lt;/script&gt;</code><button class="copy-btn" onclick="copySnippet(this)">Kopieren</button></pre>
+      </div>
+
+      <!-- Tab 3: Modal Button -->
+      <div id="tab-button" class="tab-pane">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">
+          Zeige einen "Mit FlakeSecure anmelden"-Button, der den QR-Code in einem eleganten Lightbox-Modal öffnet:
+        </p>
+        <pre><code>&lt;!-- Container für den Login-Button --&gt;
+&lt;div id="fs-login-btn-box"&gt;&lt;/div&gt;
+
+&lt;script src="https://flakesecure.snowystudio.dev/embed.js" 
+        data-button-container="#fs-login-btn-box"&gt;
+&lt;/script&gt;</code><button class="copy-btn" onclick="copySnippet(this)">Kopieren</button></pre>
+      </div>
+
+      <!-- Tab 4: Raw Iframe -->
+      <div id="tab-iframe" class="tab-pane">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">
+          Falls du gar kein externes JavaScript auf deiner Seite einbinden möchtest, kannst du das Iframe direkt verwenden und auf <code>postMessage</code> lauschen:
+        </p>
+        <pre><code>&lt;!-- Direktes Iframe ohne Fremd-JS --&gt;
+&lt;iframe src="https://flakesecure.snowystudio.dev/embed/login?domain=deine-seite.de&amp;theme=dark" 
+        width="320" height="420" 
+        style="border:none; border-radius:20px; overflow:hidden;"&gt;
+&lt;/iframe&gt;
+
+&lt;script&gt;
+window.addEventListener('message', function (event) {
+  if (event.origin !== 'https://flakesecure.snowystudio.dev') return;
+  if (event.data &amp;&amp; event.data.type === 'FLAKESECURE_LOGIN_DATA') {
+    document.querySelector('input[name="username"]').value = event.data.username;
+    document.querySelector('input[name="password"]').value = event.data.password;
+    document.querySelector('#my-login-form').submit();
+  }
+});
+&lt;/script&gt;</code><button class="copy-btn" onclick="copySnippet(this)">Kopieren</button></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Drop-in SDK -->
+  <script src="/embed.js"></script>
+
+  <script>
+    function log(msg, type = '') {
+      const box = document.getElementById('demo-logs');
+      const time = new Date().toLocaleTimeString();
+      box.innerHTML += `\n[${time}] ${msg}`;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Mount FlakeSecure Widget on Demo Page
+    window.addEventListener('DOMContentLoaded', () => {
+      FlakeSecure.mount('#flakesecure-container', {
+        theme: 'dark',
+        domain: 'portal.acme-corp.com',
+        autoSubmit: true,
+        onSuccess: (creds) => {
+          log(`✓ [postMessage] Anmeldedaten empfangen!`, 'success');
+          log(`  Benutzer: ${creds.username}`, 'highlight');
+          log(`  Passwort: •••••••••••• (Länge: ${creds.password.length})`, 'highlight');
+          log(`  Trage Daten in Formular-Inputs ein...`, 'info');
+        }
+      });
+    });
+
+    function handleAcmeSubmit(e) {
+      e.preventDefault();
+      const u = document.getElementById('acme-username').value;
+      const p = document.getElementById('acme-password').value;
+
+      log(`🚀 [Formular-POST] Acme Server hat Authentifizierungs-Anfrage erhalten:`, 'success');
+      log(`   POST https://portal.acme-corp.com/api/auth/login`, 'success');
+      log(`   Payload: { username: "${u}", password: "..." }`, 'success');
+      alert(`Erfolg!\n\nDas Formular von Acme wurde automatisch mit den biometrisch autorisierten Zugangsdaten abgeschickt:\n\nBenutzer: ${u}\nPasswort: [Vorhanden]`);
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    function copySnippet(btn) {
+      const code = btn.parentElement.querySelector('code').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.innerText = 'Kopiert!';
+        setTimeout(() => { btn.innerText = 'Kopieren'; }, 2000);
+      });
+    }
+
+    // Mobile Scan Simulation for Testing
+    async function simulateMobileAuth() {
+      log(`📱 Simuliere Scan der FlakeSecure Smartphone-App...`, 'info');
+
+      // Find active iframe
+      const iframe = document.querySelector('#flakesecure-container iframe');
+      if (!iframe || !iframe.contentWindow) {
+        log(`Fehler: Iframe nicht gefunden!`, 'error');
+        return;
+      }
+
+      // Read session ID from QR link inside iframe if accessible, or trigger via postMessage test
+      const dummyCredentials = {
+        username: 'max.mustermann@acme-corp.com',
+        password: 'MeinSuperSicheresMasterPasswort2026!'
+      };
+
+      log(`📱 Smartphone authentifiziert mit Fingerabdruck (Biometrie OK)`, 'info');
+      log(`📱 Verschlüsselt Daten mit dem aus dem QR-Code gelesenen AES-Key`, 'info');
+
+      // Dispatch simulated postMessage from iframe to parent
+      window.postMessage({
+        type: 'FLAKESECURE_LOGIN_DATA',
+        source: 'flakesecure-embed',
+        domain: 'portal.acme-corp.com',
+        username: dummyCredentials.username,
+        password: dummyCredentials.password,
+        totp: null,
+        action: 'login'
+      }, '*');
+    }
+
+    function resetDemo() {
+      document.getElementById('acme-username').value = '';
+      document.getElementById('acme-password').value = '';
+      document.getElementById('demo-logs').innerHTML = `[Zurückgesetzt] Warte auf Scan...`;
+      FlakeSecure.mount('#flakesecure-container', {
+        theme: 'dark',
+        domain: 'portal.acme-corp.com',
+        autoSubmit: true
+      });
+    }
+  </script>
+</body>
+</html>

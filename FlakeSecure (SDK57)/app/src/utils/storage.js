@@ -62,6 +62,7 @@ export async function getDefaultProfile() {
 
 export async function saveDefaultProfile(profile) {
   await SecureStore.setItemAsync(DEFAULT_PROFILE_KEY, JSON.stringify(profile));
+  triggerBackgroundVaultSync();
   return profile;
 }
 
@@ -95,6 +96,7 @@ export async function saveCategory(category) {
   }
 
   await SecureStore.setItemAsync(CATEGORIES_KEY, JSON.stringify(categories));
+  triggerBackgroundVaultSync();
   return categories;
 }
 
@@ -102,6 +104,7 @@ export async function deleteCategory(categoryId) {
   let categories = await getCategories();
   categories = categories.filter(c => c.id !== categoryId);
   await SecureStore.setItemAsync(CATEGORIES_KEY, JSON.stringify(categories));
+  triggerBackgroundVaultSync();
   return categories;
 }
 
@@ -152,6 +155,7 @@ export async function saveCredentials(domain, username, password, options = {}) 
     index.push(domain);
     await saveDomainIndex(index);
   }
+  triggerBackgroundVaultSync();
 }
 
 export async function deleteCredentials(domain) {
@@ -161,6 +165,7 @@ export async function deleteCredentials(domain) {
   const index = await getDomainIndex();
   const updated = index.filter(d => d !== domain);
   await saveDomainIndex(updated);
+  triggerBackgroundVaultSync();
 }
 
 export async function getAllCredentials() {
@@ -239,6 +244,7 @@ export async function saveTotpItem(item) {
   }
 
   await SecureStore.setItemAsync(TOTP_ITEMS_KEY, JSON.stringify(items));
+  triggerBackgroundVaultSync();
   return items;
 }
 
@@ -246,6 +252,7 @@ export async function deleteTotpItem(id) {
   let items = await getTotpItems();
   items = items.filter(t => t.id !== id);
   await SecureStore.setItemAsync(TOTP_ITEMS_KEY, JSON.stringify(items));
+  triggerBackgroundVaultSync();
   return items;
 }
 
@@ -283,12 +290,22 @@ export async function getFullVaultExport() {
   };
 }
 
+let isImportingVault = false;
+
 export async function importFullVault(vaultObj) {
   if (!vaultObj) return false;
+  isImportingVault = true;
 
-  if (Array.isArray(vaultObj.credentials)) {
-    for (const cred of vaultObj.credentials) {
-      if (cred.domain && cred.username) {
+  try {
+    let credentialsList = [];
+    if (Array.isArray(vaultObj)) {
+      credentialsList = vaultObj;
+    } else if (vaultObj.credentials && Array.isArray(vaultObj.credentials)) {
+      credentialsList = vaultObj.credentials;
+    }
+
+    for (const cred of credentialsList) {
+      if (cred && cred.domain && cred.username) {
         await saveCredentials(cred.domain, cred.username, cred.password || '', {
           category: cred.category,
           hidden: cred.hidden,
@@ -297,21 +314,23 @@ export async function importFullVault(vaultObj) {
         });
       }
     }
-  }
 
-  if (Array.isArray(vaultObj.categories) && vaultObj.categories.length > 0) {
-    await SecureStore.setItemAsync(CATEGORIES_KEY, JSON.stringify(vaultObj.categories));
-  }
+    if (vaultObj.categories && Array.isArray(vaultObj.categories) && vaultObj.categories.length > 0) {
+      await SecureStore.setItemAsync(CATEGORIES_KEY, JSON.stringify(vaultObj.categories));
+    }
 
-  if (vaultObj.profile) {
-    await saveDefaultProfile(vaultObj.profile);
-  }
+    if (vaultObj.profile) {
+      await saveDefaultProfile(vaultObj.profile);
+    }
 
-  if (Array.isArray(vaultObj.totpItems)) {
-    await SecureStore.setItemAsync(TOTP_ITEMS_KEY, JSON.stringify(vaultObj.totpItems));
-  }
+    if (vaultObj.totpItems && Array.isArray(vaultObj.totpItems)) {
+      await SecureStore.setItemAsync(TOTP_ITEMS_KEY, JSON.stringify(vaultObj.totpItems));
+    }
 
-  return true;
+    return true;
+  } finally {
+    isImportingVault = false;
+  }
 }
 
 export async function clearAllLocalVaultData() {
@@ -324,4 +343,18 @@ export async function clearAllLocalVaultData() {
   await SecureStore.deleteItemAsync(CATEGORIES_KEY).catch(() => {});
   await SecureStore.deleteItemAsync(DEFAULT_PROFILE_KEY).catch(() => {});
   await SecureStore.deleteItemAsync(TOTP_ITEMS_KEY).catch(() => {});
+}
+
+export async function triggerBackgroundVaultSync() {
+  if (isImportingVault) return;
+  try {
+    const raw = await SecureStore.getItemAsync('auth_credentials');
+    if (raw) {
+      const creds = JSON.parse(raw);
+      if (creds && creds.password) {
+        const { syncVaultToServer } = require('./vault');
+        syncVaultToServer(creds.password, creds.identifier, creds.email).catch(() => {});
+      }
+    }
+  } catch (e) {}
 }

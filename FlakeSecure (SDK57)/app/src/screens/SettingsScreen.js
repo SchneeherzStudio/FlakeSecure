@@ -331,6 +331,13 @@ export default function SettingsScreen({ navigation }) {
             )}
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.restoreVaultBtn}
+            onPress={() => navigation.navigate('VaultTransfer', { mode: 'check_or_receive' })}
+          >
+            <Text style={styles.restoreVaultText}>{t('settings.restoreVault')}</Text>
+          </TouchableOpacity>
+
           <View style={styles.divider} />
           <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
             <Text style={styles.logoutText}>{t('common.logout')}</Text>
@@ -727,6 +734,20 @@ const styles = StyleSheet.create({
     color: '#6391ff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  restoreVaultBtn: {
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  restoreVaultText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   logoutBtn: {
     alignItems: 'center',

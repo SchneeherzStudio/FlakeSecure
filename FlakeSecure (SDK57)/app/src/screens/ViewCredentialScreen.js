@@ -29,6 +29,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as Clipboard from 'expo-clipboard';
 import { getCredentialsForDomain, saveCredentials, getCategories, saveCategory } from '../utils/storage';
 import { useLanguage } from '../context/LanguageContext';
+import FaviconImage from '../components/FaviconImage';
 
 const AVAILABLE_ICONS = ['👤', '💼', '💳', '💬', '🎮', '📁', '🛍️', '🛒', '🔒', '🏠', '✈️', '📧', '🎓', '💻', '🎵', '🍔', '🚗', '🏥', '🔑', '⭐'];
 
@@ -202,7 +203,10 @@ export default function ViewCredentialScreen({ route, navigation }) {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <Text style={styles.backText}>‹ {t('common.back')}</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>{domain}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
+              <FaviconImage domain={domain} size={36} borderRadius={10} />
+              <Text style={styles.title}>{domain}</Text>
+            </View>
             <Text style={styles.subtitle}>{t('viewCredential.viewAndEdit')}</Text>
           </View>
 

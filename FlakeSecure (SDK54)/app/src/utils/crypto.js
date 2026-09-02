@@ -8,16 +8,19 @@
  * 1. HELPER FUNCTIONS:
  *    - hexToBytes(hex): Converts hexadecimal strings into a Uint8Array.
  *    - bytesToHex(bytes): Converts a Uint8Array into a hexadecimal string.
+ *    - utf8Encode(str): Full-spec UTF-8 encoder (handles 4-byte emoji / surrogate pairs).
+ *    - utf8Decode(bytes): Full-spec UTF-8 decoder (handles 4-byte emoji / surrogate pairs).
  * 
  * 2. ENCRYPTION (encryptCredentials):
  *    - Generates a 16-byte CSPRNG IV via expo-crypto.
  *    - Encrypts JSON serialized objects using AES-256-CTR (aes-js).
- *    - Computes an HMAC-SHA256 authentication tag (Encrypt-then-MAC) over IV and ciphertext.
+ *    - Computes HMAC-SHA256 authentication tag (Encrypt-then-MAC) over IV and ciphertext.
  *    - Returns wire payload packet { iv: number[], data: number[] }.
  * 
  * 3. DECRYPTION (decryptCredentials):
  *    - Extracts IV, ciphertext, and HMAC tag from the received payload.
  *    - Verifies HMAC-SHA256 integrity and decrypts data via AES-256-CTR.
+ *    - Uses custom utf8Decode to correctly handle 4-byte emoji sequences.
  * ============================================================================
  */
 
@@ -38,11 +41,86 @@ export function bytesToHex(bytes) {
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Full-spec UTF-8 encoder that correctly handles characters above U+FFFF
+ * (emoji, CJK extensions, etc.) by encoding JS surrogate pairs as 4-byte UTF-8.
+ */
+function utf8Encode(str) {
+  const bytes = [];
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+
+    // Handle surrogate pairs → codepoint > 0xFFFF → 4-byte UTF-8
+    if (code >= 0xD800 && code <= 0xDBFF && i + 1 < str.length) {
+      const low = str.charCodeAt(i + 1);
+      if (low >= 0xDC00 && low <= 0xDFFF) {
+        code = ((code - 0xD800) << 10) + (low - 0xDC00) + 0x10000;
+        i++; // skip low surrogate
+      }
+    }
+
+    if (code < 0x80) {
+      bytes.push(code);
+    } else if (code < 0x800) {
+      bytes.push(0xC0 | (code >> 6), 0x80 | (code & 0x3F));
+    } else if (code < 0x10000) {
+      bytes.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
+    } else {
+      bytes.push(
+        0xF0 | (code >> 18),
+        0x80 | ((code >> 12) & 0x3F),
+        0x80 | ((code >> 6) & 0x3F),
+        0x80 | (code & 0x3F)
+      );
+    }
+  }
+  return bytes;
+}
+
+/**
+ * Full-spec UTF-8 decoder that correctly handles 4-byte sequences
+ * (emoji, CJK extensions, etc.) by producing JS surrogate pairs.
+ */
+function utf8Decode(bytes) {
+  let str = '';
+  let i = 0;
+  while (i < bytes.length) {
+    const b = bytes[i];
+    if (b < 0x80) {
+      str += String.fromCharCode(b);
+      i += 1;
+    } else if ((b & 0xE0) === 0xC0) {
+      str += String.fromCharCode(((b & 0x1F) << 6) | (bytes[i + 1] & 0x3F));
+      i += 2;
+    } else if ((b & 0xF0) === 0xE0) {
+      str += String.fromCharCode(
+        ((b & 0x0F) << 12) | ((bytes[i + 1] & 0x3F) << 6) | (bytes[i + 2] & 0x3F)
+      );
+      i += 3;
+    } else if ((b & 0xF8) === 0xF0) {
+      // 4-byte sequence → supplementary character → surrogate pair
+      const codePoint =
+        ((b & 0x07) << 18) |
+        ((bytes[i + 1] & 0x3F) << 12) |
+        ((bytes[i + 2] & 0x3F) << 6) |
+        (bytes[i + 3] & 0x3F);
+      const adjusted = codePoint - 0x10000;
+      str += String.fromCharCode(0xD800 + (adjusted >> 10), 0xDC00 + (adjusted & 0x3FF));
+      i += 4;
+    } else {
+      // Invalid byte — skip it
+      str += String.fromCharCode(0xFFFD);
+      i += 1;
+    }
+  }
+  return str;
+}
+
 export async function encryptCredentials(plainObj, keyHex) {
   const keyBytes = hexToBytes(keyHex);
   const ivBytes = await ExpoCrypto.getRandomBytesAsync(16);
 
-  const textBytes = aesjs.utils.utf8.toBytes(JSON.stringify(plainObj));
+  const textBytes = utf8Encode(JSON.stringify(plainObj));
   const aesCtr = new aesjs.ModeOfOperation.ctr(
     Array.from(keyBytes),
     new aesjs.Counter(Array.from(ivBytes))
@@ -67,9 +145,25 @@ export async function encryptCredentials(plainObj, keyHex) {
 }
 
 export async function decryptCredentials(payloadObj, keyHex) {
+  let parsed = payloadObj;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch (e) {}
+  }
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch (e) {}
+  }
+
+  if (!parsed || !parsed.iv || !parsed.data) {
+    throw new Error('Invalid encrypted payload structure');
+  }
+
   const keyBytes = hexToBytes(keyHex);
-  const ivBytes = new Uint8Array(payloadObj.iv);
-  const payloadData = new Uint8Array(payloadObj.data);
+  const ivBytes = new Uint8Array(parsed.iv);
+  const payloadData = new Uint8Array(parsed.data);
 
   if (payloadData.length < 32) {
     throw new Error('Payload too short (missing HMAC)');
@@ -100,5 +194,9 @@ export async function decryptCredentials(payloadObj, keyHex) {
   );
   const decryptedBytes = aesCtr.decrypt(ciphertext);
 
-  return aesjs.utils.utf8.fromBytes(decryptedBytes);
+  try {
+    return utf8Decode(Array.from(decryptedBytes));
+  } catch (e) {
+    return null;
+  }
 }

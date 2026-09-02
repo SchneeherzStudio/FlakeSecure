@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FlakeSecure Login Widget</title>
+  <style>
+    :root {
+      --fs-bg: #0d101d;
+      --fs-card-bg: rgba(22, 27, 46, 0.95);
+      --fs-card-border: rgba(99, 145, 255, 0.25);
+      --fs-text-main: #ffffff;
+      --fs-text-sub: rgba(255, 255, 255, 0.65);
+      --fs-accent-1: #6391ff;
+      --fs-accent-2: #8b5cf6;
+      --fs-gradient: linear-gradient(135deg, #6391ff, #8b5cf6);
+      --fs-success: #10b981;
+      --fs-error: #ef4444;
+      --fs-qr-bg: #ffffff;
+      --fs-badge-bg: rgba(99, 145, 255, 0.12);
+      --fs-badge-text: #8eb0ff;
+      --fs-badge-border: rgba(99, 145, 255, 0.28);
+    }
+
+    /* Light Theme */
+    body.fs-light {
+      --fs-bg: #f8fafc;
+      --fs-card-bg: #ffffff;
+      --fs-card-border: #e2e8f0;
+      --fs-text-main: #0f172a;
+      --fs-text-sub: #64748b;
+      --fs-accent-1: #4f46e5;
+      --fs-accent-2: #7c3aed;
+      --fs-gradient: linear-gradient(135deg, #4f46e5, #7c3aed);
+      --fs-qr-bg: #ffffff;
+      --fs-badge-bg: #eef2ff;
+      --fs-badge-text: #4338ca;
+      --fs-badge-border: #c7d2fe;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: transparent;
+      color: var(--fs-text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .fs-widget-card {
+      width: 100%;
+      max-width: 360px;
+      background: var(--fs-card-bg);
+      border: 1px solid var(--fs-card-border);
+      border-radius: 20px;
+      padding: 22px 20px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+    }
+
+    /* Compact mode */
+    body.fs-compact .fs-widget-card {
+      padding: 14px 14px;
+      border-radius: 14px;
+    }
+
+    .fs-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .fs-logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--fs-gradient);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(99, 145, 255, 0.35);
+    }
+
+    .fs-logo-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: #ffffff;
+    }
+
+    .fs-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .fs-title span {
+      background: var(--fs-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .fs-domain-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--fs-badge-bg);
+      border: 1px solid var(--fs-badge-border);
+      color: var(--fs-badge-text);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 12px;
+      margin-top: 4px;
+      margin-bottom: 14px;
+      max-width: 90%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .fs-domain-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--fs-accent-1);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--fs-accent-1);
+      flex-shrink: 0;
+    }
+
+    .fs-qr-frame {
+      position: relative;
+      background: var(--fs-qr-bg);
+      padding: 12px;
+      border-radius: 16px;
+      display: inline-block;
+      margin: 0 auto 14px auto;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Corner highlights for high-tech look */
+    .fs-corner {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-color: var(--fs-accent-1);
+      border-style: solid;
+      pointer-events: none;
+    }
+    .fs-c-tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
+    .fs-c-tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
+    .fs-c-bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
+    .fs-c-br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
+
+    #fs-qrcode {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 180px;
+      min-height: 180px;
+    }
+
+    #fs-qrcode img, #fs-qrcode canvas, #fs-qrcode svg {
+      display: block;
+      border-radius: 8px;
+    }
+
+    .fs-status-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--fs-text-sub);
+      margin-bottom: 12px;
+    }
+
+    .fs-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(99, 145, 255, 0.25);
+      border-top-color: var(--fs-accent-1);
+      border-radius: 50%;
+      animation: fsSpin 0.9s linear infinite;
+    }
+
+    @keyframes fsSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    .fs-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .fs-step-pill {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--fs-text-sub);
+      transition: all 0.2s;
+    }
+
+    body.fs-light .fs-step-pill {
+      background: #f1f5f9;
+    }
+
+    .fs-step-pill.active {
+      background: var(--fs-badge-bg);
+      color: var(--fs-badge-text);
+      border: 1px solid var(--fs-badge-border);
+      font-weight: 600;
+    }
+
+    .fs-mobile-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: var(--fs-gradient);
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 10px;
+      margin-top: 2px;
+      box-shadow: 0 4px 12px rgba(99, 145, 255, 0.3);
+      cursor: pointer;
+      border: none;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .fs-mobile-btn:hover {
+      transform: translateY(-1px);
+      opacity: 0.95;
+    }
+
+    /* Expired overlay state */
+    .fs-expired-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(13, 16, 29, 0.92);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .fs-expired-overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .fs-refresh-btn {
+      background: var(--fs-gradient);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 10px;
+      box-shadow: 0 4px 14px rgba(99, 145, 255, 0.4);
+    }
+
+    /* Success checkmark animation */
+    .fs-success-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--fs-card-bg);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 15;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .fs-success-overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .fs-check-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--fs-success);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 12px;
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+      animation: fsPopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes fsPopIn {
+      from { transform: scale(0.4); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .fs-footer-text {
+      font-size: 10px;
+      color: var(--fs-text-sub);
+      margin-top: 10px;
+      letter-spacing: 0.2px;
+    }
+  </style>
+
+  <!-- QRCode & Socket.IO client scripts -->
+  <script src="/js/qrcode.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <div class="fs-widget-card" id="fs-card">
+    <div class="fs-header">
+      <div class="fs-logo-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="fs-title">Flake<span>Secure</span></div>
+    </div>
+
+    <div class="fs-domain-badge">
+      <div class="fs-domain-dot"></div>
+      <span id="fs-domain-text">example.com</span>
+    </div>
+
+    <div class="fs-qr-frame">
+      <div class="fs-corner fs-c-tl"></div>
+      <div class="fs-corner fs-c-tr"></div>
+      <div class="fs-corner fs-c-bl"></div>
+      <div class="fs-corner fs-c-br"></div>
+      <div id="fs-qrcode"></div>
+    </div>
+
+    <div class="fs-status-box" id="fs-status">
+      <div class="fs-spinner" id="fs-spinner"></div>
+      <span id="fs-status-text">Warte auf Scan…</span>
+    </div>
+
+    <div class="fs-steps">
+      <span class="fs-step-pill active" id="fs-pill-1">1. Scan</span>
+      <span class="fs-step-pill" id="fs-pill-2">2. Bestätigen</span>
+      <span class="fs-step-pill" id="fs-pill-3">3. Fertig</span>
+    </div>
+
+    <div>
+      <a href="#" class="fs-mobile-btn" id="fs-app-link">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+          <line x1="12" y1="18" x2="12.01" y2="18"/>
+        </svg>
+        <span id="fs-app-link-text">In FlakeSecure öffnen</span>
+      </a>
+    </div>
+
+    <div class="fs-footer-text">
+      🔒 Zero-Knowledge Ende-zu-Ende verschlüsselt
+    </div>
+
+    <!-- Expired Overlay -->
+    <div class="fs-expired-overlay" id="fs-expired">
+      <div style="font-size:32px;margin-bottom:8px;">⏳</div>
+      <h3 style="font-size:16px;margin-bottom:6px;" id="fs-expired-title">Sitzung abgelaufen</h3>
+      <p style="font-size:12px;color:var(--fs-text-sub);margin-bottom:14px;" id="fs-expired-desc">Aus Sicherheitsgründen laufen QR-Codes nach 5 Minuten ab.</p>
+      <button class="fs-refresh-btn" id="fs-refresh-btn">Neuen Code laden</button>
+    </div>
+
+    <!-- Success Overlay -->
+    <div class="fs-success-overlay" id="fs-success">
+      <div class="fs-check-icon">✓</div>
+      <h3 style="font-size:16px;margin-bottom:4px;" id="fs-success-title">Erfolgreich angemeldet!</h3>
+      <p style="font-size:12px;color:var(--fs-text-sub);" id="fs-success-desc">Daten werden übertragen…</p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // 1. Translations
+      const I18N = {
+        de: {
+          waiting: 'Warte auf Scan…',
+          confirming: 'Auf Smartphone bestätigen…',
+          verified: 'Verifiziert! Daten werden eingetragen…',
+          openApp: 'In FlakeSecure öffnen',
+          step1: '1. Scan',
+          step2: '2. Bestätigen',
+          step3: '3. Fertig',
+          expiredTitle: 'Sitzung abgelaufen',
+          expiredDesc: 'Aus Sicherheitsgründen laufen QR-Codes nach 5 Minuten ab.',
+          refreshBtn: 'Neuen Code laden',
+          successTitle: 'Erfolgreich autorisiert!',
+          successDesc: 'Anmeldedaten werden sicher ausgefüllt…',
+          zkFooter: '🔒 Zero-Knowledge Ende-zu-Ende verschlüsselt'
+        },
+        en: {
+          waiting: 'Waiting for scan…',
+          confirming: 'Confirm on mobile device…',
+          verified: 'Verified! Filling credentials…',
+          openApp: 'Open in FlakeSecure',
+          step1: '1. Scan',
+          step2: '2. Confirm',
+          step3: '3. Done',
+          expiredTitle: 'Session Expired',
+          expiredDesc: 'For your security, QR codes expire after 5 minutes.',
+          refreshBtn: 'Generate new code',
+          successTitle: 'Successfully Authorized!',
+          successDesc: 'Filling login credentials safely…',
+          zkFooter: '🔒 Zero-Knowledge End-to-End Encrypted'
+        },
+        fr: {
+          waiting: 'En attente du scan…',
+          confirming: 'Confirmez sur votre mobile…',
+          verified: 'Vérifié ! Remplissage en cours…',
+          openApp: 'Ouvrir dans FlakeSecure',
+          step1: '1. Scanner',
+          step2: '2. Confirmer',
+          step3: '3. Terminé',
+          expiredTitle: 'Session expirée',
+          expiredDesc: 'Pour votre sécurité, les codes QR expirent après 5 minutes.',
+          refreshBtn: 'Nouveau code',
+          successTitle: 'Autorisation réussie !',
+          successDesc: 'Remplissage sécurisé des identifiants…',
+          zkFooter: '🔒 Chiffrement de bout en bout Zero-Knowledge'
+        },
+        es: {
+          waiting: 'Esperando escaneo…',
+          confirming: 'Confirma en tu dispositivo…',
+          verified: '¡Verificado! Rellenando datos…',
+          openApp: 'Abrir en FlakeSecure',
+          step1: '1. Escanear',
+          step2: '2. Confirmar',
+          step3: '3. Listo',
+          expiredTitle: 'Sesión caducada',
+          expiredDesc: 'Por seguridad, los códigos QR caducan a los 5 minutos.',
+          refreshBtn: 'Generar nuevo código',
+          successTitle: '¡Autorizado con éxito!',
+          successDesc: 'Rellenando credenciales de forma segura…',
+          zkFooter: '🔒 Cifrado de extremo a extremo Zero-Knowledge'
+        }
+      };
+
+      // 2. Parse URL parameters & theme
+      const urlParams = new URLSearchParams(window.location.search);
+      let lang = (urlParams.get('lang') || navigator.language || 'de').substring(0, 2).toLowerCase();
+      if (!I18N[lang]) lang = 'en';
+      const t = I18N[lang];
+
+      const theme = urlParams.get('theme') || 'dark';
+      if (theme === 'light' || (theme === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+        document.body.classList.add('fs-light');
+      }
+
+      if (urlParams.get('compact') === 'true') {
+        document.body.classList.add('fs-compact');
+      }
+
+      // Determine Target Domain
+      let domain = urlParams.get('domain') || urlParams.get('d');
+      if (!domain && document.referrer) {
+        try {
+          domain = new URL(document.referrer).hostname;
+        } catch (e) {}
+      }
+      if (!domain) {
+        domain = window.location.hostname;
+      }
+      document.getElementById('fs-domain-text').textContent = domain;
+
+      // Apply initial translations
+      document.getElementById('fs-status-text').textContent = t.waiting;
+      document.getElementById('fs-app-link-text').textContent = t.openApp;
+      document.getElementById('fs-pill-1').textContent = t.step1;
+      document.getElementById('fs-pill-2').textContent = t.step2;
+      document.getElementById('fs-pill-3').textContent = t.step3;
+      document.getElementById('fs-expired-title').textContent = t.expiredTitle;
+      document.getElementById('fs-expired-desc').textContent = t.expiredDesc;
+      document.getElementById('fs-refresh-btn').textContent = t.refreshBtn;
+      document.getElementById('fs-success-title').textContent = t.successTitle;
+      document.getElementById('fs-success-desc').textContent = t.successDesc;
+
+      // 3. Cryptography Utilities (Web Crypto API - Zero-Knowledge)
+      function generateSessionId() {
+        const arr = new Uint8Array(16);
+        crypto.getRandomValues(arr);
+        return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      function generateKeyHex() {
+        const arr = new Uint8Array(32);
+        crypto.getRandomValues(arr);
+        return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      function hexToBytes(hex) {
+        const b = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) b[i / 2] = parseInt(hex.substr(i, 2), 16);
+        return b;
+      }
+
+      function bytesToHex(bytes) {
+        return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      async function decryptData(encryptedPayload, keyHex) {
+        try {
+          const { iv, data } = encryptedPayload;
+          const ivBytes = new Uint8Array(iv);
+          const dataBytes = new Uint8Array(data);
+          const TAG_LEN = 32;
+          const ciphertext = dataBytes.slice(0, dataBytes.length - TAG_LEN);
+          const tagBytes = dataBytes.slice(dataBytes.length - TAG_LEN);
+
+          const macInputHex = bytesToHex(ivBytes) + bytesToHex(ciphertext);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(macInputHex));
+          const expected = new Uint8Array(hashBuffer);
+
+          let diff = 0;
+          for (let i = 0; i < expected.length; i++) diff |= expected[i] ^ tagBytes[i];
+          if (diff !== 0) throw new Error('HMAC verification failed');
+
+          const cryptoKey = await crypto.subtle.importKey(
+            'raw', hexToBytes(keyHex), { name: 'AES-CTR' }, false, ['decrypt']
+          );
+          const decrypted = await crypto.subtle.decrypt(
+            { name: 'AES-CTR', counter: ivBytes, length: 64 },
+            cryptoKey,
+            ciphertext
+          );
+
+          return JSON.parse(new TextDecoder().decode(decrypted));
+        } catch (e) {
+          console.error('[FlakeSecure Embed] Decryption failed:', e);
+          return null;
+        }
+      }
+
+      // 4. Session & QR Lifecycle
+      let socket = null;
+      let currentSessionId = null;
+      let currentKeyHex = null;
+      let qrInstance = null;
+
+      function initSession() {
+        document.getElementById('fs-expired').classList.remove('show');
+        document.getElementById('fs-success').classList.remove('show');
+        document.getElementById('fs-pill-1').className = 'fs-step-pill active';
+        document.getElementById('fs-pill-2').className = 'fs-step-pill';
+        document.getElementById('fs-pill-3').className = 'fs-step-pill';
+        document.getElementById('fs-status-text').textContent = t.waiting;
+
+        if (socket) {
+          socket.disconnect();
+        }
+
+        currentSessionId = generateSessionId();
+        currentKeyHex = generateKeyHex();
+
+        // Build deep link & web link
+        const serverOrigin = window.location.origin;
+        const webUrl = `${serverOrigin}/auth?s=${currentSessionId}&k=${currentKeyHex}&d=${encodeURIComponent(domain)}`;
+        const appDeepLink = `flakesecure://auth?s=${currentSessionId}&k=${currentKeyHex}&d=${encodeURIComponent(domain)}`;
+
+        // Render QR Code (Web URL allows native phone camera scan to deep link, FlakeSecure app handles directly)
+        const qrContainer = document.getElementById('fs-qrcode');
+        qrContainer.innerHTML = '';
+        const qrSize = urlParams.get('compact') === 'true' ? 160 : 180;
+        
+        qrInstance = new QRCode(qrContainer, {
+          text: webUrl,
+          width: qrSize,
+          height: qrSize,
+          colorDark: '#0a0d18',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+
+        // Setup App link for mobile users
+        const appBtn = document.getElementById('fs-app-link');
+        appBtn.href = appDeepLink;
+
+        // Connect Socket.IO
+        socket = io(serverOrigin, {
+          transports: ['websocket', 'polling'],
+          reconnectionAttempts: 5,
+          timeout: 10000
+        });
+
+        socket.on('connect', () => {
+          socket.emit('join-session', { sid: currentSessionId, domain });
+        });
+
+        // Mobile scanned and connected
+        socket.on('session-ready', () => {
+          document.getElementById('fs-pill-2').classList.add('active');
+          document.getElementById('fs-status-text').textContent = t.confirming;
+        });
+
+        // Login data received (encrypted)
+        socket.on('login-data', async (payload) => {
+          document.getElementById('fs-pill-3').classList.add('active');
+          document.getElementById('fs-status-text').textContent = t.verified;
+
+          const decrypted = await decryptData(payload, currentKeyHex);
+          if (decrypted) {
+            // Show success overlay
+            document.getElementById('fs-success').classList.add('show');
+
+            // Dispatch postMessage to parent host page
+            const messagePayload = {
+              type: 'FLAKESECURE_LOGIN_DATA',
+              source: 'flakesecure-embed',
+              domain: domain,
+              username: decrypted.username,
+              password: decrypted.password,
+              totp: decrypted.totp || decrypted.code || null,
+              action: decrypted.action || 'login'
+            };
+
+            // Post to parent window (both wildcard for compatibility and specific origin if available)
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(messagePayload, '*');
+            }
+          }
+        });
+
+        // Real-time TOTP code stream
+        socket.on('totp-data', async (payload) => {
+          const decrypted = await decryptData(payload, currentKeyHex);
+          if (decrypted && decrypted.code && window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'FLAKESECURE_TOTP_DATA',
+              source: 'flakesecure-embed',
+              code: decrypted.code
+            }, '*');
+          }
+        });
+
+        // Session expiration
+        socket.on('session-expired', () => {
+          document.getElementById('fs-expired').classList.add('show');
+        });
+
+        // 5-minute local safety timeout
+        setTimeout(() => {
+          if (document.getElementById('fs-card')) {
+            document.getElementById('fs-expired').classList.add('show');
+          }
+        }, 5 * 60 * 1000);
+      }
+
+      document.getElementById('fs-refresh-btn').addEventListener('click', initSession);
+
+      // Initialize on load
+      initSession();
+    })();
+  </script>
+</body>
+</html>

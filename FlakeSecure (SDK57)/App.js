@@ -50,6 +50,7 @@ import ShareImportScreen from './app/src/screens/ShareImportScreen';
 import RegisterFillScreen from './app/src/screens/RegisterFillScreen';
 import MaintenanceScreen from './app/src/screens/MaintenanceScreen';
 import AuthenticatorScreen from './app/src/screens/AuthenticatorScreen';
+import { VaultTransferScreen } from './app/src/screens/VaultTransferScreen';
 
 const APP_VERSION = '2.0.0';
 
@@ -68,6 +69,7 @@ const linking = {
       Credentials: 'credentials',
       ViewCredential: 'credential/:domain',
       Authenticator: 'totp',
+      VaultTransfer: 'vault-transfer',
     },
   },
 };
@@ -274,6 +276,7 @@ function AppContent() {
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Logs" component={LogsScreen} />
         <Stack.Screen name="ShareImport" component={ShareImportScreen} />
+        <Stack.Screen name="VaultTransfer" component={VaultTransferScreen} />
       </Stack.Navigator>
 
       <Modal visible={!!activePopupAnnouncement} transparent animationType="fade">

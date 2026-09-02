@@ -41,6 +41,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getAllCredentials, deleteCredentials, getCategories, saveCategory, deleteCategory } from '../utils/storage';
+import FaviconImage from '../components/FaviconImage';
 
 const AVAILABLE_ICONS = ['👤', '💼', '💳', '💬', '🎮', '📁', '🛍️', '🛒', '🔒', '🏠', '✈️', '📧', '🎓', '💻', '🎵', '🍔', '🚗', '🏥', '🔑', '⭐'];
 
@@ -366,6 +367,12 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
           <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('Credentials')}>
             <Text style={styles.addButtonText}>{t('home.addButton')}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.restoreVaultEmptyBtn}
+            onPress={() => navigation.navigate('VaultTransfer', { mode: 'check_or_receive' })}
+          >
+            <Text style={styles.restoreVaultEmptyText}>☁️ {t('settings.restoreVault') || 'Restore from Cloud Vault'}</Text>
+          </TouchableOpacity>
         </View>
       ) : filteredCredentials.length === 0 ? (
         <View style={styles.empty}>
@@ -389,9 +396,13 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
                 onPress={() => navigation.navigate('ViewCredential', { domain: item.domain })}
                 activeOpacity={0.7}
               >
-                <View style={styles.credIcon}>
-                  <Text style={styles.credIconText}>{getDomainIcon(item.domain)}</Text>
-                </View>
+                <FaviconImage
+                  domain={item.domain}
+                  size={44}
+                  borderRadius={12}
+                  fallbackIcon={catInfo?.icon || getDomainIcon(item.domain)}
+                  style={{ marginRight: 12 }}
+                />
                 <View style={styles.credInfo}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <Text style={styles.credDomain}>{item.domain}</Text>
@@ -825,9 +836,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   addButtonText: {
-    color: '#6391ff',
-    fontSize: 14,
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '700',
+  },
+  restoreVaultEmptyBtn: {
+    marginTop: 10,
+    backgroundColor: 'rgba(99, 145, 255, 0.1)',
+    borderColor: 'rgba(99, 145, 255, 0.3)',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  restoreVaultEmptyText: {
+    color: '#6391ff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,

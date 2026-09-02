@@ -24,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '../context/LanguageContext';
+import FaviconImage from '../components/FaviconImage';
 import { findCredentialsForDomain, getTotpItems } from '../utils/storage';
 import { encryptCredentials } from '../utils/crypto';
 
@@ -176,7 +177,10 @@ export default function ConfirmScreen({ route, navigation }) {
           <View style={styles.centerContent}>
             <View style={styles.domainCard}>
               <Text style={styles.domainCardTitle}>{t('confirm.confirmLogin')}</Text>
-              <Text style={styles.domainCardDomain}>🌐 {domain}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginVertical: 8 }}>
+                <FaviconImage domain={domain} size={28} borderRadius={8} />
+                <Text style={styles.domainCardDomain}>{domain}</Text>
+              </View>
               {credentials && (
                 <View style={styles.credPreview}>
                   <Text style={styles.credLabel}>{t('confirm.user')}</Text>

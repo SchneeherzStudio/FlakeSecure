@@ -40,6 +40,8 @@
   let isAutoFilling = false;
   let watcherTimer = null;
   let watcherEndTime = 0;
+  let activePort = null;
+  let portHeartbeat = null;
 
   const SOCIAL_OR_NEGATIVE_KEYWORDS = [
     'facebook', 'google', 'apple', 'xbox', 'playstation', 'psn', 'nintendo',
@@ -549,30 +551,62 @@
 
   function connectSocket(sessionId, keyHex, onData) {
     if (typeof browser !== 'undefined' && browser.runtime) {
-      browser.storage.local.get(['authToken']).then((res) => {
-        browser.runtime.sendMessage({
-          type: 'CONNECT',
-          sessionId,
-          token: res ? res.authToken : null,
-          domain: window.location.hostname
+      if (activePort) {
+        try { activePort.disconnect(); } catch (e) {}
+        activePort = null;
+      }
+      if (portHeartbeat) {
+        clearInterval(portHeartbeat);
+        portHeartbeat = null;
+      }
+
+      try {
+        activePort = browser.runtime.connect({ name: 'fs-socket-port' });
+
+        browser.storage.local.get(['authToken']).then((res) => {
+          if (activePort) {
+            activePort.postMessage({
+              type: 'CONNECT',
+              sessionId,
+              token: res ? res.authToken : null,
+              domain: window.location.hostname
+            });
+          }
         }).catch(() => {});
-      });
 
-      const messageListener = async (msg) => {
-        if (msg.type === 'LOGIN_DATA') {
-          const decrypted = await decryptData(msg.payload, keyHex);
-          if (decrypted) onData(decrypted);
-        } else if (msg.type === 'TOTP_DATA') {
-          const decrypted = await decryptData(msg.payload, keyHex);
-          if (decrypted && decrypted.code) fillTotpCode(decrypted.code);
-        } else if (msg.type === 'SESSION_EXPIRED') {
-          removeOverlay();
-        } else if (msg.type === 'SOCKET_ERROR') {
-          updateOverlayStatus('error', 'Server nicht erreichbar');
-        }
-      };
+        activePort.onMessage.addListener(async (msg) => {
+          if (msg.type === 'LOGIN_DATA') {
+            const decrypted = await decryptData(msg.payload, keyHex);
+            if (decrypted) onData(decrypted);
+          } else if (msg.type === 'TOTP_DATA') {
+            const decrypted = await decryptData(msg.payload, keyHex);
+            if (decrypted && decrypted.code) fillTotpCode(decrypted.code);
+          } else if (msg.type === 'SESSION_EXPIRED') {
+            removeOverlay();
+          } else if (msg.type === 'SOCKET_ERROR') {
+            updateOverlayStatus('error', 'Server nicht erreichbar');
+          }
+        });
 
-      browser.runtime.onMessage.addListener(messageListener);
+        // 10-second heartbeat to reset Firefox MV3 activity timer
+        portHeartbeat = setInterval(() => {
+          if (activePort) {
+            try {
+              activePort.postMessage({ type: 'PING' });
+            } catch (e) {}
+          }
+        }, 10000);
+      } catch (err) {
+        console.log('[FlakeSecure Firefox] Port connection fallback:', err.message);
+        browser.storage.local.get(['authToken']).then((res) => {
+          browser.runtime.sendMessage({
+            type: 'CONNECT',
+            sessionId,
+            token: res ? res.authToken : null,
+            domain: window.location.hostname
+          }).catch(() => {});
+        });
+      }
     }
   }
 
@@ -596,6 +630,19 @@
       setTimeout(() => {
         overlay.remove();
       }, 300);
+    }
+
+    if (portHeartbeat) {
+      clearInterval(portHeartbeat);
+      portHeartbeat = null;
+    }
+
+    if (activePort) {
+      try {
+        activePort.postMessage({ type: 'DISCONNECT' });
+        activePort.disconnect();
+      } catch (e) {}
+      activePort = null;
     }
 
     if (typeof browser !== 'undefined' && browser.runtime) {
