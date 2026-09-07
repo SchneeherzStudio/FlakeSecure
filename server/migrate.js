@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Server - Database Migration & Schema Update Script v2.0.0
+ * FlakeSecure Server - Database Migration & Schema Update Script v2.0.1
  * ============================================================================
  * 
  * FUNCTION OVERVIEW:
@@ -14,9 +14,36 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 const { pool } = require('./db');
 
+async function ensureDatabaseExists() {
+  const targetDb = process.env.PGDATABASE || 'flakesecure';
+  const defaultPool = new Pool({
+    host: process.env.PGHOST || 'localhost',
+    port: parseInt(process.env.PGPORT || '5432'),
+    user: process.env.PGUSER || 'postgres',
+    password: process.env.PGPASSWORD || 'postgres',
+    database: 'postgres',
+  });
+
+  try {
+    const res = await defaultPool.query('SELECT 1 FROM pg_database WHERE datname = $1', [targetDb]);
+    if (res.rowCount === 0) {
+      console.log(`[FlakeSecure Migration] Database "${targetDb}" does not exist. Creating it...`);
+      await defaultPool.query(`CREATE DATABASE "${targetDb}"`);
+      console.log(`[FlakeSecure Migration] Database "${targetDb}" created successfully.`);
+    }
+  } catch (err) {
+    console.warn('[FlakeSecure Migration] Note on database check:', err.message);
+  } finally {
+    await defaultPool.end();
+  }
+}
+
 async function migrate() {
+  await ensureDatabaseExists();
+
   console.log('[FlakeSecure Migration] Connecting to PostgreSQL database:', process.env.PGDATABASE || 'flakesecure');
   
   const schemaPath = path.join(__dirname, 'db', 'schema.sql');
@@ -29,9 +56,9 @@ async function migrate() {
     await client.query(sql);
     client.release();
     
-    console.log('[FlakeSecure Migration] ✅ Database successfully updated to v2.0.0 schema!');
+    console.log('[FlakeSecure Migration] [OK] Database successfully updated to schema!');
   } catch (err) {
-    console.error('[FlakeSecure Migration] ❌ Migration failed:', err.message);
+    console.error('[FlakeSecure Migration] [ERROR] Migration failed:', err.message);
   } finally {
     await pool.end();
   }

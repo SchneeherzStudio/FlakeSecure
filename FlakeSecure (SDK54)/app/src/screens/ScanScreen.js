@@ -2,19 +2,6 @@
  * ============================================================================
  * FlakeSecure Mobile App - QR-Code Scanner Screen (ScanScreen)
  * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. CAMERA PERMISSIONS & SCAN-LINE ANIMATION:
- *    - Requests camera access via useCameraPermissions (expo-camera).
- *    - Renders animated laser scan line and responsive backdrop viewfinder mask.
- * 
- * 2. QR PARSING & DISPATCH (handleBarCodeScanned):
- *    - Validates FlakeSecure QR payloads (session ID, AES key, domain, action, fields).
- *    - Registration Mode: Decodes required form fields and navigates to RegisterFillScreen.
- *    - Share / Import Mode: Fetches /api/share/consume/:sid, decrypts credentials via AES-256-CTR/HMAC, and persists them into SecureStore.
- *    - Web Login Mode: Navigates to ConfirmScreen for biometric confirmation (Face ID / Fingerprint).
- * ============================================================================
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -26,17 +13,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { AppIcon } from '../components/CategoryIcons';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { encryptCredentials, decryptCredentials } from '../utils/crypto';
 import { saveCredentials, getFullVaultExport } from '../utils/storage';
+import { getServerUrl } from '../utils/api';
 
-const SERVER_URL = 'https://flakesecure.snowystudio.dev';
 const FRAME_SIZE = 250;
 
 export default function ScanScreen() {
   const navigation = useNavigation();
   const { t } = useLanguage();
+  const { colors } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -61,12 +51,9 @@ export default function ScanScreen() {
   const handleBarCodeScanned = async ({ data }) => {
     if (scanned || importing) return;
     
-    console.log('[FlakeSecure Scanner] Raw QR data:', JSON.stringify(data));
-    
     const hasSid = data.includes('sid=') || data.includes('s=');
     const hasKey = data.includes('key=') || data.includes('k=');
     if (!hasSid || !hasKey) {
-      console.log('[FlakeSecure Scanner] Not a FlakeSecure QR code, ignoring');
       return;
     }
 
@@ -80,7 +67,6 @@ export default function ScanScreen() {
       let action = null;
       let fieldsParam = null;
 
-      // Extract query string – support both ? and # separators
       let queryString = '';
       if (data.includes('?')) {
         queryString = data.split('?')[1];
@@ -89,7 +75,6 @@ export default function ScanScreen() {
       }
 
       if (queryString) {
-        // Try URLSearchParams first
         try {
           const urlParams = new URLSearchParams(queryString);
           sid = urlParams.get('s') || urlParams.get('sid');
@@ -101,7 +86,6 @@ export default function ScanScreen() {
           console.log('[FlakeSecure Scanner] URLSearchParams failed, using manual parser');
         }
 
-        // Manual fallback if URLSearchParams didn't work
         if (!sid || !key) {
           const pairs = queryString.split('&');
           for (const pair of pairs) {
@@ -117,8 +101,6 @@ export default function ScanScreen() {
           }
         }
       }
-
-      console.log('[FlakeSecure Scanner] Parsed: sid=', sid?.substring(0, 8), 'key=', key?.substring(0, 8), 'domain=', domain);
 
       if (!sid || !key) {
         throw new Error('Invalid QR code parameters');
@@ -152,7 +134,6 @@ export default function ScanScreen() {
           return;
         }
 
-        // Request biometric approval on authorizing device
         const authResult = await LocalAuthentication.authenticateAsync({
           promptMessage: t('vaultTransfer.authorizeBiometricPrompt') || 'Neues Gerät für Cloud-Tresor autorisieren',
           fallbackLabel: 'PIN verwenden',
@@ -165,10 +146,8 @@ export default function ScanScreen() {
           return;
         }
 
-        // Retrieve local vault data to include in direct device-to-device transfer
         const localVault = await getFullVaultExport();
 
-        // Encrypt the master credentials payload and full vault data with the scanned ephemeral key
         const packetToEncrypt = {
           password: localCreds.password,
           identifier: localCreds.identifier || localCreds.email,
@@ -180,8 +159,8 @@ export default function ScanScreen() {
 
         const encrypted = await encryptCredentials(packetToEncrypt, key);
 
-        // Send to share relay endpoint for one-time pickup
-        const response = await fetch(`${SERVER_URL}/api/share/create`, {
+        const serverUrl = await getServerUrl();
+        const response = await fetch(`${serverUrl}/api/share/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sid, payload: encrypted, hidden: false, expiresInHours: 1 })
@@ -228,7 +207,8 @@ export default function ScanScreen() {
         });
       } else if (isShare) {
         setImporting(true);
-        const response = await fetch(`${SERVER_URL}/api/share/consume/${sid}`);
+        const serverUrl = await getServerUrl();
+        const response = await fetch(`${serverUrl}/api/share/consume/${sid}`);
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
           throw new Error(err.error || 'Failed to fetch shared data (code expired or already used)');
@@ -279,23 +259,26 @@ export default function ScanScreen() {
   };
 
   if (!permission) {
-    return <View style={styles.container} />;
+    return <View style={[styles.container, { backgroundColor: colors.bg }]} />;
   }
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
         <View style={styles.permissionContainer}>
-          <Text style={styles.permIcon}>📷</Text>
-          <Text style={styles.permTitle}>{t('scan.title')}</Text>
-          <Text style={styles.permText}>
+          <AppIcon name="scan" size={48} color={colors.gold} style={{ marginBottom: 16 }} />
+          <Text style={[styles.permTitle, { color: colors.textMain }]}>{t('scan.title')}</Text>
+          <Text style={[styles.permText, { color: colors.textSub }]}>
             {t('scan.permission')}
           </Text>
-          <TouchableOpacity style={styles.permButton} onPress={requestPermission}>
+          <TouchableOpacity
+            style={[styles.permButton, { backgroundColor: colors.gold }]}
+            onPress={requestPermission}
+          >
             <Text style={styles.permButtonText}>{t('scan.requestPermission')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backLink}>{t('common.back')}</Text>
+            <Text style={[styles.backLink, { color: colors.textMuted }]}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -313,7 +296,7 @@ export default function ScanScreen() {
 
   return (
     <View 
-      style={styles.container} 
+      style={[styles.container, { backgroundColor: '#000' }]} 
       onLayout={(e) => setLayout(e.nativeEvent.layout)}
     >
       {isLayoutReady && (
@@ -334,18 +317,19 @@ export default function ScanScreen() {
             left: maskSides, top: maskTopBottom, width: FRAME_SIZE, height: FRAME_SIZE
           }]} pointerEvents="none">
             <View style={styles.scanFrame}>
-              <View style={[styles.corner, styles.cornerTL]} />
-              <View style={[styles.corner, styles.cornerTR]} />
-              <View style={[styles.corner, styles.cornerBL]} />
-              <View style={[styles.corner, styles.cornerBR]} />
-              <Animated.View style={[styles.scanLine, { transform: [{ translateY: scanLineTranslate }] }]} />
+              <View style={[styles.corner, styles.cornerTL, { borderColor: colors.gold }]} />
+              <View style={[styles.corner, styles.cornerTR, { borderColor: colors.gold }]} />
+              <View style={[styles.corner, styles.cornerBL, { borderColor: colors.gold }]} />
+              <View style={[styles.corner, styles.cornerBR, { borderColor: colors.gold }]} />
+              <Animated.View style={[styles.scanLine, { transform: [{ translateY: scanLineTranslate }], backgroundColor: colors.gold, shadowColor: colors.gold }]} />
             </View>
           </View>
 
           <View style={styles.uiContainer} pointerEvents="box-none">
             <SafeAreaView style={styles.headerContainer}>
               <View style={styles.header}>
-                <Text style={styles.logoText}>❄️ FlakeSecure</Text>
+                <AppIcon name="snowflake" size={20} color={colors.gold} style={{ marginRight: 6 }} />
+                <Text style={styles.logoText}>FlakeSecure</Text>
               </View>
             </SafeAreaView>
           </View>
@@ -360,7 +344,7 @@ export default function ScanScreen() {
           }} pointerEvents="box-none">
             {importing ? (
               <View style={{ alignItems: 'center', gap: 10 }}>
-                <ActivityIndicator size="large" color="#6391ff" />
+                <ActivityIndicator size="large" color={colors.gold} />
                 <Text style={styles.instruction}>Importing credentials…</Text>
               </View>
             ) : (
@@ -368,8 +352,11 @@ export default function ScanScreen() {
                 <Text style={styles.instruction}>
                   {t('scan.title')}
                 </Text>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
-                  <Text style={styles.cancelText}>{t('cancel')}</Text>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+                  onPress={() => navigation.goBack()}
+                >
+                  <Text style={[styles.cancelText, { color: colors.textSub }]}>{t('cancel')}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -381,10 +368,10 @@ export default function ScanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1 },
   mask: {
     position: 'absolute',
-    backgroundColor: 'rgba(9,11,20,0.75)',
+    backgroundColor: 'rgba(7,9,14,0.78)',
   },
   scanFrameContainer: {
     position: 'absolute',
@@ -398,7 +385,7 @@ const styles = StyleSheet.create({
   },
   corner: {
     position: 'absolute', width: 28, height: 28,
-    borderColor: '#6391ff', borderWidth: 3
+    borderWidth: 3
   },
   cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
   cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
@@ -407,8 +394,7 @@ const styles = StyleSheet.create({
   scanLine: {
     position: 'absolute', left: 4, right: 4, height: 2,
     top: 15,
-    backgroundColor: '#6391ff',
-    shadowColor: '#6391ff', shadowRadius: 6, shadowOpacity: 0.8
+    shadowRadius: 6, shadowOpacity: 0.8
   },
   uiContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -422,29 +408,21 @@ const styles = StyleSheet.create({
     paddingVertical: 16
   },
   logoText: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  footerContainer: {
-    paddingBottom: 40,
-    alignItems: 'center',
-    gap: 20
-  },
   instruction: {
-    color: 'rgba(255,255,255,0.6)', fontSize: 15, textAlign: 'center'
+    color: 'rgba(255,255,255,0.7)', fontSize: 15, textAlign: 'center'
   },
-  instructionBold: { color: '#fff', fontWeight: '700' },
   cancelBtn: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12
+    borderWidth: 1,
+    borderRadius: 8, paddingHorizontal: 24, paddingVertical: 12
   },
-  cancelText: { color: 'rgba(255,255,255,0.6)', fontSize: 14 },
+  cancelText: { fontSize: 14, fontWeight: '600' },
   permissionContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  permIcon: { fontSize: 48, marginBottom: 16 },
-  permTitle: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 8 },
-  permText: { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginBottom: 24 },
+  permTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  permText: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
   permButton: {
-    backgroundColor: '#6391ff', borderRadius: 14,
+    borderRadius: 8,
     paddingHorizontal: 28, paddingVertical: 14, marginBottom: 16
   },
-  permButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  backLink: { color: 'rgba(255,255,255,0.4)', fontSize: 14 }
+  permButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '800' },
+  backLink: { fontSize: 14, fontWeight: '600' }
 });

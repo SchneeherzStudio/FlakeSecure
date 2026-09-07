@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FlakeSecure — Zero-Knowledge Biometric Password &amp; 2FA Manager</title>
-  <meta name="description" content="FlakeSecure is a next-generation Zero-Knowledge Password & 2FA Manager with client-side AES-256-CTR encryption, biometric unlocking, and seamless cross-device synchronization." />
+  <title>FlakeSecure: Zero-Knowledge Biometric Password &amp; 2FA Manager</title>
+  <meta name="description" content="FlakeSecure is a Zero-Knowledge Password & 2FA Manager with client-side AES-256-CTR encryption, hardware biometric unlocking, and cross-device synchronization." />
   <meta name="keywords" content="FlakeSecure, Password Manager, Zero-Knowledge, 2FA Authenticator, Encryption, AES-256, Privacy, Security, Cross-Device Sync" />
   <meta name="author" content="SchneeherzStudio / Snowy Studio" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#07090e" />
 
-  <!-- Favicons / Icons -->
-  <link rel="icon" type="image/png" href="/images/splash-icon.png" />
-  <link rel="shortcut icon" href="/images/splash-icon.png" />
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/images/splash-icon.png" />
 
-  <!-- Open Graph / Facebook -->
+  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="FlakeSecure" />
-  <meta property="og:title" content="FlakeSecure — Zero-Knowledge Biometric Password & 2FA Manager" />
-  <meta property="og:description" content="Next-generation Zero-Knowledge Password & 2FA Manager with client-side AES-256-CTR encryption and biometric unlocking." />
+  <meta property="og:title" content="FlakeSecure: Zero-Knowledge Biometric Password &amp; 2FA Manager" />
+  <meta property="og:description" content="Zero-Knowledge Password &amp; 2FA Manager with client-side AES-256-CTR encryption and hardware biometric unlocking." />
   <meta property="og:url" content="https://flakesecure.snowystudio.dev/" />
   <meta property="og:image" content="https://flakesecure.snowystudio.dev/images/splash-icon.png" />
   <meta property="og:image:width" content="512" />
@@ -32,32 +32,26 @@
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="FlakeSecure — Zero-Knowledge Biometric Password Manager" />
-  <meta name="twitter:description" content="Zero-Knowledge Password & 2FA Manager with client-side AES-256-CTR encryption and biometric unlocking." />
+  <meta name="twitter:title" content="FlakeSecure: Zero-Knowledge Biometric Password Manager" />
+  <meta name="twitter:description" content="Zero-Knowledge Password &amp; 2FA Manager with client-side AES-256-CTR encryption and hardware biometric unlocking." />
   <meta name="twitter:image" content="https://flakesecure.snowystudio.dev/images/splash-icon.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style/index.css" />
-  <script src="/js/i18n.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style/index.css?v=2.0.4" />
+  <script src="/js/theme.js?v=2.0.4"></script>
+  <script src="/js/i18n.js?v=2.0.4"></script>
 </head>
 <body>
 
-  <!-- Decorative corner accents -->
+  <!-- Subtle corner accents -->
   <div class="corner corner--tl"></div>
   <div class="corner corner--tr"></div>
   <div class="corner corner--bl"></div>
   <div class="corner corner--br"></div>
 
-  <!-- Drifting snowflakes background -->
-  <div class="snowflakes" aria-hidden="true">
-    <div class="sf">❄</div>
-    <div class="sf">❄</div>
-    <div class="sf">❄</div>
-  </div>
-
   <div class="container">
-    <!-- Streamlined Modern Header -->
+    <!-- Navbar -->
     <header class="navbar">
       <a href="/" class="nav-brand">
         <svg class="nav-logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -77,18 +71,27 @@
         <nav class="nav-links-clean">
           <a href="#downloads" data-i18n="nav.downloads">Downloads</a>
           <a href="#features" data-i18n="nav.features">Features</a>
-          <a href="/account" class="nav-portal-btn" data-i18n="nav.account">🔐 Account Portal</a>
+          <a href="/embed/demo" class="nav-embed-link" data-i18n="nav.embed">For Websites</a>
+          <a href="/account" class="nav-portal-btn">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <span data-i18n="nav.account">Account Portal</span>
+          </a>
         </nav>
 
         <div class="nav-controls">
+          <button class="theme-toggle-btn" aria-label="Toggle light/dark mode" title="Toggle light/dark mode">
+            <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg class="theme-icon-moon" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
+
           <select class="fs-lang-select" aria-label="Language">
-            <option value="en">🇬🇧 EN</option>
-            <option value="de">🇩🇪 DE</option>
-            <option value="fr">🇫🇷 FR</option>
-            <option value="es">🇪🇸 ES</option>
+            <option value="en">EN</option>
+            <option value="de">DE</option>
+            <option value="fr">FR</option>
+            <option value="es">ES</option>
           </select>
 
-          <div class="nav-status-pill" title="Server Status">
+          <div class="nav-status-badge" title="Server Status">
             <div class="pulse-dot"></div>
             <span id="nav-status-text" data-i18n="nav.statusOnline">Online</span>
           </div>
@@ -96,28 +99,34 @@
       </div>
     </header>
 
-    <!-- Hero Section (Clean & Focused) -->
+    <!-- Hero Section -->
     <section class="hero">
       <div class="hero-badge">
         <span class="pulse-dot"></span>
-        <span data-i18n="hero.badge">Zero-Knowledge Architecture &bull; Hardware Biometrics</span>
+        <span data-i18n="hero.badge">Zero-Knowledge Architecture | Hardware Biometrics</span>
       </div>
 
       <h1 class="hero-title">Flake<span>Secure</span></h1>
       <p class="hero-subtitle" data-i18n="hero.subtitle">
-        Your Biometric Password &amp; 2FA Manager. Confirm logins on your smartphone with Face ID or fingerprint — autofilled instantly in your desktop browser.
+        Zero-Knowledge Biometric Authentication &amp; Secret Relay. Encrypted locally with 256-bit AES-CTR and Argon2id. No passwords stored on servers.
       </p>
 
       <div class="hero-cta-group">
-        <a href="#downloads" class="btn btn-primary" data-i18n="hero.btnDownload">⬇️ Get Apps &amp; Extensions</a>
-        <a href="/account" class="btn btn-secondary" data-i18n="hero.btnAccount">🔐 Manage Account &amp; Vault</a>
+        <a href="#downloads" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span data-i18n="hero.btnDownload">Get Apps &amp; Extensions</span>
+        </a>
+        <a href="/account" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span data-i18n="hero.btnAccount">Manage Account &amp; Vault</span>
+        </a>
       </div>
 
-      <!-- Compact Live Metrics -->
+      <!-- Real Live Metrics -->
       <div class="status-banner-compact">
         <div class="metric-item">
           <span class="metric-label" data-i18n="hero.metricCrypto">Cryptography</span>
-          <span class="metric-value">AES-256-CTR &bull; Argon2id</span>
+          <span class="metric-value">AES-256-CTR | Argon2id</span>
         </div>
         <div class="metric-item">
           <span class="metric-label" data-i18n="hero.metricRelay">Relay Status</span>
@@ -132,7 +141,7 @@
       </div>
     </section>
 
-    <!-- Clean 3-Pillar Features Section -->
+    <!-- Core Security Pillars -->
     <section id="features" class="section">
       <div class="section-header">
         <span class="section-badge" data-i18n="features.badge">Core Security</span>
@@ -144,7 +153,9 @@
 
       <div class="features-grid">
         <div class="feature-card">
-          <div class="feature-icon">🛡️</div>
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
           <h3 class="feature-title" data-i18n="features.f1Title">Zero-Knowledge Vault</h3>
           <p class="feature-desc" data-i18n="features.f1Desc">
             Client-side 256-bit AES encryption derived via PBKDF2 &amp; Argon2id. Even if the server were intercepted, your vault remains mathematically unbreakable.
@@ -152,7 +163,9 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon">⚡</div>
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          </div>
           <h3 class="feature-title" data-i18n="features.f2Title">1-Tap Biometric Relay</h3>
           <p class="feature-desc" data-i18n="features.f2Desc">
             Scan a QR code on your browser, authorize via Face ID or fingerprint, and your logins are autofilled in under a second over ephemeral encrypted websockets.
@@ -160,7 +173,9 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon">🔑</div>
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2L11.4 11.6"></path><path d="M15.5 7.5L18.5 10.5"></path><path d="M18.5 4.5L21.5 7.5"></path></svg>
+          </div>
           <h3 class="feature-title" data-i18n="features.f3Title">Built-in 2FA Authenticator</h3>
           <p class="feature-desc" data-i18n="features.f3Desc">
             Integrated RFC 6238 TOTP engine with live countdowns. Directly stream 2FA verification codes to your desktop browser with a single tap.
@@ -169,7 +184,7 @@
       </div>
     </section>
 
-    <!-- Visual App Showcase Carousel / Grid -->
+    <!-- Visual App Showcase -->
     <section class="section">
       <div class="showcase-grid-clean">
         <div class="showcase-card">
@@ -204,7 +219,39 @@
       </div>
     </section>
 
-    <!-- Direct Downloads Section -->
+    <!-- Website Integration Section -->
+    <section id="for-websites" class="section">
+      <div class="embed-banner-card">
+        <div class="embed-banner-content">
+          <span class="section-badge" data-i18n="embedSection.badge">For Website Providers &amp; Developers</span>
+          <h2 class="section-title" data-i18n="embedSection.title">Embed FlakeSecure on Your Website</h2>
+          <p class="section-subtitle" data-i18n="embedSection.desc">
+            Offer your users zero-knowledge biometric QR login directly on your web pages via an iframe or 1-line script tag. Login credentials are automatically filled and submitted via your standard login form.
+          </p>
+          <div class="embed-cta-group">
+            <a href="/embed/demo" class="btn btn-primary" data-i18n="embedSection.btnDemo">Interactive Demo &amp; Code Snippets -></a>
+            <a href="/embed/demo#docs" class="btn btn-secondary" data-i18n="embedSection.btnDocs">Documentation &amp; Guide</a>
+          </div>
+        </div>
+        <div class="embed-banner-preview">
+          <div class="preview-mini-frame">
+            <div class="preview-dot-row">
+              <span class="p-dot"></span><span class="p-dot"></span><span class="p-dot"></span>
+              <span class="p-title">your-website.com/login</span>
+            </div>
+            <div class="preview-code-box">
+              <code>&lt;script src="https://flakesecure.snowystudio.dev/embed.js" data-auto-mount="true"&gt;&lt;/script&gt;</code>
+            </div>
+            <div class="preview-status-tag">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span>Zero-Knowledge Form Autofill</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Downloads Section -->
     <section id="downloads" class="section">
       <div class="section-header">
         <span class="section-badge" data-i18n="downloads.badge">Get Started</span>
@@ -216,28 +263,34 @@
 
       <div class="downloads-grid-clean">
         <div class="download-card">
-          <div class="download-icon">📱</div>
+          <div class="download-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          </div>
           <h3 class="download-title" data-i18n="downloads.appTitle">Mobile App (Android &amp; iOS)</h3>
           <p class="download-meta" data-i18n="downloads.appDesc">Your biometric master vault. Scan QR codes to autofill logins instantly.</p>
           <div class="download-btn-group">
-            <a href="https://flakesecure.snowystudio.dev" class="btn btn-primary" data-i18n="downloads.btnAndroid">Download Android APK</a>
-            <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" data-i18n="downloads.btnIos">iOS (Expo Go)</a>
+            <a href="/FlakeSecure_v2-0-1.apk" download="FlakeSecure_v2-0-1.apk" class="btn btn-primary" data-i18n="downloads.btnAndroid">Download Android APK</a>
+            <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary" data-i18n="downloads.btnIos">iOS (Unavailable)</a>
           </div>
         </div>
 
         <div class="download-card">
-          <div class="download-icon">🌐</div>
+          <div class="download-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          </div>
           <h3 class="download-title">Chrome / Edge / Brave</h3>
-          <p class="download-meta">Chromium Manifest V3 Extension &bull; v2.0.0</p>
+          <p class="download-meta">Chromium Manifest V3 Extension | v2.0.2</p>
           <div class="download-btn-group">
             <a href="/browser-extension.zip" download="browser-extension.zip" class="btn btn-primary" data-i18n="downloads.btnChrome">Download (.zip)</a>
           </div>
         </div>
 
         <div class="download-card">
-          <div class="download-icon">🦊</div>
+          <div class="download-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"></path></svg>
+          </div>
           <h3 class="download-title">Firefox Browser</h3>
-          <p class="download-meta">Firefox Manifest V3 Extension &bull; v2.0.0</p>
+          <p class="download-meta">Firefox Manifest V3 Extension | v2.0.2</p>
           <div class="download-btn-group">
             <a href="/browser-extension-firefox.zip" download="browser-extension-firefox.zip" class="btn btn-primary" data-i18n="downloads.btnFirefox">Download (.zip)</a>
           </div>
@@ -245,7 +298,7 @@
       </div>
     </section>
 
-    <!-- Clean Footer -->
+    <!-- Footer -->
     <footer class="footer">
       <div class="footer-nav">
         <a href="/" data-i18n="footer.home">Home</a>
@@ -254,13 +307,15 @@
         <span class="footer-sep">&bull;</span>
         <a href="#downloads" data-i18n="footer.downloads">Downloads</a>
         <span class="footer-sep">&bull;</span>
+        <a href="/embed/demo" data-i18n="footer.embed">Website Integration (SDK)</a>
+        <span class="footer-sep">&bull;</span>
         <a href="/account" data-i18n="footer.account">Account Portal</a>
         <span class="footer-sep">&bull;</span>
         <a href="/imprint" data-i18n="footer.imprint">Impressum / Imprint</a>
         <span class="footer-sep">&bull;</span>
-        <a href="/legal" data-i18n="footer.legal">Datenschutz / Privacy</a>
+        <a href="/legal" data-i18n="footer.legal">Privacy &amp; Legal</a>
         <span class="footer-sep">&bull;</span>
-        <a href="/terms" data-i18n="footer.terms">AGB / Terms</a>
+        <a href="/terms" data-i18n="footer.terms">Terms of Service</a>
       </div>
       <p class="footer-copy">
         &copy; 2026 FlakeSecure by SchneeherzStudio. All rights reserved. Zero-Knowledge Biometric Security.
@@ -268,7 +323,7 @@
     </footer>
   </div>
 
-  <!-- Live Status Script -->
+  <!-- Real Live Status Script -->
   <script>
     async function fetchServerStatus() {
       try {

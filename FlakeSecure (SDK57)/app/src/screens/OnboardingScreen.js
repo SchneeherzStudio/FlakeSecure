@@ -2,19 +2,6 @@
  * ============================================================================
  * FlakeSecure Mobile App - Onboarding Flow Screen (OnboardingScreen)
  * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. STEP-BY-STEP WALKTHROUGH:
- *    - Step 0 (Welcome): Introduction to key features (zero-knowledge, biometrics, autofill).
- *    - Step 1 (How it works): 3-step explanation of the authentication pipeline.
- *    - Step 2 (Browser Extension): Overview of Chrome and Firefox browser companion extensions.
- *    - Step 3 (Language): Interactive language picker (EN, DE, FR, ES) with instant localization switch.
- * 
- * 2. ACCOUNT CREATION & FINISH:
- *    - Step 4 (Account): Account registration with live password entropy indicator (getPasswordStrength) and validation.
- *    - Step 5 (Done): Success screen and persistence of onboarding completion in AsyncStorage.
- * ============================================================================
  */
 
 import React, { useState, useRef } from 'react';
@@ -29,19 +16,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { AppIcon } from '../components/CategoryIcons';
+import { sendOtp, verifyOtp } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
 const LANGUAGES = [
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'en', label: 'English', badge: 'EN' },
+  { code: 'de', label: 'Deutsch', badge: 'DE' },
+  { code: 'fr', label: 'Français', badge: 'FR' },
+  { code: 'es', label: 'Español', badge: 'ES' },
 ];
 
 export default function OnboardingScreen({ onComplete }) {
   const { register } = useAuth();
   const { t, locale, changeLanguage: setAppLang } = useLanguage();
+  const { colors } = useTheme();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState(locale || 'en');
   const [email, setEmail] = useState('');
@@ -54,7 +45,6 @@ export default function OnboardingScreen({ onComplete }) {
   const [otpCode, setOtpCode] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const scrollX = useRef(new Animated.Value(0)).current;
 
   const totalSteps = 6;
 
@@ -84,10 +74,9 @@ export default function OnboardingScreen({ onComplete }) {
 
     setSendingOtp(true);
     try {
-      const { sendOtp } = require('../utils/api');
       await sendOtp(cleanEmail, 'register');
       setOtpSent(true);
-      Alert.alert('Code gesendet 📧', `Wir haben einen 6-stelligen Bestätigungscode an ${cleanEmail} gesendet.`);
+      Alert.alert('Code gesendet', `Wir haben einen 6-stelligen Bestätigungscode an ${cleanEmail} gesendet.`);
     } catch (e) {
       Alert.alert('Fehler', e.message || 'Konnte Verifizierungscode nicht senden.');
     } finally {
@@ -139,7 +128,6 @@ export default function OnboardingScreen({ onComplete }) {
 
     setRegistering(true);
     try {
-      const { verifyOtp } = require('../utils/api');
       const verifyRes = await verifyOtp(cleanEmail, cleanOtp, 'register');
       const otpToken = verifyRes.token;
       await register(cleanEmail, cleanUsername, cleanPassword, otpToken);
@@ -158,16 +146,16 @@ export default function OnboardingScreen({ onComplete }) {
   };
 
   const getPasswordStrength = () => {
-    if (password.length === 0) return { level: 0, label: '', color: '#333' };
-    if (password.length < 6) return { level: 1, label: t('onboarding.account.weak'), color: '#ef4444' };
+    if (password.length === 0) return { level: 0, label: '', color: colors.border };
+    if (password.length < 6) return { level: 1, label: t('onboarding.account.weak'), color: colors.danger };
     if (password.length < 8) return { level: 2, label: t('onboarding.account.fair'), color: '#f59e0b' };
     const hasUpper = /[A-Z]/.test(password);
     const hasLower = /[a-z]/.test(password);
     const hasNum = /[0-9]/.test(password);
     const hasSpecial = /[^A-Za-z0-9]/.test(password);
     const score = [hasUpper, hasLower, hasNum, hasSpecial].filter(Boolean).length;
-    if (score >= 3 && password.length >= 10) return { level: 4, label: t('onboarding.account.strong'), color: '#22c55e' };
-    if (score >= 2) return { level: 3, label: t('onboarding.account.good'), color: '#6391ff' };
+    if (score >= 3 && password.length >= 10) return { level: 4, label: t('onboarding.account.strong'), color: colors.success };
+    if (score >= 2) return { level: 3, label: t('onboarding.account.good'), color: colors.gold };
     return { level: 2, label: t('onboarding.account.fair'), color: '#f59e0b' };
   };
 
@@ -176,18 +164,26 @@ export default function OnboardingScreen({ onComplete }) {
       case 0:
         return (
           <View style={styles.slide}>
-            <Text style={styles.welcomeEmoji}>❄️</Text>
-            <Text style={styles.welcomeTitle}>
+            <View style={[styles.welcomeIconBox, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+              <AppIcon name="snowflake" size={48} color={colors.gold} />
+            </View>
+            <Text style={[styles.welcomeTitle, { color: colors.textMain }]}>
               {t('common.appName').split('Secure')[0]}
-              <Text style={styles.accent}>Secure</Text>
+              <Text style={{ color: colors.gold }}>Secure</Text>
             </Text>
-            <Text style={styles.welcomeSubtitle}>{t('onboarding.welcome.subtitle')}</Text>
+            <Text style={[styles.welcomeSubtitle, { color: colors.textSub }]}>{t('onboarding.welcome.subtitle')}</Text>
             <View style={styles.featureList}>
-              {['🔐', '🧬', '⚡'].map((icon, idx) => (
-                <View key={idx} style={styles.featureItem}>
-                  <Text style={styles.featureIcon}>{icon}</Text>
-                  <Text style={styles.featureText}>
-                    {t(`onboarding.welcome.feature${idx + 1}`)}
+              {[
+                { icon: 'lock', key: 'feature1' },
+                { icon: 'scan', key: 'feature2' },
+                { icon: 'shield', key: 'feature3' },
+              ].map((item, idx) => (
+                <View key={idx} style={[styles.featureItem, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                  <View style={[styles.featureIconContainer, { backgroundColor: colors.goldBg }]}>
+                    <AppIcon name={item.icon} size={20} color={colors.gold} />
+                  </View>
+                  <Text style={[styles.featureText, { color: colors.textSub }]}>
+                    {t(`onboarding.welcome.${item.key}`)}
                   </Text>
                 </View>
               ))}
@@ -198,21 +194,21 @@ export default function OnboardingScreen({ onComplete }) {
       case 1:
         return (
           <View style={styles.slide}>
-            <Text style={styles.slideTitle}>{t('onboarding.howItWorks.title')}</Text>
+            <Text style={[styles.slideTitle, { color: colors.textMain }]}>{t('onboarding.howItWorks.title')}</Text>
             <View style={styles.stepsContainer}>
               {[1, 2, 3].map((step) => (
                 <View key={step} style={styles.stepItem}>
                   <LinearGradient
-                    colors={['#6391ff', '#7c6aff']}
+                    colors={colors.goldGradient}
                     style={styles.stepNumber}
                   >
                     <Text style={styles.stepNumberText}>{step}</Text>
                   </LinearGradient>
                   <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>{t(`onboarding.howItWorks.step${step}Title`)}</Text>
-                    <Text style={styles.stepDesc}>{t(`onboarding.howItWorks.step${step}`)}</Text>
+                    <Text style={[styles.stepTitle, { color: colors.textMain }]}>{t(`onboarding.howItWorks.step${step}Title`)}</Text>
+                    <Text style={[styles.stepDesc, { color: colors.textSub }]}>{t(`onboarding.howItWorks.step${step}`)}</Text>
                   </View>
-                  {step < 3 && <View style={styles.stepConnector} />}
+                  {step < 3 && <View style={[styles.stepConnector, { backgroundColor: colors.goldBorder }]} />}
                 </View>
               ))}
             </View>
@@ -222,17 +218,19 @@ export default function OnboardingScreen({ onComplete }) {
       case 2:
         return (
           <View style={styles.slide}>
-            <Text style={styles.bigEmoji}>🧩</Text>
-            <Text style={styles.slideTitle}>{t('onboarding.extension.title')}</Text>
-            <Text style={styles.slideText}>{t('onboarding.extension.description')}</Text>
+            <View style={[styles.welcomeIconBox, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder, marginBottom: 16 }]}>
+              <AppIcon name="code" size={42} color={colors.gold} />
+            </View>
+            <Text style={[styles.slideTitle, { color: colors.textMain }]}>{t('onboarding.extension.title')}</Text>
+            <Text style={[styles.slideText, { color: colors.textSub }]}>{t('onboarding.extension.description')}</Text>
             <View style={styles.browserCards}>
-              <View style={styles.browserCard}>
-                <Text style={styles.browserIcon}>🌐</Text>
-                <Text style={styles.browserName}>{t('onboarding.extension.chrome')}</Text>
+              <View style={[styles.browserCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                <AppIcon name="globe" size={28} color={colors.gold} />
+                <Text style={[styles.browserName, { color: colors.textMain }]}>{t('onboarding.extension.chrome')}</Text>
               </View>
-              <View style={styles.browserCard}>
-                <Text style={styles.browserIcon}>🦊</Text>
-                <Text style={styles.browserName}>{t('onboarding.extension.firefox')}</Text>
+              <View style={[styles.browserCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                <AppIcon name="globe" size={28} color={colors.gold} />
+                <Text style={[styles.browserName, { color: colors.textMain }]}>{t('onboarding.extension.firefox')}</Text>
               </View>
             </View>
           </View>
@@ -241,29 +239,38 @@ export default function OnboardingScreen({ onComplete }) {
       case 3:
         return (
           <View style={styles.slide}>
-            <Text style={styles.bigEmoji}>🌍</Text>
-            <Text style={styles.slideTitle}>{t('onboarding.language.title')}</Text>
-            <Text style={styles.slideText}>{t('onboarding.language.subtitle')}</Text>
+            <View style={[styles.welcomeIconBox, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder, marginBottom: 16 }]}>
+              <AppIcon name="globe" size={42} color={colors.gold} />
+            </View>
+            <Text style={[styles.slideTitle, { color: colors.textMain }]}>{t('onboarding.language.title')}</Text>
+            <Text style={[styles.slideText, { color: colors.textSub }]}>{t('onboarding.language.subtitle')}</Text>
             <View style={styles.languageList}>
-              {LANGUAGES.map((lang) => (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.languageItem,
-                    selectedLanguage === lang.code && styles.languageItemActive
-                  ]}
-                  onPress={() => changeLanguage(lang.code)}
-                >
-                  <Text style={styles.languageFlag}>{lang.flag}</Text>
-                  <Text style={[
-                    styles.languageLabel,
-                    selectedLanguage === lang.code && styles.languageLabelActive
-                  ]}>{lang.label}</Text>
-                  {selectedLanguage === lang.code && (
-                    <Text style={styles.languageCheck}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
+              {LANGUAGES.map((lang) => {
+                const isSelected = selectedLanguage === lang.code;
+                return (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[
+                      styles.languageItem,
+                      { backgroundColor: colors.cardBg, borderColor: colors.border },
+                      isSelected && { borderColor: colors.gold, backgroundColor: colors.goldBg }
+                    ]}
+                    onPress={() => changeLanguage(lang.code)}
+                  >
+                    <View style={[styles.langBadge, { backgroundColor: isSelected ? colors.gold : colors.inputBg, borderColor: colors.border }]}>
+                      <Text style={[styles.langBadgeText, { color: isSelected ? '#ffffff' : colors.textSub }]}>{lang.badge}</Text>
+                    </View>
+                    <Text style={[
+                      styles.languageLabel,
+                      { color: isSelected ? colors.textMain : colors.textSub },
+                      isSelected && { fontWeight: '700' }
+                    ]}>{lang.label}</Text>
+                    {isSelected && (
+                      <AppIcon name="check" size={16} color={colors.gold} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         );
@@ -276,16 +283,16 @@ export default function OnboardingScreen({ onComplete }) {
             style={styles.slide}
           >
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.accountSlide}>
-              <Text style={styles.slideTitle}>{t('onboarding.account.title')}</Text>
-              <Text style={styles.slideText}>{t('onboarding.account.subtitle')}</Text>
-              <View style={styles.form}>
+              <Text style={[styles.slideTitle, { color: colors.textMain }]}>{t('onboarding.account.title')}</Text>
+              <Text style={[styles.slideText, { color: colors.textSub }]}>{t('onboarding.account.subtitle')}</Text>
+              <View style={[styles.form, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{t('onboarding.account.email')}</Text>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>{t('onboarding.account.email')}</Text>
                   <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                     <TextInput
-                      style={[styles.input, { flex: 1 }]}
+                      style={[styles.input, { flex: 1, backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                       placeholder="you@example.com"
-                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      placeholderTextColor={colors.textMuted}
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -293,21 +300,14 @@ export default function OnboardingScreen({ onComplete }) {
                       keyboardType="email-address"
                     />
                     <TouchableOpacity
-                      style={{
-                        backgroundColor: 'rgba(99, 145, 255, 0.15)',
-                        borderColor: 'rgba(99, 145, 255, 0.3)',
-                        borderWidth: 1,
-                        borderRadius: 12,
-                        paddingHorizontal: 12,
-                        paddingVertical: 12,
-                      }}
+                      style={[styles.sendOtpBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
                       onPress={handleSendOtp}
                       disabled={sendingOtp}
                     >
                       {sendingOtp ? (
-                        <ActivityIndicator color="#6391ff" size="small" />
+                        <ActivityIndicator color={colors.gold} size="small" />
                       ) : (
-                        <Text style={{ color: '#6391ff', fontSize: 12, fontWeight: '700' }}>
+                        <Text style={[styles.sendOtpText, { color: colors.gold }]}>
                           {otpSent ? 'Erneut' : 'Code'}
                         </Text>
                       )}
@@ -317,14 +317,14 @@ export default function OnboardingScreen({ onComplete }) {
 
                 {otpSent && (
                   <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>E-Mail Bestätigungscode (6-stellig)</Text>
+                    <Text style={[styles.label, { color: colors.textMuted }]}>E-Mail Bestätigungscode (6-stellig)</Text>
                     <TextInput
                       style={[
                         styles.input,
-                        { fontSize: 18, letterSpacing: 4, textAlign: 'center', fontWeight: '700' },
+                        { fontSize: 18, letterSpacing: 4, textAlign: 'center', fontWeight: '700', backgroundColor: colors.inputBg, borderColor: colors.gold, color: colors.gold },
                       ]}
                       placeholder="123456"
-                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      placeholderTextColor={colors.textMuted}
                       value={otpCode}
                       onChangeText={setOtpCode}
                       keyboardType="number-pad"
@@ -333,25 +333,25 @@ export default function OnboardingScreen({ onComplete }) {
                   </View>
                 )}
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{t('onboarding.account.username')}</Text>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>{t('onboarding.account.username')}</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                     placeholder="flakeuser"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    placeholderTextColor={colors.textMuted}
                     value={username}
                     onChangeText={(text) => setUsername(text.toLowerCase())}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
-                  <Text style={styles.inputHint}>{t('onboarding.account.usernameRuleHint')}</Text>
+                  <Text style={[styles.inputHint, { color: colors.textMuted }]}>{t('onboarding.account.usernameRuleHint')}</Text>
                 </View>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{t('onboarding.account.password')}</Text>
-                  <View style={styles.passwordRow}>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>{t('onboarding.account.password')}</Text>
+                  <View style={[styles.passwordRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                     <TextInput
-                      style={[styles.input, { flex: 1 }]}
+                      style={[styles.passwordInput, { color: colors.textMain }]}
                       placeholder="••••••••"
-                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      placeholderTextColor={colors.textMuted}
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={!showPassword}
@@ -361,10 +361,10 @@ export default function OnboardingScreen({ onComplete }) {
                       style={styles.showBtn}
                       onPress={() => setShowPassword(!showPassword)}
                     >
-                      <Text style={styles.showBtnText}>{showPassword ? '🙈' : '👁'}</Text>
+                      <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.inputHint}>{t('onboarding.account.passwordRuleHint')}</Text>
+                  <Text style={[styles.inputHint, { color: colors.textMuted }]}>{t('onboarding.account.passwordRuleHint')}</Text>
                   {password.length > 0 && (
                     <View style={styles.strengthBar}>
                       <View style={styles.strengthTrack}>
@@ -373,7 +373,7 @@ export default function OnboardingScreen({ onComplete }) {
                             key={level}
                             style={[
                               styles.strengthSegment,
-                              { backgroundColor: level <= strength.level ? strength.color : 'rgba(255,255,255,0.08)' }
+                              { backgroundColor: level <= strength.level ? strength.color : colors.border }
                             ]}
                           />
                         ))}
@@ -385,18 +385,16 @@ export default function OnboardingScreen({ onComplete }) {
                   )}
                 </View>
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.label}>{t('onboarding.account.confirmPassword')}</Text>
-                  <View style={styles.passwordRow}>
-                    <TextInput
-                      style={[styles.input, { flex: 1 }]}
-                      placeholder="••••••••"
-                      placeholderTextColor="rgba(255,255,255,0.25)"
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                    />
-                  </View>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>{t('onboarding.account.confirmPassword')}</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
+                    placeholder="••••••••"
+                    placeholderTextColor={colors.textMuted}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
                 </View>
               </View>
 
@@ -406,10 +404,14 @@ export default function OnboardingScreen({ onComplete }) {
                 onPress={() => setAcceptedTerms(!acceptedTerms)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                  {acceptedTerms && <Text style={styles.checkmark}>✓</Text>}
+                <View style={[
+                  styles.checkbox,
+                  { borderColor: colors.border, backgroundColor: colors.inputBg },
+                  acceptedTerms && { backgroundColor: colors.gold, borderColor: colors.gold }
+                ]}>
+                  {acceptedTerms && <AppIcon name="check" size={12} color="#ffffff" />}
                 </View>
-                <Text style={styles.termsLabel}>
+                <Text style={[styles.termsLabel, { color: colors.textSub }]}>
                   {t('login.acceptTermsCheckbox')}
                 </Text>
               </TouchableOpacity>
@@ -421,13 +423,13 @@ export default function OnboardingScreen({ onComplete }) {
                 activeOpacity={0.85}
               >
                 <LinearGradient
-                  colors={registering ? ['#333', '#444'] : ['#6391ff', '#7c6aff']}
+                  colors={registering ? ['#333', '#444'] : colors.goldGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.gradientBtn}
                 >
                   {registering ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
                     <Text style={styles.createAccountBtnText}>{t('onboarding.account.createButton')}</Text>
                   )}
@@ -439,23 +441,23 @@ export default function OnboardingScreen({ onComplete }) {
                 onPress={handleFinish}
                 disabled={registering}
               >
-                <Text style={styles.alreadyHaveAccountText}>
+                <Text style={[styles.alreadyHaveAccountText, { color: colors.gold }]}>
                   {t('onboarding.account.alreadyHaveAccount')}
                 </Text>
               </TouchableOpacity>
 
               {/* Legal Links */}
-              <View style={styles.legalLinksRow}>
+              <View style={[styles.legalLinksRow, { borderTopColor: colors.border }]}>
                 <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/terms')}>
-                  <Text style={styles.legalLinkText}>{t('login.termsLink')}</Text>
+                  <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.termsLink')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.legalLinkSeparator}>•</Text>
+                <Text style={[styles.legalLinkSeparator, { color: colors.textMuted }]}>•</Text>
                 <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/legal')}>
-                  <Text style={styles.legalLinkText}>{t('login.privacyLink')}</Text>
+                  <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.privacyLink')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.legalLinkSeparator}>•</Text>
+                <Text style={[styles.legalLinkSeparator, { color: colors.textMuted }]}>•</Text>
                 <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/imprint')}>
-                  <Text style={styles.legalLinkText}>{t('login.imprintLink')}</Text>
+                  <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.imprintLink')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -465,16 +467,18 @@ export default function OnboardingScreen({ onComplete }) {
       case 5:
         return (
           <View style={styles.slide}>
-            <Text style={styles.doneEmoji}>🎉</Text>
-            <Text style={styles.doneTitle}>{t('onboarding.done.title')}</Text>
-            <Text style={styles.doneSubtitle}>{t('onboarding.done.subtitle')}</Text>
+            <View style={[styles.welcomeIconBox, { backgroundColor: colors.successBg, borderColor: colors.successBorder, marginBottom: 20 }]}>
+              <AppIcon name="check" size={56} color={colors.success} />
+            </View>
+            <Text style={[styles.doneTitle, { color: colors.textMain }]}>{t('onboarding.done.title')}</Text>
+            <Text style={[styles.doneSubtitle, { color: colors.textSub }]}>{t('onboarding.done.subtitle')}</Text>
             <TouchableOpacity
               style={styles.doneButton}
               onPress={handleFinish}
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#6391ff', '#7c6aff']}
+                colors={colors.goldGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientBtn}
@@ -488,15 +492,16 @@ export default function OnboardingScreen({ onComplete }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.progressContainer}>
         {Array.from({ length: totalSteps }).map((_, idx) => (
           <View
             key={idx}
             style={[
               styles.progressDot,
-              idx === currentStep && styles.progressDotActive,
-              idx < currentStep && styles.progressDotDone
+              { backgroundColor: colors.border },
+              idx === currentStep && { width: 20, backgroundColor: colors.gold },
+              idx < currentStep && { backgroundColor: colors.goldBorder }
             ]}
           />
         ))}
@@ -510,14 +515,14 @@ export default function OnboardingScreen({ onComplete }) {
         <View style={styles.navRow}>
           {currentStep > 0 ? (
             <TouchableOpacity onPress={handleBack} style={styles.navBtn}>
-              <Text style={styles.navBtnText}>{t('common.back')}</Text>
+              <Text style={[styles.navBtnText, { color: colors.textSub }]}>{t('common.back')}</Text>
             </TouchableOpacity>
           ) : (
             <View />
           )}
           <TouchableOpacity onPress={handleNext} style={styles.navBtn}>
             <LinearGradient
-              colors={['#6391ff', '#7c6aff']}
+              colors={colors.goldGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.navBtnGradient}
@@ -530,7 +535,7 @@ export default function OnboardingScreen({ onComplete }) {
       {currentStep === 4 && (
         <View style={styles.navRow}>
           <TouchableOpacity onPress={handleBack} style={styles.navBtn}>
-            <Text style={styles.navBtnText}>{t('common.back')}</Text>
+            <Text style={[styles.navBtnText, { color: colors.textSub }]}>{t('common.back')}</Text>
           </TouchableOpacity>
           <View />
         </View>
@@ -540,163 +545,161 @@ export default function OnboardingScreen({ onComplete }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#090b14' },
+  container: { flex: 1 },
   progressContainer: {
     flexDirection: 'row', justifyContent: 'center',
-    gap: 8, paddingVertical: 16
+    gap: 8, paddingVertical: 14
   },
   progressDot: {
     width: 8, height: 8, borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)'
   },
-  progressDotActive: {
-    width: 24, backgroundColor: '#6391ff'
-  },
-  progressDotDone: {
-    backgroundColor: 'rgba(99,145,255,0.4)'
-  },
-  content: { flex: 1, paddingHorizontal: 24 },
+  content: { flex: 1, paddingHorizontal: 20 },
   slide: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  accountSlide: { paddingTop: 20, paddingBottom: 40 },
+  accountSlide: { paddingTop: 10, paddingBottom: 30 },
 
-  welcomeEmoji: { fontSize: 72, marginBottom: 16 },
-  welcomeTitle: { fontSize: 36, fontWeight: '800', color: '#fff', letterSpacing: -1, marginBottom: 8 },
-  accent: { color: '#6391ff' },
+  welcomeIconBox: {
+    width: 76, height: 76, borderRadius: 14,
+    borderWidth: 1, justifyContent: 'center', alignItems: 'center',
+    marginBottom: 16
+  },
+  welcomeTitle: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5, marginBottom: 6 },
   welcomeSubtitle: {
-    fontSize: 16, color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center', lineHeight: 24, marginBottom: 32
+    fontSize: 14,
+    textAlign: 'center', lineHeight: 20, marginBottom: 24
   },
-  featureList: { gap: 16, width: '100%' },
+  featureList: { gap: 12, width: '100%' },
   featureItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 14, padding: 16
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1, borderRadius: 8, padding: 14
   },
-  featureIcon: { fontSize: 24 },
-  featureText: { fontSize: 14, color: 'rgba(255,255,255,0.7)', flex: 1 },
+  featureIconContainer: {
+    width: 36, height: 36, borderRadius: 6,
+    alignItems: 'center', justifyContent: 'center'
+  },
+  featureText: { fontSize: 13, flex: 1, lineHeight: 18 },
 
-  bigEmoji: { fontSize: 64, marginBottom: 20 },
   slideTitle: {
-    fontSize: 24, fontWeight: '700', color: '#fff',
-    textAlign: 'center', marginBottom: 12
+    fontSize: 22, fontWeight: '800',
+    textAlign: 'center', marginBottom: 8
   },
   slideText: {
-    fontSize: 14, color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center', lineHeight: 22, marginBottom: 24
+    fontSize: 13,
+    textAlign: 'center', lineHeight: 20, marginBottom: 20
   },
 
   stepsContainer: { width: '100%', gap: 0 },
-  stepItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
+  stepItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   stepNumber: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 32, height: 32, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center'
   },
-  stepNumberText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  stepContent: { flex: 1, paddingBottom: 20 },
-  stepTitle: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 4 },
-  stepDesc: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 20 },
+  stepNumberText: { fontSize: 15, fontWeight: '800', color: '#ffffff' },
+  stepContent: { flex: 1, paddingBottom: 18 },
+  stepTitle: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  stepDesc: { fontSize: 12, lineHeight: 18 },
   stepConnector: {
-    position: 'absolute', left: 17, top: 36, width: 2, height: 20,
-    backgroundColor: 'rgba(99,145,255,0.25)'
+    position: 'absolute', left: 15, top: 32, width: 2, height: 18,
   },
 
-  browserCards: { flexDirection: 'row', gap: 14 },
+  browserCards: { flexDirection: 'row', gap: 12 },
   browserCard: {
-    flex: 1, alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 16, padding: 20
+    flex: 1, alignItems: 'center', gap: 8,
+    borderWidth: 1, borderRadius: 8, padding: 16
   },
-  browserIcon: { fontSize: 36 },
-  browserName: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  browserName: { fontSize: 13, fontWeight: '700' },
 
-  languageList: { width: '100%', gap: 10 },
+  languageList: { width: '100%', gap: 8 },
   languageItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 14, padding: 16
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1, borderRadius: 8, padding: 12
   },
-  languageItemActive: {
-    borderColor: 'rgba(99,145,255,0.5)',
-    backgroundColor: 'rgba(99,145,255,0.08)'
+  langBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
   },
-  languageFlag: { fontSize: 28 },
-  languageLabel: { fontSize: 16, color: 'rgba(255,255,255,0.7)', flex: 1 },
-  languageLabelActive: { color: '#fff', fontWeight: '600' },
-  languageCheck: { fontSize: 18, color: '#6391ff', fontWeight: '700' },
+  langBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  languageLabel: { fontSize: 15, flex: 1 },
 
-  form: { gap: 18, width: '100%', marginBottom: 20 },
-  fieldGroup: { gap: 8 },
+  form: { gap: 14, width: '100%', marginBottom: 16, borderWidth: 1, borderRadius: 10, padding: 18 },
+  fieldGroup: { gap: 6 },
   label: {
-    fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)',
-    textTransform: 'uppercase', letterSpacing: 0.08
+    fontSize: 11, fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 0.5
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-    color: '#fff', fontSize: 15
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14
   },
   inputHint: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.35)',
     marginTop: 2,
   },
-  passwordRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8 },
+  passwordInput: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14 },
   showBtn: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 14, width: 50, height: 50,
+    padding: 10,
     alignItems: 'center', justifyContent: 'center'
   },
-  showBtnText: { fontSize: 18 },
+  sendOtpBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendOtpText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   strengthBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4
   },
   strengthTrack: { flex: 1, flexDirection: 'row', gap: 4 },
   strengthSegment: {
     flex: 1, height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.08)'
   },
-  strengthLabel: { fontSize: 12, fontWeight: '600', minWidth: 50 },
-  createAccountBtn: { width: '100%', borderRadius: 16, overflow: 'hidden' },
-  createAccountBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  strengthLabel: { fontSize: 11, fontWeight: '700', minWidth: 50 },
+  createAccountBtn: { width: '100%', borderRadius: 8, overflow: 'hidden' },
+  createAccountBtnText: { fontSize: 15, fontWeight: '800', color: '#ffffff' },
   gradientBtn: {
-    paddingVertical: 18, alignItems: 'center', justifyContent: 'center'
+    paddingVertical: 14, alignItems: 'center', justifyContent: 'center'
   },
   alreadyHaveAccountBtn: {
-    marginTop: 16, alignItems: 'center', paddingVertical: 12
+    marginTop: 14, alignItems: 'center', paddingVertical: 10
   },
   alreadyHaveAccountText: {
-    color: '#6391ff', fontSize: 15, fontWeight: '600'
+    fontSize: 13, fontWeight: '700'
   },
 
-  doneEmoji: { fontSize: 72, marginBottom: 20 },
-  doneTitle: { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 10 },
+  doneTitle: { fontSize: 24, fontWeight: '800', marginBottom: 8 },
   doneSubtitle: {
-    fontSize: 16, color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center', lineHeight: 24, marginBottom: 32
+    fontSize: 14,
+    textAlign: 'center', lineHeight: 22, marginBottom: 24
   },
-  doneButton: { width: '100%', borderRadius: 16, overflow: 'hidden' },
-  doneBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  doneButton: { width: '100%', borderRadius: 8, overflow: 'hidden' },
+  doneBtnText: { fontSize: 15, fontWeight: '800', color: '#ffffff' },
 
   navRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingHorizontal: 24, paddingBottom: 20
+    alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16
   },
   navBtn: { minWidth: 60 },
-  navBtnText: { color: 'rgba(255,255,255,0.5)', fontSize: 16 },
+  navBtnText: { fontSize: 14, fontWeight: '600' },
   navBtnGradient: {
-    paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12
+    paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8
   },
-  navBtnNextText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  navBtnNextText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
   termsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 14,
-    marginBottom: 16,
+    marginTop: 10,
+    marginBottom: 14,
     paddingHorizontal: 2,
   },
   checkbox: {
@@ -704,24 +707,12 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
-  checkboxChecked: {
-    backgroundColor: '#6391ff',
-    borderColor: '#6391ff',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
   termsLabel: {
     flex: 1,
-    color: 'rgba(255, 255, 255, 0.75)',
     fontSize: 12,
     lineHeight: 16,
   },
@@ -729,19 +720,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 18,
-    paddingTop: 12,
+    marginTop: 16,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   legalLinkText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   legalLinkSeparator: {
-    color: 'rgba(255, 255, 255, 0.25)',
-    marginHorizontal: 10,
+    marginHorizontal: 8,
     fontSize: 10,
   },
 });

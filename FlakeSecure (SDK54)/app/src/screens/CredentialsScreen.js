@@ -2,18 +2,6 @@
  * ============================================================================
  * FlakeSecure Mobile App - Create / Add Credentials Screen (CredentialsScreen)
  * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. FORM MANAGEMENT & CATEGORY SELECTION:
- *    - loadCategories(): Fetches saved categories for assignment.
- *    - handleCreateCategory(): Modal dialog for creating new custom categories.
- * 
- * 2. STORAGE (handleSave):
- *    - Validates inputs (domain, username, password).
- *    - Normalizes domains (strips https://, www, path prefixes/suffixes).
- *    - Persists encrypted credentials into SecureStore (saveCredentials).
- * ============================================================================
  */
 
 import React, { useState, useEffect } from 'react';
@@ -26,11 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { saveCredentials, getCategories, saveCategory } from '../utils/storage';
 import { useLanguage } from '../context/LanguageContext';
-
-const AVAILABLE_ICONS = ['👤', '💼', '💳', '💬', '🎮', '📁', '🛍️', '🛒', '🔒', '🏠', '✈️', '📧', '🎓', '💻', '🎵', '🍔', '🚗', '🏥', '🔑', '⭐'];
+import { useTheme } from '../context/ThemeContext';
+import { AppIcon, CategoryIcon, AVAILABLE_CATEGORY_ICONS } from '../components/CategoryIcons';
 
 export default function CredentialsScreen({ route, navigation }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
   const prefillDomain = route.params?.prefillDomain || '';
   const [domain, setDomain] = useState(prefillDomain);
   const [username, setUsername] = useState('');
@@ -42,7 +31,7 @@ export default function CredentialsScreen({ route, navigation }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('tag');
 
   useEffect(() => {
     loadCategories();
@@ -72,7 +61,7 @@ export default function CredentialsScreen({ route, navigation }) {
         setSelectedCategory(created.id);
       }
       setNewCategoryName('');
-      setNewCategoryIcon('🏷️');
+      setNewCategoryIcon('tag');
       setShowCategoryModal(false);
     } catch (e) {
       Alert.alert(t('error'), 'Failed to create category');
@@ -106,7 +95,7 @@ export default function CredentialsScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -114,44 +103,44 @@ export default function CredentialsScreen({ route, navigation }) {
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Text style={styles.backText}>‹ {t('common.back')}</Text>
+              <Text style={[styles.backText, { color: colors.gold }]}>‹ {t('common.back')}</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>{t('credentials.title')}</Text>
-            <Text style={styles.subtitle}>End-to-end encrypted locally</Text>
+            <Text style={[styles.title, { color: colors.textMain }]}>{t('credentials.title')}</Text>
+            <Text style={[styles.subtitle, { color: colors.textSub }]}>End-to-end encrypted locally</Text>
           </View>
 
-          <View style={styles.infoCard}>
-            <Text style={styles.infoIcon}>🔐</Text>
+          <View style={[styles.infoCard, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+            <AppIcon name="lock" size={20} color={colors.gold} />
             <View style={styles.infoText}>
-              <Text style={styles.infoTitle}>Lokale Verschlüsselung</Text>
-              <Text style={styles.infoDesc}>
-                Deine Daten werden mit expo-secure-store im Keychain (iOS) bzw. Keystore (Android) gespeichert.
+              <Text style={[styles.infoTitle, { color: colors.gold }]}>Lokale Verschlüsselung</Text>
+              <Text style={[styles.infoDesc, { color: colors.textSub }]}>
+                Deine Daten werden mit expo-secure-store im Keychain (iOS) bzw. Keystore (Android) sicher abgelegt.
               </Text>
             </View>
           </View>
 
           <View style={styles.form}>
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('credentials.domainLabel')}</Text>
+              <Text style={[styles.label, { color: colors.textMuted }]}>{t('credentials.domainLabel')}</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                 placeholder={t('credentials.domainPlaceholder')}
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.textMuted}
                 value={domain}
                 onChangeText={setDomain}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
               />
-              <Text style={styles.hint}>Ohne „https://" und „www."</Text>
+              <Text style={[styles.hint, { color: colors.textMuted }]}>Ohne "https://" und "www."</Text>
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('credentials.usernameLabel')}</Text>
+              <Text style={[styles.label, { color: colors.textMuted }]}>{t('credentials.usernameLabel')}</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                 placeholder={t('credentials.usernamePlaceholder')}
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.textMuted}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -161,12 +150,12 @@ export default function CredentialsScreen({ route, navigation }) {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('credentials.passwordLabel')}</Text>
+              <Text style={[styles.label, { color: colors.textMuted }]}>{t('credentials.passwordLabel')}</Text>
               <View style={styles.passwordRow}>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
+                  style={[styles.input, styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                   placeholder={t('credentials.passwordPlaceholder')}
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.textMuted}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -174,24 +163,28 @@ export default function CredentialsScreen({ route, navigation }) {
                   autoCorrect={false}
                 />
                 <TouchableOpacity
-                  style={styles.showBtn}
+                  style={[styles.showBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                   onPress={() => setShowPassword(!showPassword)}
                 >
-                  <Text style={styles.showBtnText}>{showPassword ? '🙈' : '👁'}</Text>
+                  <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('credentials.categoryLabel')}</Text>
+              <Text style={[styles.label, { color: colors.textMuted }]}>{t('credentials.categoryLabel')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
                 <TouchableOpacity
-                  style={[styles.categoryChip, !selectedCategory && styles.categoryChipActive]}
+                  style={[
+                    styles.categoryChip,
+                    { backgroundColor: colors.cardBg, borderColor: colors.border },
+                    !selectedCategory && { backgroundColor: colors.goldBg, borderColor: colors.gold }
+                  ]}
                   onPress={() => setSelectedCategory(null)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.categoryChipIcon}>🚫</Text>
-                  <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextActive]}>
+                  <AppIcon name="close" size={12} color={!selectedCategory ? colors.gold : colors.textMuted} />
+                  <Text style={[styles.categoryChipText, { color: !selectedCategory ? colors.gold : colors.textSub }]}>
                     {t('credentials.categoryNone')}
                   </Text>
                 </TouchableOpacity>
@@ -202,12 +195,16 @@ export default function CredentialsScreen({ route, navigation }) {
                   return (
                     <TouchableOpacity
                       key={cat.id}
-                      style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: colors.cardBg, borderColor: colors.border },
+                        isSelected && { backgroundColor: colors.goldBg, borderColor: colors.gold }
+                      ]}
                       onPress={() => setSelectedCategory(cat.id)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.categoryChipIcon}>{cat.icon || '🏷️'}</Text>
-                      <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
+                      <CategoryIcon name={cat.icon || 'tag'} size={14} color={isSelected ? colors.gold : colors.textSub} />
+                      <Text style={[styles.categoryChipText, { color: isSelected ? colors.gold : colors.textSub }]}>
                         {displayName}
                       </Text>
                     </TouchableOpacity>
@@ -215,12 +212,12 @@ export default function CredentialsScreen({ route, navigation }) {
                 })}
 
                 <TouchableOpacity
-                  style={styles.newCategoryChip}
+                  style={[styles.newCategoryChip, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
                   onPress={() => setShowCategoryModal(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.newCategoryChipIcon}>➕</Text>
-                  <Text style={styles.newCategoryChipText}>{t('credentials.addCategoryBtn')}</Text>
+                  <AppIcon name="plus" size={12} color={colors.gold} />
+                  <Text style={[styles.newCategoryChipText, { color: colors.gold }]}>{t('credentials.addCategoryBtn')}</Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -233,7 +230,7 @@ export default function CredentialsScreen({ route, navigation }) {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={saving ? ['#333', '#444'] : ['#6391ff', '#7c6aff']}
+              colors={saving ? ['#333', '#444'] : colors.goldGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.saveGradient}
@@ -253,47 +250,54 @@ export default function CredentialsScreen({ route, navigation }) {
         onRequestClose={() => setShowCategoryModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('categories.newCategory')}</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.textMain }]}>{t('categories.newCategory')}</Text>
             
-            <Text style={styles.modalLabel}>{t('categories.categoryName')}</Text>
+            <Text style={[styles.modalLabel, { color: colors.textMuted }]}>{t('categories.categoryName')}</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
               placeholder={t('categories.categoryNamePlaceholder')}
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor={colors.textMuted}
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               autoCapitalize="words"
             />
 
-            <Text style={styles.modalLabel}>{t('categories.selectIcon')}</Text>
+            <Text style={[styles.modalLabel, { color: colors.textMuted }]}>{t('categories.selectIcon')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconPickerScroll}>
               <View style={styles.iconPickerRow}>
-                {AVAILABLE_ICONS.map((icon) => (
-                  <TouchableOpacity
-                    key={icon}
-                    style={[styles.iconOption, newCategoryIcon === icon && styles.iconOptionSelected]}
-                    onPress={() => setNewCategoryIcon(icon)}
-                  >
-                    <Text style={styles.iconOptionText}>{icon}</Text>
-                  </TouchableOpacity>
-                ))}
+                {AVAILABLE_CATEGORY_ICONS.map((iconKey) => {
+                  const isSelected = newCategoryIcon === iconKey;
+                  return (
+                    <TouchableOpacity
+                      key={iconKey}
+                      style={[
+                        styles.iconOption,
+                        { backgroundColor: colors.inputBg, borderColor: colors.border },
+                        isSelected && { backgroundColor: colors.goldBg, borderColor: colors.gold }
+                      ]}
+                      onPress={() => setNewCategoryIcon(iconKey)}
+                    >
+                      <CategoryIcon name={iconKey} size={18} color={isSelected ? colors.gold : colors.textSub} />
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </ScrollView>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
+                style={[styles.modalCancelBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setShowCategoryModal(false)}
               >
-                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
+                <Text style={[styles.modalCancelText, { color: colors.textSub }]}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalSaveBtn}
                 onPress={handleCreateCategory}
               >
                 <LinearGradient
-                  colors={['#6391ff', '#7c6aff']}
+                  colors={colors.goldGradient}
                   style={styles.modalSaveGradient}
                 >
                   <Text style={styles.modalSaveText}>{t('save')}</Text>
@@ -308,72 +312,53 @@ export default function CredentialsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#090b14' },
-  scroll: { padding: 24, paddingBottom: 48 },
-  header: { marginBottom: 24 },
-  backBtn: { marginBottom: 16 },
-  backText: { color: '#6391ff', fontSize: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.4)' },
+  container: { flex: 1 },
+  scroll: { padding: 20, paddingBottom: 48 },
+  header: { marginBottom: 20 },
+  backBtn: { marginBottom: 12 },
+  backText: { fontSize: 15, fontWeight: '700' },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, marginBottom: 4 },
+  subtitle: { fontSize: 13 },
   infoCard: {
-    flexDirection: 'row', gap: 14, alignItems: 'flex-start',
-    backgroundColor: 'rgba(99,145,255,0.07)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.18)',
-    borderRadius: 16, padding: 16, marginBottom: 28
+    flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+    borderWidth: 1, borderRadius: 8, padding: 14, marginBottom: 24
   },
-  infoIcon: { fontSize: 22 },
   infoText: { flex: 1 },
-  infoTitle: { fontSize: 14, fontWeight: '600', color: '#8eb0ff', marginBottom: 4 },
-  infoDesc: { fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 18 },
-  form: { gap: 20, marginBottom: 28 },
-  fieldGroup: { gap: 8 },
+  infoTitle: { fontSize: 13, fontWeight: '700', marginBottom: 3 },
+  infoDesc: { fontSize: 12, lineHeight: 17 },
+  form: { gap: 18, marginBottom: 24 },
+  fieldGroup: { gap: 6 },
   label: {
-    fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)',
-    textTransform: 'uppercase', letterSpacing: 0.08
+    fontSize: 11, fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 0.5
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-    color: '#fff', fontSize: 15, flex: 1
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 14, flex: 1
   },
-  hint: { fontSize: 11, color: 'rgba(255,255,255,0.25)' },
-  passwordRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  hint: { fontSize: 11, marginTop: 2 },
+  passwordRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   passwordInput: { flex: 1 },
   showBtn: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 14, width: 50, height: 50,
+    borderWidth: 1, borderRadius: 8, width: 46, height: 46,
     alignItems: 'center', justifyContent: 'center'
   },
-  showBtnText: { fontSize: 18 },
-
   categoryScroll: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   categoryChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12
+    borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8
   },
-  categoryChipActive: {
-    backgroundColor: 'rgba(99,145,255,0.16)',
-    borderColor: '#6391ff',
-  },
-  categoryChipIcon: { fontSize: 14 },
-  categoryChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
-  categoryChipTextActive: { color: '#fff', fontWeight: '700' },
+  categoryChipText: { fontSize: 12, fontWeight: '600' },
   newCategoryChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(99,145,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.3)', borderStyle: 'dashed',
-    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12
+    borderWidth: 1, borderStyle: 'dashed',
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8
   },
-  newCategoryChipIcon: { fontSize: 12, color: '#6391ff' },
-  newCategoryChipText: { fontSize: 13, color: '#6391ff', fontWeight: '600' },
+  newCategoryChipText: { fontSize: 12, fontWeight: '700' },
 
-  saveButton: { borderRadius: 16, overflow: 'hidden' },
-  saveGradient: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
-  saveBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  saveButton: { borderRadius: 8, overflow: 'hidden' },
+  saveGradient: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  saveBtnText: { fontSize: 15, fontWeight: '800', color: '#ffffff' },
 
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
@@ -381,41 +366,27 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%', maxWidth: 360,
-    backgroundColor: '#121624',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.25)',
-    borderRadius: 20, padding: 24,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5, shadowRadius: 20, elevation: 10
+    borderWidth: 1, borderRadius: 10, padding: 20,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 16, textAlign: 'center' },
-  modalLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 8 },
+  modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 14, textAlign: 'center' },
+  modalLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6 },
   modalInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    color: '#fff', fontSize: 15, marginBottom: 16
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, marginBottom: 14
   },
-  iconPickerScroll: { marginBottom: 20 },
+  iconPickerScroll: { marginBottom: 16 },
   iconPickerRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   iconOption: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center', justifyContent: 'center'
+    width: 40, height: 40, borderRadius: 8,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center'
   },
-  iconOptionSelected: {
-    backgroundColor: 'rgba(99,145,255,0.2)',
-    borderColor: '#6391ff'
-  },
-  iconOptionText: { fontSize: 20 },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
   modalCancelBtn: {
-    flex: 1, paddingVertical: 14, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center', justifyContent: 'center'
+    flex: 1, paddingVertical: 12, borderRadius: 8,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center'
   },
-  modalCancelText: { color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '600' },
-  modalSaveBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
-  modalSaveGradient: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-  modalSaveText: { color: '#fff', fontSize: 15, fontWeight: '700' }
+  modalCancelText: { fontSize: 14, fontWeight: '600' },
+  modalSaveBtn: { flex: 1, borderRadius: 8, overflow: 'hidden' },
+  modalSaveGradient: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  modalSaveText: { color: '#ffffff', fontSize: 14, fontWeight: '800' }
 });

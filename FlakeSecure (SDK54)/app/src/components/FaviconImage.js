@@ -48,9 +48,9 @@ export default function FaviconImage({
   size = 36,
   style,
   fallbackIcon = null,
-  fallbackBg = 'rgba(99, 145, 255, 0.15)',
-  fallbackTextColor = '#6391ff',
-  borderRadius = 10,
+  fallbackBg = 'rgba(232, 176, 32, 0.15)',
+  fallbackTextColor = '#E8B020',
+  borderRadius = 8,
 }) {
   const cleanDomain = extractHost(domain);
   const rootDomain = extractRootDomain(cleanDomain);

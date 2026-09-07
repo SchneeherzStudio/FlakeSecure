@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Browser Extension Content Script (Chrome / Chromium) v2.0.0
+ * FlakeSecure - Browser Extension Content Script (Chrome / Chromium) v2.0.1
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & ARCHITECTURE:
@@ -553,6 +553,36 @@
     }, 250);
   }
 
+  function fillRegistrationFields(fields) {
+    if (!fields) return;
+    const email = fields.email || '';
+    const username = fields.username || '';
+    const password = fields.password || '';
+    const firstName = fields.firstName || fields.first_name || '';
+    const lastName = fields.lastName || fields.last_name || '';
+
+    if (email) {
+      const emailField = document.querySelector('input[type="email"], input[name*="email" i], input[id*="email" i]');
+      if (emailField) simulateInput(emailField, email);
+    }
+    if (username) {
+      const userField = document.querySelector('input[name*="user" i], input[id*="user" i], input[name*="login" i]');
+      if (userField && userField.type !== 'email') simulateInput(userField, username);
+    }
+    if (firstName) {
+      const fnField = document.querySelector('input[name*="first" i], input[id*="first" i], input[name*="vorname" i]');
+      if (fnField) simulateInput(fnField, firstName);
+    }
+    if (lastName) {
+      const lnField = document.querySelector('input[name*="last" i], input[id*="last" i], input[name*="nachname" i]');
+      if (lnField) simulateInput(lnField, lastName);
+    }
+    if (password) {
+      const pwFields = findPasswordFields();
+      pwFields.forEach(pField => simulateInput(pField, password));
+    }
+  }
+
   function connectSocket(sessionId, keyHex, onData) {
     if (socket) {
       socket.disconnect();
@@ -786,22 +816,22 @@
     const btn = document.createElement('button');
     btn.id = 'fs-login-btn';
     btn.type = 'button';
-    btn.innerHTML = '❄️ FlakeSecure';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#07090e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93"/></svg><span style="vertical-align:middle;font-weight:700;">FlakeSecure</span>';
     btn.style.cssText = `
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      background: linear-gradient(135deg, #6391ff, #7c6aff);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
+      justify-content: center;
+      background: #E8B020;
+      color: #07090e;
+      border: 1px solid #C9930A;
+      border-radius: 6px;
       padding: 6px 12px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       margin-top: 6px;
-      box-shadow: 0 4px 12px rgba(99, 145, 255, 0.3);
-      font-family: -apple-system, sans-serif;
+      box-shadow: 0 3px 10px rgba(232, 176, 32, 0.3);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       z-index: 9999;
     `;
 
@@ -878,12 +908,12 @@
       if (data.action === 'register' || data.type === 'register' || data.fields) {
         const fieldsData = data.fields || data;
         fillRegistrationFields(fieldsData);
-        updateOverlayStatus('success', '✅ Account-Daten erfolgreich eingetragen!');
+        updateOverlayStatus('success', 'Account-Daten erfolgreich eingetragen!');
         setTimeout(() => {
           removeOverlay();
         }, 1200);
       } else {
-        updateOverlayStatus('success', '✅ Anmeldedaten empfangen – logge dich ein…');
+        updateOverlayStatus('success', 'Anmeldedaten empfangen: Logge ein...');
 
         // Persist in cache for multi-step reload (password step after page transition)
         setCachedCredentials(data);
@@ -902,7 +932,7 @@
               if (settings.autoLogin) {
                 submitForm(form, target);
               }
-              // Password was filled and submitted — cache no longer needed
+              // Password was filled and submitted: cache no longer needed
               clearCachedCredentials();
             } else {
               console.log('[FlakeSecure] Step 1 filled (username only). Watching for Step 2 password field...');

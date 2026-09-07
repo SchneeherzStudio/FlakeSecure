@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;">
+  <title>FlakeSecure Admin Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top App Navigation -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="app-logo">
+        <svg viewBox="0 0 100 100" class="logo-icon">
+          <defs>
+            <linearGradient id="adminLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#E8B020"/>
+              <stop offset="100%" stop-color="#A07010"/>
+            </linearGradient>
+          </defs>
+          <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#adminLockGrad)" stroke-width="9" stroke-linecap="round"/>
+          <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#adminLockGrad)"/>
+        </svg>
+        <div class="logo-text">
+          <span class="brand-title">Flake<span>Secure</span></span>
+          <span class="brand-badge">ADMIN v2.0</span>
+        </div>
+      </div>
+
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="tab-announcements">
+          <span class="tab-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></span> Mitteilungen
+        </button>
+        <button class="tab-btn" data-tab="tab-maintenance">
+          <span class="tab-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span> Wartungsmodus
+        </button>
+        <button class="tab-btn" data-tab="tab-health">
+          <span class="tab-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></span> Server-Status
+        </button>
+        <button class="tab-btn" data-tab="tab-settings">
+          <span class="tab-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span> Einstellungen
+        </button>
+      </nav>
+    </div>
+
+    <div class="header-right">
+      <div class="server-pill" id="server-status-pill" title="Serververbindung">
+        <span class="status-dot disconnected"></span>
+        <span class="server-name" id="pill-server-host">Nicht verbunden</span>
+      </div>
+
+      <div class="maintenance-warning-pill hidden" id="pill-maint-active">
+        <span class="pulse-red"></span>
+        <span>Wartung aktiv</span>
+      </div>
+
+      <button class="btn-icon" id="btn-global-refresh" title="Alle Daten neu laden">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="app-main">
+
+    <!-- TAB 1: MITTEILUNGEN (ANNOUNCEMENTS) -->
+    <section class="tab-content active" id="tab-announcements">
+      <div class="announcements-layout">
+        
+        <!-- Left Column: Form + Live Preview -->
+        <div class="card form-card">
+          <div class="card-header">
+            <h2 class="card-title">Neue Mitteilung verfassen</h2>
+            <span class="badge badge-info">POST /api/system/announcement</span>
+          </div>
+
+          <form id="form-create-announcement">
+            <div class="form-group">
+              <label for="ann-message">Nachrichtentext <span class="req">*</span></label>
+              <textarea id="ann-message" rows="3" placeholder="z. B. Wartungsarbeiten am 05.09 von 14:00 bis 16:00 Uhr..." required></textarea>
+              <div class="input-hint">Wird allen Nutzern beim Öffnen der App angezeigt.</div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label>Darstellungs-Typ <span class="req">*</span></label>
+                <div class="toggle-group">
+                  <input type="radio" id="type-popup" name="ann-type" value="popup" checked>
+                  <label for="type-popup" class="toggle-btn">Popup (Mitte)</label>
+
+                  <input type="radio" id="type-banner" name="ann-type" value="banner">
+                  <label for="type-banner" class="toggle-btn">Banner (Oben)</label>
+                </div>
+              </div>
+
+              <div class="form-group flex-1">
+                <label>Häufigkeit <span class="req">*</span></label>
+                <div class="toggle-group">
+                  <input type="radio" id="disp-once" name="ann-display" value="once" checked>
+                  <label for="disp-once" class="toggle-btn">Einmalig (once)</label>
+
+                  <input type="radio" id="disp-always" name="ann-display" value="always">
+                  <label for="disp-always" class="toggle-btn">Immer (always)</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="ann-priority">Priorität (höher = wichtiger)</label>
+                <div class="priority-input-wrapper">
+                  <input type="number" id="ann-priority" value="0" min="-10" max="100">
+                  <div class="quick-preset-btns">
+                    <button type="button" class="preset-pill preset-prio-blue" onclick="setPriority(0)">0 (Normal)</button>
+                    <button type="button" class="preset-pill preset-prio-yellow" onclick="setPriority(10)">10 (Wichtig)</button>
+                    <button type="button" class="preset-pill preset-prio-red" onclick="setPriority(50)">50 (Kritisch)</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <div class="checkbox-row">
+                <input type="checkbox" id="ann-has-expiry">
+                <label for="ann-has-expiry">Automatisches Ablaufdatum setzen (expires_at)</label>
+              </div>
+
+              <div class="expiry-options-box hidden" id="box-expiry-options">
+                <div class="quick-preset-btns" style="margin-bottom:8px;">
+                  <button type="button" class="preset-pill" onclick="setExpiryPreset(1)">+1 Tag</button>
+                  <button type="button" class="preset-pill" onclick="setExpiryPreset(3)">+3 Tage</button>
+                  <button type="button" class="preset-pill" onclick="setExpiryPreset(7)">+1 Woche</button>
+                  <button type="button" class="preset-pill" onclick="setExpiryPreset(30)">+1 Monat</button>
+                </div>
+                <input type="datetime-local" id="ann-expires-at">
+              </div>
+            </div>
+
+            <!-- Live Phone Preview Component -->
+            <div class="preview-section">
+              <div class="preview-header">
+                <span class="preview-title">Mobile Live-Vorschau</span>
+                <span class="preview-mode-badge" id="preview-mode-label">Popup-Modus</span>
+              </div>
+              <div class="phone-mockup-frame">
+                <div class="phone-screen" id="phone-screen">
+                  <!-- Simulated Phone Status Bar -->
+                  <div class="phone-statusbar">
+                    <span>09:41</span>
+                    <span style="font-size:10px;">5G 100%</span>
+                  </div>
+
+                  <!-- Simulated Phone Content Underneath -->
+                  <div class="phone-app-bg">
+                    <div class="mock-header">FlakeSecure</div>
+                    <div class="mock-card">Saved Logins (14)</div>
+                    <div class="mock-card">2FA Tokens (4)</div>
+                  </div>
+
+                  <!-- Live Banner Component inside Mockup -->
+                  <div class="mock-banner hidden" id="mock-banner">
+                    <div class="mock-banner-content">
+                      <span class="mock-banner-icon" id="mock-banner-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                      </span>
+                      <span class="mock-banner-text" id="mock-banner-text">Vorschautext...</span>
+                    </div>
+                    <button type="button" class="mock-banner-close" id="mock-banner-close">&times;</button>
+                  </div>
+
+                  <!-- Live Popup Component inside Mockup -->
+                  <div class="mock-popup-backdrop" id="mock-popup-backdrop">
+                    <div class="mock-popup-card" id="mock-popup-card">
+                      <div class="mock-popup-icon" id="mock-popup-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8B020" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                      </div>
+                      <div class="mock-popup-title" id="mock-popup-title">Information</div>
+                      <div class="mock-popup-text" id="mock-popup-text">Vorschautext für deine Nachricht...</div>
+                      <button type="button" class="mock-popup-btn" id="mock-popup-btn">Verstanden</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-submit-large" id="btn-create-ann">
+              <span>Nachricht an alle Apps senden</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Right Column: Active Announcements List -->
+        <div class="card list-card">
+          <div class="card-header">
+            <div class="title-with-badge">
+              <h2 class="card-title">Aktive Mitteilungen</h2>
+              <span class="count-badge" id="ann-count-badge">0</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-announcements">
+              Aktualisieren
+            </button>
+          </div>
+
+          <div class="announcements-list" id="announcements-container">
+            <div class="empty-state">
+              <span class="empty-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+              </span>
+              <p>Keine aktiven Mitteilungen auf dem Server vorhanden.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 2: WARTUNGSMODUS (MAINTENANCE) -->
+    <section class="tab-content" id="tab-maintenance">
+      <div class="maintenance-layout">
+        
+        <!-- Big Status Indicator -->
+        <div class="card maint-status-card" id="maint-status-card">
+          <div class="maint-icon-box" id="maint-icon-box">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <div class="maint-status-info">
+            <span class="maint-tag" id="maint-tag">SERVER STATUS</span>
+            <h1 class="maint-headline" id="maint-headline">Normalbetrieb: Apps freigegeben</h1>
+            <p class="maint-desc" id="maint-desc">Alle mobilen Apps und Schnittstellen sind regulär erreichbar.</p>
+            
+            <div class="maint-until-box hidden" id="maint-until-box">
+              <span>Geplantes Ende:</span>
+              <strong id="maint-until-text">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Maintenance Control Panel -->
+        <div class="card maint-control-card">
+          <div class="card-header">
+            <h2 class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;vertical-align:middle;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.56a2 2 0 0 1-1 1.73l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> Wartungsmodus konfigurieren</h2>
+            <span class="badge badge-info">POST /api/system/maintenance</span>
+          </div>
+
+          <p class="section-subtext">
+            Wenn der Wartungsmodus aktiviert ist, schaltet die Mobile App automatisch auf den unbenutzbaren 
+            <strong>Wartungs-Screen (MaintenanceScreen)</strong> um, bis der Modus deaktiviert wird.
+          </p>
+
+          <form id="form-maintenance">
+            <div class="form-group">
+              <label for="maint-message-input">Wartungsmeldung für Nutzer</label>
+              <input type="text" id="maint-message-input" value="Wartungsarbeiten laufen – Server vorübergehend nicht erreichbar." required>
+              <div class="input-hint">Wird auf dem roten Sperrbildschirm der App angezeigt.</div>
+            </div>
+
+            <div class="form-group">
+              <label>Geplantes Ende (optional)</label>
+              <div class="quick-preset-btns" style="margin-bottom: 8px;">
+                <button type="button" class="preset-pill" onclick="setMaintPreset(30)">In 30 Min</button>
+                <button type="button" class="preset-pill" onclick="setMaintPreset(60)">In 1 Std</button>
+                <button type="button" class="preset-pill" onclick="setMaintPreset(120)">In 2 Std</button>
+                <button type="button" class="preset-pill" onclick="setMaintPreset(240)">In 4 Std</button>
+                <button type="button" class="preset-pill" onclick="setMaintPreset(0)">Ohne Frist (offen)</button>
+              </div>
+              <input type="datetime-local" id="maint-until-input">
+            </div>
+
+            <div class="maint-action-buttons">
+              <button type="button" class="btn btn-danger btn-large" id="btn-activate-maint">
+                Wartungsmodus aktivieren (Apps sperren)
+              </button>
+              <button type="button" class="btn btn-success btn-large hidden" id="btn-deactivate-maint">
+                Wartungsmodus beenden (Apps freigeben)
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 3: SERVER-STATUS & HEALTH -->
+    <section class="tab-content" id="tab-health">
+      <div class="health-layout">
+        
+        <div class="metrics-grid">
+          <div class="card metric-card">
+            <span class="metric-label">Server-Status</span>
+            <div class="metric-value-row">
+              <span class="status-indicator-dot" id="metric-status-dot"></span>
+              <span class="metric-val" id="metric-server-status">Prüfe...</span>
+            </div>
+            <span class="metric-sub" id="metric-uptime">Uptime: -</span>
+          </div>
+
+          <div class="card metric-card">
+            <span class="metric-label">Antwortzeit (Ping)</span>
+            <div class="metric-value-row">
+              <span class="metric-val" id="metric-ping">- ms</span>
+            </div>
+            <span class="metric-sub">Latenz zum Relay-Server</span>
+          </div>
+
+          <div class="card metric-card">
+            <span class="metric-label">Aktive WebSocket-Sitzungen</span>
+            <div class="metric-value-row">
+              <span class="metric-val" id="metric-sessions">0</span>
+            </div>
+            <span class="metric-sub">Im Server-RAM verwaltet</span>
+          </div>
+
+          <div class="card metric-card">
+            <span class="metric-label">Server / App Version</span>
+            <div class="metric-value-row">
+              <span class="metric-val" id="metric-version">v2.0.2</span>
+            </div>
+            <span class="metric-sub" id="metric-min-app">Mindest-App: v2.0.2</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;vertical-align:middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Endpunkt-Inspektor & Diagnose</h2>
+            <button class="btn btn-secondary btn-sm" id="btn-ping-now">Jetzt testen</button>
+          </div>
+
+          <div class="diag-table-wrap">
+            <table class="diag-table">
+              <thead>
+                <tr>
+                  <th>Endpunkt</th>
+                  <th>Methode</th>
+                  <th>Status</th>
+                  <th>Latenz</th>
+                  <th>Auth</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="diag-table-body">
+                <tr>
+                  <td><code>/health</code></td>
+                  <td>GET</td>
+                  <td id="diag-health-status">-</td>
+                  <td id="diag-health-ping">-</td>
+                  <td>Öffentlich</td>
+                  <td id="diag-health-details">Server-Health</td>
+                </tr>
+                <tr>
+                  <td><code>/api/system/status</code></td>
+                  <td>GET</td>
+                  <td id="diag-status-status">-</td>
+                  <td id="diag-status-ping">-</td>
+                  <td>Öffentlich</td>
+                  <td id="diag-status-details">Wartungsstatus & Version</td>
+                </tr>
+                <tr>
+                  <td><code>/api/system/announcements</code></td>
+                  <td>GET</td>
+                  <td id="diag-ann-status">-</td>
+                  <td id="diag-ann-ping">-</td>
+                  <td>Öffentlich</td>
+                  <td id="diag-ann-details">Aktive Mitteilungen</td>
+                </tr>
+                <tr>
+                  <td><code>/api/system/announcement</code></td>
+                  <td>POST</td>
+                  <td id="diag-auth-status">-</td>
+                  <td id="diag-auth-ping">-</td>
+                  <td>x-admin-secret</td>
+                  <td id="diag-auth-details">Admin-Authentifizierung</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 4: EINSTELLUNGEN (SETTINGS) -->
+    <section class="tab-content" id="tab-settings">
+      <div class="settings-layout">
+        <div class="card settings-card">
+          <div class="card-header">
+            <h2 class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;vertical-align:middle;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.56a2 2 0 0 1-1 1.73l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> Verbindung &amp; Authentifizierung</h2>
+          </div>
+
+          <form id="form-settings">
+            <div class="form-group">
+              <label for="setting-server-url">Server-URL <span class="req">*</span></label>
+              <input type="url" id="setting-server-url" placeholder="https://flakesecure.snowystudio.dev" required>
+              <div class="quick-preset-btns" style="margin-top:6px;">
+                <button type="button" class="preset-pill" onclick="setServerUrl('https://flakesecure.snowystudio.dev')">Produktion (snowystudio.dev)</button>
+                <button type="button" class="preset-pill" onclick="setServerUrl('http://localhost:4000')">Lokal (localhost:4000)</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="setting-admin-secret">Admin Secret (x-admin-secret) <span class="req">*</span></label>
+              <div class="input-password-wrap">
+                <input type="password" id="setting-admin-secret" placeholder="DEIN_GEHEIMES_ADMIN_SECRET" required>
+                <button type="button" class="btn-toggle-eye" id="btn-toggle-secret" title="Passwort anzeigen">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+              <div class="input-hint">Entspricht <code>ADMIN_SECRET</code> in der <code>server/.env</code>.</div>
+            </div>
+
+            <div class="form-group">
+              <div class="checkbox-row">
+                <input type="checkbox" id="setting-auto-refresh" checked>
+                <label for="setting-auto-refresh">Automatische Status-Aktualisierung im Hintergrund</label>
+              </div>
+            </div>
+
+            <div class="settings-action-row">
+              <button type="button" class="btn btn-secondary" id="btn-test-connection">
+                Verbindung testen
+              </button>
+              <button type="submit" class="btn btn-primary" id="btn-save-settings">
+                Einstellungen speichern
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card help-card">
+          <div class="card-header">
+            <h2 class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;vertical-align:middle;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Kurzanleitung (aus message.md)</h2>
+          </div>
+          <div class="help-text">
+            <p><strong>1. Admin-Secret einrichten:</strong> Trage dein in <code>server/.env</code> hinterlegtes <code>ADMIN_SECRET</code> oben ein.</p>
+            <p><strong>2. Mitteilungen:</strong> Popups erscheinen modal in der App-Mitte; Banner dezent am oberen Rand. Bei <code>once</code> wird die Nachricht nach Bestätigung für diesen Nutzer nicht mehr gezeigt.</p>
+            <p><strong>3. Wartungsmodus:</strong> Bei Aktivierung wird die App für alle Nutzer gesperrt und der Countdown/Wartungstext angezeigt.</p>
+            <p><strong>4. Kompatibilität:</strong> Diese Electron-App läuft identisch unter <strong>Windows</strong> und <strong>Linux</strong>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Confirm Modal Dialog -->
+  <div class="modal-backdrop hidden" id="modal-confirm">
+    <div class="modal-card">
+      <div class="modal-icon" id="modal-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8B020" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+      <h3 class="modal-title" id="modal-title">Bist du sicher?</h3>
+      <p class="modal-desc" id="modal-desc">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" id="modal-btn-cancel">Abbrechen</button>
+        <button class="btn btn-danger" id="modal-btn-confirm">Bestätigen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

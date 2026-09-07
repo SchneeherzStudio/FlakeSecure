@@ -2,19 +2,6 @@
  * ============================================================================
  * FlakeSecure Mobile App - Login & Registration Screen v2.0
  * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. AUTHENTICATION & LOGIN:
- *    - handleLogin(): Validates credentials and logs user in via AuthContext.login.
- * 
- * 2. OTP EMAIL REGISTRATION:
- *    - handleSendOtp(): Requests 6-digit verification code to user's email via /api/otp/send.
- *    - handleRegister(): Verifies OTP code via /api/otp/verify and completes account registration.
- * 
- * 3. REACTIVE LOCALIZATION & FORM CONTROLS:
- *    - Uses useLanguage() hook for multi-language support (EN, DE, FR, ES).
- * ============================================================================
  */
 
 import React, { useState } from 'react';
@@ -35,11 +22,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { AppIcon } from '../components/CategoryIcons';
 import { sendOtp, verifyOtp } from '../utils/api';
 
 export default function LoginScreen({ navigation }) {
   const { login, register } = useAuth();
   const { t } = useLanguage();
+  const { colors } = useTheme();
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
@@ -147,55 +137,55 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.iconText}>❄️</Text>
+            <View style={[styles.iconCircle, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+              <AppIcon name="snowflake" size={32} color={colors.gold} />
             </View>
-            <Text style={styles.title}>
-              Flake<Text style={styles.titleHighlight}>Secure</Text>
+            <Text style={[styles.title, { color: colors.textMain }]}>
+              Flake<Text style={{ color: colors.gold }}>Secure</Text>
             </Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, { color: colors.textSub }]}>
               {isRegisterMode ? t('login.registerTitle') : t('login.subtitle')}
             </Text>
           </View>
 
-          <View style={styles.form}>
+          <View style={[styles.form, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
             {isRegisterMode ? (
               <>
-                <Text style={styles.inputLabel}>{t('onboarding.account.email')}</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.email')}</Text>
                 <View style={styles.otpRow}>
                   <TextInput
-                    style={[styles.input, { flex: 1 }]}
+                    style={[styles.input, { flex: 1, backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                     placeholder="email@domain.com"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    placeholderTextColor={colors.textMuted}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
                   <TouchableOpacity
-                    style={styles.sendOtpBtn}
+                    style={[styles.sendOtpBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
                     onPress={handleSendOtp}
                     disabled={sendingOtp}
                   >
                     {sendingOtp ? (
-                      <ActivityIndicator color="#6391ff" size="small" />
+                      <ActivityIndicator color={colors.gold} size="small" />
                     ) : (
-                      <Text style={styles.sendOtpText}>{otpSent ? t('login.resendOtp') : t('login.sendOtp')}</Text>
+                      <Text style={[styles.sendOtpText, { color: colors.gold }]}>{otpSent ? t('login.resendOtp') : t('login.sendOtp')}</Text>
                     )}
                   </TouchableOpacity>
                 </View>
 
                 {otpSent && (
                   <View style={styles.otpInputBox}>
-                    <Text style={styles.inputLabel}>{t('login.otpLabel')}</Text>
+                    <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('login.otpLabel')}</Text>
                     <TextInput
-                      style={[styles.input, styles.otpCodeInput]}
+                      style={[styles.input, styles.otpCodeInput, { backgroundColor: colors.inputBg, borderColor: colors.gold, color: colors.gold }]}
                       placeholder={t('login.otpPlaceholder')}
-                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      placeholderTextColor={colors.textMuted}
                       value={otpCode}
                       onChangeText={setOtpCode}
                       keyboardType="number-pad"
@@ -204,22 +194,22 @@ export default function LoginScreen({ navigation }) {
                   </View>
                 )}
 
-                <Text style={styles.inputLabel}>{t('onboarding.account.username')}</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.username')}</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                   placeholder="username"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholderTextColor={colors.textMuted}
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
                 />
 
-                <Text style={styles.inputLabel}>{t('onboarding.account.password')}</Text>
-                <View style={styles.passwordContainer}>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.password')}</Text>
+                <View style={[styles.passwordContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <TextInput
-                    style={styles.passwordInput}
+                    style={[styles.passwordInput, { color: colors.textMain }]}
                     placeholder="••••••••"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    placeholderTextColor={colors.textMuted}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -228,43 +218,46 @@ export default function LoginScreen({ navigation }) {
                     style={styles.eyeButton}
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                    <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.inputLabel}>{t('onboarding.account.confirmPassword')}</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.confirmPassword')}</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                   placeholder="••••••••"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholderTextColor={colors.textMuted}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showPassword}
                 />
 
-                {/* Terms & Privacy Checkbox */}
                 <TouchableOpacity
                   style={styles.termsRow}
                   onPress={() => setAcceptedTerms(!acceptedTerms)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                    {acceptedTerms && <Text style={styles.checkmark}>✓</Text>}
+                  <View style={[
+                    styles.checkbox,
+                    { borderColor: colors.border, backgroundColor: colors.inputBg },
+                    acceptedTerms && { backgroundColor: colors.gold, borderColor: colors.gold }
+                  ]}>
+                    {acceptedTerms && <AppIcon name="check" size={12} color="#ffffff" />}
                   </View>
-                  <Text style={styles.termsLabel}>
+                  <Text style={[styles.termsLabel, { color: colors.textSub }]}>
                     {t('login.acceptTermsCheckbox')}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.submitBtn} onPress={handleRegister} disabled={loading}>
                   <LinearGradient
-                    colors={['#6391ff', '#7c6aff']}
+                    colors={colors.goldGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.gradientBtn}
                   >
                     {loading ? (
-                      <ActivityIndicator color="#fff" />
+                      <ActivityIndicator color="#ffffff" />
                     ) : (
                       <Text style={styles.submitBtnText}>{t('login.registerButton')}</Text>
                     )}
@@ -273,22 +266,22 @@ export default function LoginScreen({ navigation }) {
               </>
             ) : (
               <>
-                <Text style={styles.inputLabel}>{t('login.emailOrUsername')}</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('login.emailOrUsername')}</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                   placeholder="user@domain.com / username"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholderTextColor={colors.textMuted}
                   value={identifier}
                   onChangeText={setIdentifier}
                   autoCapitalize="none"
                 />
 
-                <Text style={styles.inputLabel}>{t('login.password')}</Text>
-                <View style={styles.passwordContainer}>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('login.password')}</Text>
+                <View style={[styles.passwordContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <TextInput
-                    style={styles.passwordInput}
+                    style={[styles.passwordInput, { color: colors.textMain }]}
                     placeholder="••••••••"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    placeholderTextColor={colors.textMuted}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -297,19 +290,19 @@ export default function LoginScreen({ navigation }) {
                     style={styles.eyeButton}
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                    <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
                   </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity style={styles.submitBtn} onPress={handleLogin} disabled={loading}>
                   <LinearGradient
-                    colors={['#6391ff', '#7c6aff']}
+                    colors={colors.goldGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.gradientBtn}
                   >
                     {loading ? (
-                      <ActivityIndicator color="#fff" />
+                      <ActivityIndicator color="#ffffff" />
                     ) : (
                       <Text style={styles.submitBtnText}>{t('login.loginButton')}</Text>
                     )}
@@ -326,25 +319,24 @@ export default function LoginScreen({ navigation }) {
                 setOtpCode('');
               }}
             >
-              <Text style={styles.toggleModeText}>
+              <Text style={[styles.toggleModeText, { color: colors.gold }]}>
                 {isRegisterMode
                   ? t('login.toggleToLogin')
                   : t('login.toggleToRegister')}
               </Text>
             </TouchableOpacity>
 
-            {/* Legal Links */}
-            <View style={styles.legalLinksRow}>
+            <View style={[styles.legalLinksRow, { borderTopColor: colors.border }]}>
               <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/terms')}>
-                <Text style={styles.legalLinkText}>{t('login.termsLink')}</Text>
+                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.termsLink')}</Text>
               </TouchableOpacity>
-              <Text style={styles.legalLinkSeparator}>•</Text>
+              <Text style={[styles.legalLinkSeparator, { color: colors.textMuted }]}>•</Text>
               <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/legal')}>
-                <Text style={styles.legalLinkText}>{t('login.privacyLink')}</Text>
+                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.privacyLink')}</Text>
               </TouchableOpacity>
-              <Text style={styles.legalLinkSeparator}>•</Text>
+              <Text style={[styles.legalLinkSeparator, { color: colors.textMuted }]}>•</Text>
               <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/imprint')}>
-                <Text style={styles.legalLinkText}>{t('login.imprintLink')}</Text>
+                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.imprintLink')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -357,53 +349,41 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090b14',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 30,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 24,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(99, 145, 255, 0.15)',
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  iconText: {
-    fontSize: 32,
-  },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
-    color: '#fff',
     letterSpacing: -0.5,
   },
-  titleHighlight: {
-    color: '#6391ff',
-  },
   subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
     marginTop: 4,
   },
   form: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.07)',
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: 10,
+    padding: 20,
   },
   inputLabel: {
-    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -411,13 +391,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
   },
   otpRow: {
@@ -426,17 +403,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sendOtpBtn: {
-    backgroundColor: 'rgba(99, 145, 255, 0.15)',
-    borderColor: 'rgba(99, 145, 255, 0.3)',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendOtpText: {
-    color: '#6391ff',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -452,52 +426,45 @@ const styles = StyleSheet.create({
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
   },
   passwordInput: {
     flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
   },
   eyeButton: {
-    padding: 12,
-  },
-  eyeText: {
-    fontSize: 16,
+    padding: 10,
   },
   submitBtn: {
-    marginTop: 20,
-    borderRadius: 14,
+    marginTop: 18,
+    borderRadius: 8,
     overflow: 'hidden',
   },
   gradientBtn: {
-    paddingVertical: 14,
+    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
   },
   toggleModeBtn: {
     marginTop: 16,
     alignItems: 'center',
   },
   toggleModeText: {
-    color: '#6391ff',
     fontSize: 13,
     fontWeight: '600',
   },
   termsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 14,
     marginBottom: 4,
     paddingHorizontal: 2,
   },
@@ -506,24 +473,12 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
-  checkboxChecked: {
-    backgroundColor: '#6391ff',
-    borderColor: '#6391ff',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
   termsLabel: {
     flex: 1,
-    color: 'rgba(255, 255, 255, 0.75)',
     fontSize: 12,
     lineHeight: 16,
   },
@@ -531,19 +486,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 22,
-    paddingTop: 14,
+    marginTop: 20,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   legalLinkText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   legalLinkSeparator: {
-    color: 'rgba(255, 255, 255, 0.25)',
-    marginHorizontal: 10,
+    marginHorizontal: 8,
     fontSize: 10,
   },
 });

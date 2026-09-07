@@ -16,12 +16,13 @@
  * 3. ANNOUNCEMENTS & POPUPS:
  *    - Checks /api/system/announcements and displays popup dialogs or top banners with dismiss tracking.
  * 
- * 4. LIFECYCLE & AUTH ROUTING (AppContent):
- *    - Restores persisted language preferences (app_language), onboarding states, and routes to Onboarding, BiometricUnlock, Login, or Main Stack.
+ * 4. THEME & LIFECYCLE:
+ *    - Unified ThemeProvider supporting system standard, manual dark/light toggle.
+ *    - Restores persisted language preferences and routes appropriately.
  * ============================================================================
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -31,10 +32,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { ThemeProvider, useTheme } from './app/src/context/ThemeContext';
 import { AuthProvider, useAuth } from './app/src/context/AuthContext';
 import { LanguageProvider } from './app/src/context/LanguageContext';
 import { i18n } from './app/src/i18n';
 import { getSystemStatus, getAnnouncements, dismissAnnouncement } from './app/src/utils/api';
+import { AppIcon } from './app/src/components/CategoryIcons';
 
 import HomeScreen from './app/src/screens/HomeScreen';
 import ScanScreen from './app/src/screens/ScanScreen';
@@ -52,7 +55,7 @@ import MaintenanceScreen from './app/src/screens/MaintenanceScreen';
 import AuthenticatorScreen from './app/src/screens/AuthenticatorScreen';
 import { VaultTransferScreen } from './app/src/screens/VaultTransferScreen';
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.2';
 
 const prefix = Linking.createURL('/');
 const linking = {
@@ -90,6 +93,7 @@ function compareSemver(v1, v2) {
 const Stack = createNativeStackNavigator();
 
 function AppContent() {
+  const { colors } = useTheme();
   const { isAuthenticated, isLoading: authLoading, needsBiometricUnlock, biometricUnlock, switchToPasswordLogin } = useAuth();
   const [hasOnboarded, setHasOnboarded] = useState(null);
   const [isReady, setIsReady] = useState(false);
@@ -100,7 +104,7 @@ function AppContent() {
     maintenanceMessage: '',
     maintenanceUntil: null,
     isOutdated: false,
-    minVersion: '2.0.0',
+    minVersion: '2.0.1',
     isOffline: false,
   });
 
@@ -137,39 +141,111 @@ function AppContent() {
     }
   }, []);
 
-  const loadAnnouncements = async () => {
+  const sessionDismissedBannersRef = useRef(new Set());
+
+  const getPriorityTheme = useCallback((priority = 0) => {
+    const p = Number(priority) || 0;
+    if (p >= 50) {
+      return {
+        level: 'critical',
+        color: colors.red,
+        bg: colors.redDim,
+        border: colors.redBorder,
+        iconBg: colors.redDim,
+        gradient: [colors.red, '#b91c1c'],
+        iconName: 'alert',
+        title: 'Dringende Mitteilung',
+      };
+    } else if (p >= 10) {
+      return {
+        level: 'warning',
+        color: '#f59e0b',
+        bg: 'rgba(245, 158, 11, 0.16)',
+        border: 'rgba(245, 158, 11, 0.55)',
+        iconBg: 'rgba(245, 158, 11, 0.25)',
+        gradient: ['#f59e0b', '#d97706'],
+        iconName: 'alert',
+        title: 'Wichtige Mitteilung',
+      };
+    } else {
+      return {
+        level: 'info',
+        color: colors.gold,
+        bg: colors.goldDim,
+        border: colors.goldBorder,
+        iconBg: colors.goldDim,
+        gradient: colors.goldGradient,
+        iconName: 'info',
+        title: 'Information',
+      };
+    }
+  }, [colors]);
+
+  const loadAnnouncements = useCallback(async () => {
     try {
       const res = await getAnnouncements();
       const list = res?.announcements || [];
 
-      const banners = list.filter((a) => a.type === 'banner');
-      setBannerAnnouncements(banners);
-
-      const popups = list.filter((a) => a.type === 'popup');
-      if (popups.length > 0) {
-        const topPopup = popups[0];
-        const dismissedLocal = await AsyncStorage.getItem(`dismissed_popup_${topPopup.id}`);
-        if (!dismissedLocal || topPopup.display === 'always') {
-          setActivePopupAnnouncement(topPopup);
+      // 1. Filter Banners
+      const rawBanners = list.filter((a) => a.type === 'banner');
+      const visibleBanners = [];
+      for (const b of rawBanners) {
+        if (sessionDismissedBannersRef.current.has(b.id)) continue;
+        if (b.display === 'once') {
+          const dismissed = await AsyncStorage.getItem(`dismissed_announcement_${b.id}`);
+          const dismissedLegacy = await AsyncStorage.getItem(`dismissed_banner_${b.id}`);
+          if (dismissed || dismissedLegacy) continue;
         }
+        visibleBanners.push(b);
       }
+      setBannerAnnouncements(visibleBanners);
+
+      // 2. Filter Popups
+      const rawPopups = list.filter((a) => a.type === 'popup');
+      let candidatePopup = null;
+      for (const p of rawPopups) {
+        if (sessionDismissedBannersRef.current.has(p.id)) continue;
+        if (p.display === 'once') {
+          const dismissed = await AsyncStorage.getItem(`dismissed_announcement_${p.id}`);
+          const dismissedLegacy = await AsyncStorage.getItem(`dismissed_popup_${p.id}`);
+          if (dismissed || dismissedLegacy) continue;
+        }
+        candidatePopup = p;
+        break;
+      }
+      setActivePopupAnnouncement(candidatePopup);
     } catch (e) {
       console.log('[App] Announcements load error:', e.message);
     }
-  };
+  }, []);
 
-  const handleDismissPopup = async () => {
+  const handleDismissBanner = useCallback(async (id, display) => {
+    sessionDismissedBannersRef.current.add(id);
+    setBannerAnnouncements((prev) => prev.filter((b) => b.id !== id));
+
+    if (display === 'once') {
+      await AsyncStorage.setItem(`dismissed_announcement_${id}`, 'true').catch(() => {});
+      await AsyncStorage.setItem(`dismissed_banner_${id}`, 'true').catch(() => {});
+      if (isAuthenticated) {
+        dismissAnnouncement(id).catch(() => {});
+      }
+    }
+  }, [isAuthenticated]);
+
+  const handleDismissPopup = useCallback(async () => {
     if (!activePopupAnnouncement) return;
     const popup = activePopupAnnouncement;
+    sessionDismissedBannersRef.current.add(popup.id);
     setActivePopupAnnouncement(null);
 
     if (popup.display === 'once') {
+      await AsyncStorage.setItem(`dismissed_announcement_${popup.id}`, 'true').catch(() => {});
       await AsyncStorage.setItem(`dismissed_popup_${popup.id}`, 'true').catch(() => {});
       if (isAuthenticated) {
         dismissAnnouncement(popup.id).catch(() => {});
       }
     }
-  };
+  }, [activePopupAnnouncement, isAuthenticated]);
 
   useEffect(() => {
     (async () => {
@@ -198,8 +274,8 @@ function AppContent() {
 
   if (!isReady || authLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#090b14', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#6391ff" />
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.gold} />
       </View>
     );
   }
@@ -240,7 +316,7 @@ function AppContent() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#090b14' },
+          contentStyle: { backgroundColor: colors.bg },
           animation: 'slide_from_right',
         }}
       >
@@ -254,7 +330,7 @@ function AppContent() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#090b14' },
+          contentStyle: { backgroundColor: colors.bg },
           animation: 'slide_from_right',
         }}
       >
@@ -263,6 +339,7 @@ function AppContent() {
             <HomeScreen
               {...props}
               bannerAnnouncements={bannerAnnouncements}
+              onDismissBanner={handleDismissBanner}
               isOffline={systemState.isOffline}
             />
           )}
@@ -280,42 +357,56 @@ function AppContent() {
       </Stack.Navigator>
 
       <Modal visible={!!activePopupAnnouncement} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.popupCard}>
-            <View style={styles.popupIconCircle}>
-              <Text style={styles.popupIconEmoji}>📢</Text>
-            </View>
-            <Text style={styles.popupTitle}>Information</Text>
-            <Text style={styles.popupMessage}>{activePopupAnnouncement?.message}</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modalOverlay }]}>
+          {(() => {
+            const theme = getPriorityTheme(activePopupAnnouncement?.priority);
+            return (
+              <View style={[styles.popupCard, { backgroundColor: colors.modalCard, borderColor: theme.border }]}>
+                <View style={[styles.popupIconCircle, { backgroundColor: theme.iconBg }]}>
+                  <AppIcon name={theme.iconName} size={28} color={theme.color} />
+                </View>
+                <Text style={[styles.popupTitle, { color: theme.color }]}>{theme.title}</Text>
+                <Text style={[styles.popupMessage, { color: colors.textSecondary }]}>{activePopupAnnouncement?.message}</Text>
 
-            <TouchableOpacity style={styles.popupBtn} onPress={handleDismissPopup}>
-              <LinearGradient
-                colors={['#6391ff', '#7c6aff']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.popupGradientBtn}
-              >
-                <Text style={styles.popupBtnText}>Verstanden</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity style={styles.popupBtn} onPress={handleDismissPopup} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={theme.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.popupGradientBtn}
+                  >
+                    <Text style={[styles.popupBtnText, { color: colors.isDark ? '#07090e' : '#fff' }]}>Verstanden</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
         </View>
       </Modal>
     </>
   );
 }
 
+function NavigationRoot() {
+  const { colors } = useTheme();
+  return (
+    <NavigationContainer linking={linking}>
+      <StatusBar style={colors.statusBar} />
+      <AppContent />
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <LanguageProvider>
-        <AuthProvider>
-          <NavigationContainer linking={linking}>
-            <StatusBar style="light" />
-            <AppContent />
-          </NavigationContainer>
-        </AuthProvider>
-      </LanguageProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <NavigationRoot />
+          </AuthProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
@@ -323,58 +414,48 @@ export default function App() {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(9, 11, 20, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   popupCard: {
-    backgroundColor: '#0f1220',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 24,
-    padding: 26,
+    borderRadius: 12,
+    padding: 24,
     alignItems: 'center',
     width: '100%',
     maxWidth: 380,
   },
   popupIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(99, 145, 255, 0.15)',
+    width: 56,
+    height: 56,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  popupIconEmoji: {
-    fontSize: 32,
+    marginBottom: 14,
   },
   popupTitle: {
-    color: '#fff',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   popupMessage: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 15,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: 20,
+    marginBottom: 20,
   },
   popupBtn: {
     width: '100%',
   },
   popupGradientBtn: {
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   popupBtnText: {
-    color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
 });

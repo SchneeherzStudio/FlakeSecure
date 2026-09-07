@@ -2,23 +2,6 @@
  * ============================================================================
  * FlakeSecure Mobile App - Smart Registration Fill Screen (RegisterFillScreen)
  * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. SCHEMA & FIELD DETECTION:
- *    - Decodes compact field schemas (email, username, password, firstName, lastName, phone) from the scanned QR code.
- *    - isFieldDetected(fieldKey): Dynamically renders only the form fields required by the target website.
- * 
- * 2. PROFILE PRESETS & PASSWORD GENERATOR:
- *    - handleApplyPreset(mode): Toggles between default profile preset (stored in SecureStore) and custom manual entries.
- *    - generatePassword(length, opts): Generates cryptographically secure random passwords with configurable character sets (upper/lower/numbers/symbols).
- *    - getPasswordStrength(): Calculates and displays password entropy and strength bar.
- * 
- * 3. ENCRYPTION & RELAY (handleSubmit):
- *    - Persists new credentials locally into SecureStore (saveCredentials).
- *    - Encrypts registration payload via AES-256-CTR + HMAC-SHA256 with the session key.
- *    - Relays data via POST /send-login to the browser extension for instant autofill.
- * ============================================================================
  */
 
 import React, { useState, useEffect } from 'react';
@@ -29,12 +12,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { AppIcon, CategoryIcon, AVAILABLE_CATEGORY_ICONS } from '../components/CategoryIcons';
 import { encryptCredentials } from '../utils/crypto';
 import { saveCredentials, getCategories, saveCategory, getDefaultProfile, saveDefaultProfile } from '../utils/storage';
-import { useLanguage } from '../context/LanguageContext';
-
-const SERVER_URL = 'https://flakesecure.snowystudio.dev';
-const AVAILABLE_ICONS = ['👤', '💼', '💳', '💬', '🎮', '📁', '🛍️', '🛒', '🔒', '🏠', '✈️', '📧', '🎓', '💻', '🎵', '🍔', '🚗', '🏥', '🔑', '⭐'];
+import { sendLogin } from '../utils/api';
+import { TapFeedback } from '../components/TapFeedback';
 
 const COMPACT_FIELD_MAP = {
   e: { key: 'email', label: 'E-Mail', type: 'email', required: true },
@@ -49,6 +33,7 @@ const COMPACT_FIELD_MAP = {
 
 export default function RegisterFillScreen({ route, navigation }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
   const sid = route.params?.sid || route.params?.s;
   const key = route.params?.key || route.params?.k;
   const domain = route.params?.domain || route.params?.d;
@@ -101,7 +86,7 @@ export default function RegisterFillScreen({ route, navigation }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('tag');
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -189,7 +174,7 @@ export default function RegisterFillScreen({ route, navigation }) {
   };
 
   const getPasswordStrength = () => {
-    if (!password) return { label: 'Kein Passwort', color: '#ff6b6b', progress: 0 };
+    if (!password) return { label: 'Kein Passwort', color: colors.danger, progress: 0 };
     let score = 0;
     if (password.length >= 8) score += 1;
     if (password.length >= 14) score += 1;
@@ -197,10 +182,10 @@ export default function RegisterFillScreen({ route, navigation }) {
     if (/[0-9]/.test(password)) score += 0.5;
     if (/[^A-Za-z0-9]/.test(password)) score += 0.5;
 
-    if (score >= 3.5) return { label: 'Sehr sicher (Strong)', color: '#34d399', progress: 1 };
-    if (score >= 2.5) return { label: 'Sicher (Good)', color: '#60a5fa', progress: 0.75 };
+    if (score >= 3.5) return { label: 'Sehr sicher (Strong)', color: colors.success, progress: 1 };
+    if (score >= 2.5) return { label: 'Sicher (Good)', color: colors.gold, progress: 0.75 };
     if (score >= 1.5) return { label: 'Mittel (Fair)', color: '#fbbf24', progress: 0.5 };
-    return { label: 'Schwach (Weak)', color: '#f87171', progress: 0.25 };
+    return { label: 'Schwach (Weak)', color: colors.danger, progress: 0.25 };
   };
 
   const handleCreateCategory = async () => {
@@ -212,7 +197,7 @@ export default function RegisterFillScreen({ route, navigation }) {
       const created = updatedCats.find(c => c.name.toLowerCase() === cleanName.toLowerCase());
       if (created) setSelectedCategory(created.id);
       setNewCategoryName('');
-      setNewCategoryIcon('🏷️');
+      setNewCategoryIcon('tag');
       setShowCategoryModal(false);
     } catch (e) {}
   };
@@ -284,22 +269,14 @@ export default function RegisterFillScreen({ route, navigation }) {
 
       const encrypted = await encryptCredentials(payload, key);
 
-      const response = await fetch(`${SERVER_URL}/send-login`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Origin': 'https://flakesecure.snowystudio.dev'
-        },
-        body: JSON.stringify({ sid, payload: encrypted })
-      });
+      const res = await sendLogin(sid, encrypted);
 
-      if (!response.ok) {
-        throw new Error('Fehler beim Senden der Daten an den Browser');
+      if (res && res.error) {
+        throw new Error(res.error || 'Fehler beim Senden der Daten an den Browser');
       }
 
       Alert.alert(
-        'Erfolgreich ✓',
+        'Erfolgreich',
         `Zugangsdaten für ${domain} wurden sicher gespeichert und im Browser eingetragen.`,
         [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
       );
@@ -321,64 +298,78 @@ export default function RegisterFillScreen({ route, navigation }) {
   const hasHiddenExtraFields = hasSpecificSchema && (!isFieldDetected('username') || !isFieldDetected('phone') || !isFieldDetected('firstName'));
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backText}>‹ {t('common.back')}</Text>
+            <Text style={[styles.backText, { color: colors.gold }]}>‹ {t('common.back')}</Text>
           </TouchableOpacity>
 
-          <View style={styles.domainBadge}>
-            <Text style={styles.domainDot}>●</Text>
-            <Text style={styles.domainText}>{domain}</Text>
+          <View style={[styles.domainBadge, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+            <Text style={[styles.domainDot, { color: colors.gold }]}>●</Text>
+            <Text style={[styles.domainText, { color: colors.gold }]}>{domain}</Text>
           </View>
 
-          <Text style={styles.title}>{t('registerFill.title')}</Text>
-          <Text style={styles.subtitle}>{t('registerFill.subtitle')}</Text>
+          <Text style={[styles.title, { color: colors.textMain }]}>{t('registerFill.title')}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSub }]}>{t('registerFill.subtitle')}</Text>
 
           {hasSpecificSchema && (
-            <View style={styles.detectedFieldsPill}>
-              <Text style={styles.detectedFieldsText}>
-                ✨ Von {domain} gefordert: {detectedFields.map(f => f.label || f.key).join(', ')}
+            <View style={[styles.detectedFieldsPill, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Text style={[styles.detectedFieldsText, { color: colors.textSub }]}>
+                Von {domain} gefordert: {detectedFields.map(f => f.label || f.key).join(', ')}
               </Text>
             </View>
           )}
         </View>
 
-        <View style={styles.presetContainer}>
+        <View style={[styles.presetContainer, { backgroundColor: colors.inputBg }]}>
           <TouchableOpacity
-            style={[styles.presetTab, profileMode === 'default' && styles.presetTabActive]}
+            style={[
+              styles.presetTab,
+              profileMode === 'default' && [styles.presetTabActive, { backgroundColor: colors.goldBg, borderColor: colors.gold }]
+            ]}
             onPress={() => handleApplyPreset('default')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.presetTabText, profileMode === 'default' && styles.presetTabTextActive]}>
-              👤 {t('registerFill.standardProfile')}
+            <Text style={[
+              styles.presetTabText,
+              { color: profileMode === 'default' ? colors.gold : colors.textMuted },
+              profileMode === 'default' && { fontWeight: '700' }
+            ]}>
+              {t('registerFill.standardProfile')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.presetTab, profileMode === 'custom' && styles.presetTabActive]}
+            style={[
+              styles.presetTab,
+              profileMode === 'custom' && [styles.presetTabActive, { backgroundColor: colors.goldBg, borderColor: colors.gold }]
+            ]}
             onPress={() => handleApplyPreset('custom')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.presetTabText, profileMode === 'custom' && styles.presetTabTextActive]}>
-              ✏️ {t('registerFill.customProfile')}
+            <Text style={[
+              styles.presetTabText,
+              { color: profileMode === 'custom' ? colors.gold : colors.textMuted },
+              profileMode === 'custom' && { fontWeight: '700' }
+            ]}>
+              {t('registerFill.customProfile')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>{t('registerFill.accountDetails')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+          <Text style={[styles.cardSectionTitle, { color: colors.textMuted }]}>{t('registerFill.accountDetails')}</Text>
 
           {(showFirstNameInput || showLastNameInput) && (
             <View style={styles.row}>
               {showFirstNameInput && (
                 <View style={[styles.fieldGroup, { flex: 1 }]}>
-                  <Text style={styles.label}>Vorname</Text>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>Vorname</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                     placeholder="Max"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    placeholderTextColor={colors.textMuted}
                     value={firstName}
                     onChangeText={setFirstName}
                     autoCapitalize="words"
@@ -388,11 +379,11 @@ export default function RegisterFillScreen({ route, navigation }) {
 
               {showLastNameInput && (
                 <View style={[styles.fieldGroup, { flex: 1 }]}>
-                  <Text style={styles.label}>Nachname</Text>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>Nachname</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                     placeholder="Mustermann"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    placeholderTextColor={colors.textMuted}
                     value={lastName}
                     onChangeText={setLastName}
                     autoCapitalize="words"
@@ -404,11 +395,11 @@ export default function RegisterFillScreen({ route, navigation }) {
 
           {showEmailInput && (
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>E-Mail</Text>
+              <Text style={[styles.label, { color: colors.textMuted }]}>E-Mail</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                 placeholder="deine@email.de"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -420,11 +411,11 @@ export default function RegisterFillScreen({ route, navigation }) {
 
           {showUsernameInput && (
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Benutzername</Text>
+              <Text style={[styles.label, { color: colors.textMuted }]}>Benutzername</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                 placeholder="benutzername"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.textMuted}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -435,11 +426,11 @@ export default function RegisterFillScreen({ route, navigation }) {
 
           {showPhoneInput && (
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Telefonnummer</Text>
+              <Text style={[styles.label, { color: colors.textMuted }]}>Telefonnummer</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
                 placeholder="+49 170 1234567"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.textMuted}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
@@ -452,27 +443,27 @@ export default function RegisterFillScreen({ route, navigation }) {
               style={styles.toggleExtraBtn}
               onPress={() => setShowExtraFields(!showExtraFields)}
             >
-              <Text style={styles.toggleExtraText}>
-                {showExtraFields ? '▲ Weniger Felder anzeigen' : '➕ Weitere optionale Felder anzeigen'}
+              <Text style={[styles.toggleExtraText, { color: colors.gold }]}>
+                {showExtraFields ? '▲ Weniger Felder anzeigen' : '+ Weitere optionale Felder anzeigen'}
               </Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
           <View style={styles.passwordHeader}>
-            <Text style={styles.cardSectionTitle}>{t('registerFill.passwordSection')}</Text>
+            <Text style={[styles.cardSectionTitle, { color: colors.textMuted }]}>{t('registerFill.passwordSection')}</Text>
             <TouchableOpacity
-              style={styles.generateBtn}
+              style={[styles.generateBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
               onPress={() => handleRegeneratePassword()}
             >
-              <Text style={styles.generateBtnText}>🎲 {t('registerFill.regenerate')}</Text>
+              <Text style={[styles.generateBtnText, { color: colors.gold }]}>{t('registerFill.regenerate')}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.passwordRow}>
             <TextInput
-              style={[styles.input, styles.passwordInput]}
+              style={[styles.input, styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -480,15 +471,15 @@ export default function RegisterFillScreen({ route, navigation }) {
               autoCorrect={false}
             />
             <TouchableOpacity
-              style={styles.iconBtn}
+              style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
               onPress={() => setShowPassword(!showPassword)}
             >
-              <Text style={styles.iconBtnText}>{showPassword ? '🙈' : '👁'}</Text>
+              <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.strengthContainer}>
-            <View style={styles.strengthBarBg}>
+            <View style={[styles.strengthBarBg, { backgroundColor: colors.border }]}>
               <View style={[styles.strengthBarFill, { width: `${strength.progress * 100}%`, backgroundColor: strength.color }]} />
             </View>
             <Text style={[styles.strengthText, { color: strength.color }]}>{strength.label}</Text>
@@ -498,25 +489,33 @@ export default function RegisterFillScreen({ route, navigation }) {
             style={styles.toggleSettingsBtn}
             onPress={() => setShowGeneratorOptions(!showGeneratorOptions)}
           >
-            <Text style={styles.toggleSettingsText}>
-              ⚙️ {t('registerFill.generatorSettings')} {showGeneratorOptions ? '▲' : '▼'}
+            <Text style={[styles.toggleSettingsText, { color: colors.gold }]}>
+              {t('registerFill.generatorSettings')} {showGeneratorOptions ? '▲' : '▼'}
             </Text>
           </TouchableOpacity>
 
           {showGeneratorOptions && (
-            <View style={styles.generatorOptionsBox}>
-              <Text style={styles.optionSectionLabel}>Länge: {pwLength} Zeichen</Text>
+            <View style={[styles.generatorOptionsBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Text style={[styles.optionSectionLabel, { color: colors.textSub }]}>Länge: {pwLength} Zeichen</Text>
               <View style={styles.lengthChipsRow}>
                 {[12, 16, 20, 24, 32].map((len) => (
                   <TouchableOpacity
                     key={len}
-                    style={[styles.lengthChip, pwLength === len && styles.lengthChipActive]}
+                    style={[
+                      styles.lengthChip,
+                      { backgroundColor: colors.cardBg, borderColor: colors.border },
+                      pwLength === len && { backgroundColor: colors.gold, borderColor: colors.gold }
+                    ]}
                     onPress={() => {
                       setPwLength(len);
                       handleRegeneratePassword(len);
                     }}
                   >
-                    <Text style={[styles.lengthChipText, pwLength === len && styles.lengthChipTextActive]}>
+                    <Text style={[
+                      styles.lengthChipText,
+                      { color: colors.textSub },
+                      pwLength === len && { color: '#ffffff', fontWeight: '800' }
+                    ]}>
                       {len}
                     </Text>
                   </TouchableOpacity>
@@ -524,53 +523,61 @@ export default function RegisterFillScreen({ route, navigation }) {
               </View>
 
               <View style={styles.optionRow}>
-                <Text style={styles.optionLabel}>Großbuchstaben (A-Z)</Text>
+                <Text style={[styles.optionLabel, { color: colors.textSub }]}>Großbuchstaben (A-Z)</Text>
                 <Switch
                   value={pwUpper}
                   onValueChange={(val) => { setPwUpper(val); handleRegeneratePassword(pwLength, { upper: val, lower: pwLower, nums: pwNums, syms: pwSymbols }); }}
-                  trackColor={{ false: '#222', true: '#6391ff' }}
+                  trackColor={{ false: colors.border, true: colors.gold }}
                 />
               </View>
 
               <View style={styles.optionRow}>
-                <Text style={styles.optionLabel}>Kleinbuchstaben (a-z)</Text>
+                <Text style={[styles.optionLabel, { color: colors.textSub }]}>Kleinbuchstaben (a-z)</Text>
                 <Switch
                   value={pwLower}
                   onValueChange={(val) => { setPwLower(val); handleRegeneratePassword(pwLength, { upper: pwUpper, lower: val, nums: pwNums, syms: pwSymbols }); }}
-                  trackColor={{ false: '#222', true: '#6391ff' }}
+                  trackColor={{ false: colors.border, true: colors.gold }}
                 />
               </View>
 
               <View style={styles.optionRow}>
-                <Text style={styles.optionLabel}>Zahlen (0-9)</Text>
+                <Text style={[styles.optionLabel, { color: colors.textSub }]}>Zahlen (0-9)</Text>
                 <Switch
                   value={pwNums}
                   onValueChange={(val) => { setPwNums(val); handleRegeneratePassword(pwLength, { upper: pwUpper, lower: pwLower, nums: val, syms: pwSymbols }); }}
-                  trackColor={{ false: '#222', true: '#6391ff' }}
+                  trackColor={{ false: colors.border, true: colors.gold }}
                 />
               </View>
 
               <View style={styles.optionRow}>
-                <Text style={styles.optionLabel}>Sonderzeichen (!@#$...)</Text>
+                <Text style={[styles.optionLabel, { color: colors.textSub }]}>Sonderzeichen (!@#$...)</Text>
                 <Switch
                   value={pwSymbols}
                   onValueChange={(val) => { setPwSymbols(val); handleRegeneratePassword(pwLength, { upper: pwUpper, lower: pwLower, nums: pwNums, syms: val }); }}
-                  trackColor={{ false: '#222', true: '#6391ff' }}
+                  trackColor={{ false: colors.border, true: colors.gold }}
                 />
               </View>
             </View>
           )}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>{t('credentials.categoryLabel')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+          <Text style={[styles.cardSectionTitle, { color: colors.textMuted }]}>{t('credentials.categoryLabel')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
             <TouchableOpacity
-              style={[styles.categoryChip, !selectedCategory && styles.categoryChipActive]}
+              style={[
+                styles.categoryChip,
+                { backgroundColor: colors.inputBg, borderColor: colors.border },
+                !selectedCategory && { backgroundColor: colors.goldBg, borderColor: colors.gold }
+              ]}
               onPress={() => setSelectedCategory(null)}
             >
-              <Text style={styles.categoryChipIcon}>🚫</Text>
-              <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextActive]}>
+              <AppIcon name="close" size={12} color={!selectedCategory ? colors.gold : colors.textMuted} />
+              <Text style={[
+                styles.categoryChipText,
+                { color: colors.textSub },
+                !selectedCategory && { color: colors.gold, fontWeight: '700' }
+              ]}>
                 {t('credentials.categoryNone')}
               </Text>
             </TouchableOpacity>
@@ -581,11 +588,19 @@ export default function RegisterFillScreen({ route, navigation }) {
               return (
                 <TouchableOpacity
                   key={cat.id}
-                  style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                  style={[
+                    styles.categoryChip,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border },
+                    isSelected && { backgroundColor: colors.goldBg, borderColor: colors.gold }
+                  ]}
                   onPress={() => setSelectedCategory(cat.id)}
                 >
-                  <Text style={styles.categoryChipIcon}>{cat.icon || '🏷️'}</Text>
-                  <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
+                  <CategoryIcon name={cat.icon || 'tag'} size={14} color={isSelected ? colors.gold : colors.textSub} />
+                  <Text style={[
+                    styles.categoryChipText,
+                    { color: colors.textSub },
+                    isSelected && { color: colors.gold, fontWeight: '700' }
+                  ]}>
                     {displayName}
                   </Text>
                 </TouchableOpacity>
@@ -593,11 +608,11 @@ export default function RegisterFillScreen({ route, navigation }) {
             })}
 
             <TouchableOpacity
-              style={styles.newCategoryChip}
+              style={[styles.newCategoryChip, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
               onPress={() => setShowCategoryModal(true)}
             >
-              <Text style={styles.newCategoryChipIcon}>➕</Text>
-              <Text style={styles.newCategoryChipText}>{t('credentials.addCategoryBtn')}</Text>
+              <AppIcon name="plus" size={12} color={colors.gold} />
+              <Text style={[styles.newCategoryChipText, { color: colors.gold }]}>{t('credentials.addCategoryBtn')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -609,16 +624,16 @@ export default function RegisterFillScreen({ route, navigation }) {
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={submitting ? ['#333', '#444'] : ['#6391ff', '#7c6aff']}
+            colors={submitting ? ['#333', '#444'] : colors.goldGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.submitGradient}
           >
             {submitting ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color="#ffffff" size="small" />
             ) : (
               <Text style={styles.submitBtnText}>
-                🔒 {t('registerFill.saveAndFill')}
+                {t('registerFill.saveAndFill')}
               </Text>
             )}
           </LinearGradient>
@@ -632,47 +647,54 @@ export default function RegisterFillScreen({ route, navigation }) {
         onRequestClose={() => setShowCategoryModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('categories.newCategory')}</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.textMain }]}>{t('categories.newCategory')}</Text>
             
-            <Text style={styles.modalLabel}>{t('categories.categoryName')}</Text>
+            <Text style={[styles.modalLabel, { color: colors.textMuted }]}>{t('categories.categoryName')}</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
               placeholder={t('categories.categoryNamePlaceholder')}
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor={colors.textMuted}
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               autoCapitalize="words"
             />
 
-            <Text style={styles.modalLabel}>{t('categories.selectIcon')}</Text>
+            <Text style={[styles.modalLabel, { color: colors.textMuted }]}>{t('categories.selectIcon')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconPickerScroll}>
               <View style={styles.iconPickerRow}>
-                {AVAILABLE_ICONS.map((icon) => (
-                  <TouchableOpacity
-                    key={icon}
-                    style={[styles.iconOption, newCategoryIcon === icon && styles.iconOptionSelected]}
-                    onPress={() => setNewCategoryIcon(icon)}
-                  >
-                    <Text style={styles.iconOptionText}>{icon}</Text>
-                  </TouchableOpacity>
-                ))}
+                {AVAILABLE_CATEGORY_ICONS.map((iconKey) => {
+                  const isSelected = newCategoryIcon === iconKey;
+                  return (
+                    <TouchableOpacity
+                      key={iconKey}
+                      style={[
+                        styles.iconOption,
+                        { backgroundColor: colors.inputBg, borderColor: colors.border },
+                        isSelected && { backgroundColor: colors.goldBg, borderColor: colors.gold }
+                      ]}
+                      onPress={() => setNewCategoryIcon(iconKey)}
+                    >
+                      <CategoryIcon name={iconKey} size={18} color={isSelected ? colors.gold : colors.textSub} />
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </ScrollView>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
+                style={[styles.modalCancelBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setShowCategoryModal(false)}
               >
-                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
+                <Text style={[styles.modalCancelText, { color: colors.textSub }]}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalSaveBtn}
                 onPress={handleCreateCategory}
               >
                 <LinearGradient
-                  colors={['#6391ff', '#7c6aff']}
+                  colors={colors.goldGradient}
                   style={styles.modalSaveGradient}
                 >
                   <Text style={styles.modalSaveText}>{t('save')}</Text>
@@ -687,161 +709,138 @@ export default function RegisterFillScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#090b14' },
+  container: { flex: 1 },
   scroll: { padding: 20, paddingBottom: 48 },
   header: { marginBottom: 20 },
   backBtn: { marginBottom: 14 },
-  backText: { color: '#6391ff', fontSize: 16 },
+  backText: { fontSize: 15, fontWeight: '700' },
   domainBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(99,145,255,0.12)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.25)',
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4,
+    borderWidth: 1,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
     alignSelf: 'flex-start', marginBottom: 10
   },
-  domainDot: { color: '#6391ff', fontSize: 10 },
-  domainText: { color: '#8eb0ff', fontSize: 13, fontWeight: '600' },
-  title: { fontSize: 26, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 4 },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 18 },
+  domainDot: { fontSize: 10 },
+  domainText: { fontSize: 13, fontWeight: '700' },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, marginBottom: 4 },
+  subtitle: { fontSize: 13, lineHeight: 18 },
 
   detectedFieldsPill: {
-    backgroundColor: 'rgba(99,145,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.2)',
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 1,
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
     marginTop: 12
   },
-  detectedFieldsText: { fontSize: 12, color: '#8eb0ff', fontWeight: '500' },
+  detectedFieldsText: { fontSize: 12, fontWeight: '500' },
 
   presetContainer: {
-    flexDirection: 'row', gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 14, padding: 4, marginBottom: 18
+    flexDirection: 'row', gap: 8,
+    borderRadius: 8, padding: 4, marginBottom: 16
   },
-  presetTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-  presetTabActive: { backgroundColor: 'rgba(99,145,255,0.2)', borderWidth: 1, borderColor: '#6391ff' },
-  presetTabText: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
-  presetTabTextActive: { color: '#fff', fontWeight: '700' },
+  presetTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 6 },
+  presetTabActive: { borderWidth: 1 },
+  presetTabText: { fontSize: 13, fontWeight: '600' },
 
   card: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 16, padding: 18, marginBottom: 18
+    borderWidth: 1,
+    borderRadius: 10, padding: 18, marginBottom: 16
   },
-  cardSectionTitle: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 0.08, marginBottom: 14 },
+  cardSectionTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 14 },
 
   fieldGroup: { marginBottom: 12 },
-  label: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.45)', marginBottom: 6, textTransform: 'uppercase' },
+  label: { fontSize: 11, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    color: '#fff', fontSize: 15
+    borderWidth: 1,
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14
   },
   row: { flexDirection: 'row', gap: 10 },
 
   toggleExtraBtn: { marginTop: 8, paddingVertical: 6 },
-  toggleExtraText: { color: '#6391ff', fontSize: 12, fontWeight: '600' },
+  toggleExtraText: { fontSize: 12, fontWeight: '700' },
 
   passwordHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   generateBtn: {
-    backgroundColor: 'rgba(99,145,255,0.15)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.3)',
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6
+    borderWidth: 1,
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6
   },
-  generateBtnText: { color: '#6391ff', fontSize: 12, fontWeight: '600' },
-  passwordRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  generateBtnText: { fontSize: 12, fontWeight: '700' },
+  passwordRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   passwordInput: { flex: 1 },
   iconBtn: {
-    width: 48, height: 48, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    width: 44, height: 44, borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center', justifyContent: 'center'
   },
-  iconBtnText: { fontSize: 18 },
 
   strengthContainer: { marginTop: 10, gap: 6 },
-  strengthBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' },
+  strengthBarBg: { height: 4, borderRadius: 2, overflow: 'hidden' },
   strengthBarFill: { height: '100%', borderRadius: 2 },
   strengthText: { fontSize: 11, fontWeight: '600' },
 
   toggleSettingsBtn: { marginTop: 14, alignSelf: 'flex-start' },
-  toggleSettingsText: { color: '#6391ff', fontSize: 12, fontWeight: '600' },
+  toggleSettingsText: { fontSize: 12, fontWeight: '700' },
 
   generatorOptionsBox: {
-    marginTop: 12, backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
+    marginTop: 12,
+    borderRadius: 8, padding: 14, borderWidth: 1,
   },
-  optionSectionLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '600', marginBottom: 8 },
+  optionSectionLabel: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
   lengthChipsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   lengthChip: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)'
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6,
+    borderWidth: 1,
   },
-  lengthChipActive: { backgroundColor: '#6391ff', borderColor: '#6391ff' },
-  lengthChipText: { fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-  lengthChipTextActive: { color: '#fff', fontWeight: '700' },
+  lengthChipText: { fontSize: 12, fontWeight: '600' },
   optionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
-  optionLabel: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
+  optionLabel: { fontSize: 13 },
 
   categoryScroll: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   categoryChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12
+    borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8
   },
-  categoryChipActive: { backgroundColor: 'rgba(99,145,255,0.16)', borderColor: '#6391ff' },
-  categoryChipIcon: { fontSize: 14 },
-  categoryChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
-  categoryChipTextActive: { color: '#fff', fontWeight: '700' },
+  categoryChipText: { fontSize: 12 },
   newCategoryChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(99,145,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.3)', borderStyle: 'dashed',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12
+    borderWidth: 1, borderStyle: 'dashed',
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8
   },
-  newCategoryChipIcon: { fontSize: 12, color: '#6391ff' },
-  newCategoryChipText: { fontSize: 13, color: '#6391ff', fontWeight: '600' },
+  newCategoryChipText: { fontSize: 12, fontWeight: '700' },
 
-  submitBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 8 },
-  submitGradient: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
-  submitBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  submitBtn: { borderRadius: 8, overflow: 'hidden', marginTop: 8 },
+  submitGradient: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  submitBtnText: { fontSize: 15, fontWeight: '800', color: '#ffffff' },
 
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center', alignItems: 'center', padding: 20
   },
   modalContent: {
-    width: '100%', maxWidth: 360, backgroundColor: '#121624',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.25)',
-    borderRadius: 20, padding: 24
+    width: '100%', maxWidth: 360,
+    borderWidth: 1, borderRadius: 10, padding: 20
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 16, textAlign: 'center' },
-  modalLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 8 },
+  modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 14, textAlign: 'center' },
+  modalLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6 },
   modalInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    color: '#fff', fontSize: 15, marginBottom: 16
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, marginBottom: 14
   },
-  iconPickerScroll: { marginBottom: 20 },
+  iconPickerScroll: { marginBottom: 16 },
   iconPickerRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   iconOption: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    width: 40, height: 40, borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center', justifyContent: 'center'
   },
-  iconOptionSelected: { backgroundColor: 'rgba(99,145,255,0.2)', borderColor: '#6391ff' },
-  iconOptionText: { fontSize: 20 },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
   modalCancelBtn: {
-    flex: 1, paddingVertical: 14, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    flex: 1, paddingVertical: 12, borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center', justifyContent: 'center'
   },
-  modalCancelText: { color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '600' },
-  modalSaveBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
-  modalSaveGradient: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-  modalSaveText: { color: '#fff', fontSize: 15, fontWeight: '700' }
+  modalCancelText: { fontSize: 14, fontWeight: '600' },
+  modalSaveBtn: { flex: 1, borderRadius: 8, overflow: 'hidden' },
+  modalSaveGradient: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  modalSaveText: { color: '#ffffff', fontSize: 14, fontWeight: '800' }
 });

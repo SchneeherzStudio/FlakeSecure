@@ -33,6 +33,7 @@
  */
 
 const express = require('express');
+const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
@@ -41,18 +42,35 @@ const { sendDeletionNoticeEmail } = require('../utils/email');
 const router = express.Router();
 
 router.delete('/delete', authMiddleware, async (req, res) => {
-    const { otpToken } = req.body || {};
-    const requireOtp = req.headers['x-require-otp'] === 'true';
+    const { otpToken, password } = req.body || {};
 
-    if (requireOtp || otpToken) {
+    let authorized = false;
+    if (otpToken) {
         try {
             const decoded = jwt.verify(otpToken, process.env.JWT_SECRET);
-            if (decoded.email !== req.user.email || decoded.purpose !== 'delete' || !decoded.verified) {
-                return res.status(400).json({ error: 'Invalid or expired OTP token for account deletion' });
+            if (decoded.email === req.user.email && decoded.purpose === 'delete' && decoded.verified) {
+                authorized = true;
             }
         } catch (otpErr) {
-            return res.status(400).json({ error: 'Email OTP verification required to delete account' });
+            // invalid OTP token
         }
+    }
+
+    if (!authorized && password) {
+        try {
+            const userRes = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+            if (userRes.rows.length > 0 && (await argon2.verify(userRes.rows[0].password_hash, password))) {
+                authorized = true;
+            }
+        } catch (pwdErr) {
+            console.error('Password check error:', pwdErr);
+        }
+    }
+
+    if (!authorized) {
+        return res.status(400).json({ 
+            error: 'Valid email OTP verification or password confirmation required to delete account' 
+        });
     }
 
     try {

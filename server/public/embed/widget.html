@@ -6,20 +6,20 @@
   <title>FlakeSecure Login Widget</title>
   <style>
     :root {
-      --fs-bg: #0d101d;
-      --fs-card-bg: rgba(22, 27, 46, 0.95);
-      --fs-card-border: rgba(99, 145, 255, 0.25);
+      --fs-bg: #07090e;
+      --fs-card-bg: #090b14;
+      --fs-card-border: rgba(232, 176, 32, 0.22);
       --fs-text-main: #ffffff;
       --fs-text-sub: rgba(255, 255, 255, 0.65);
-      --fs-accent-1: #6391ff;
-      --fs-accent-2: #8b5cf6;
-      --fs-gradient: linear-gradient(135deg, #6391ff, #8b5cf6);
-      --fs-success: #10b981;
-      --fs-error: #ef4444;
+      --fs-accent-1: #E8B020;
+      --fs-accent-2: #C9930A;
+      --fs-gradient: linear-gradient(135deg, #E8B020, #C9930A);
+      --fs-success: #4ADE80;
+      --fs-error: #EF4444;
       --fs-qr-bg: #ffffff;
-      --fs-badge-bg: rgba(99, 145, 255, 0.12);
-      --fs-badge-text: #8eb0ff;
-      --fs-badge-border: rgba(99, 145, 255, 0.28);
+      --fs-badge-bg: rgba(232, 176, 32, 0.12);
+      --fs-badge-text: #FDE68A;
+      --fs-badge-border: rgba(232, 176, 32, 0.28);
     }
 
     /* Light Theme */
@@ -29,13 +29,15 @@
       --fs-card-border: #e2e8f0;
       --fs-text-main: #0f172a;
       --fs-text-sub: #64748b;
-      --fs-accent-1: #4f46e5;
-      --fs-accent-2: #7c3aed;
-      --fs-gradient: linear-gradient(135deg, #4f46e5, #7c3aed);
+      --fs-accent-1: #D97706;
+      --fs-accent-2: #B45309;
+      --fs-gradient: linear-gradient(135deg, #D97706, #B45309);
       --fs-qr-bg: #ffffff;
-      --fs-badge-bg: #eef2ff;
-      --fs-badge-text: #4338ca;
-      --fs-badge-border: #c7d2fe;
+      --fs-badge-bg: #fef3c7;
+      --fs-badge-text: #92400e;
+      --fs-badge-border: #fcd34d;
+      --fs-success: #16A34A;
+      --fs-error: #DC2626;
     }
 
     * {
@@ -62,11 +64,11 @@
       max-width: 360px;
       background: var(--fs-card-bg);
       border: 1px solid var(--fs-card-border);
-      border-radius: 20px;
+      border-radius: 8px;
       padding: 22px 20px;
       text-align: center;
       position: relative;
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       transition: all 0.3s ease;
@@ -75,7 +77,7 @@
     /* Compact mode */
     body.fs-compact .fs-widget-card {
       padding: 14px 14px;
-      border-radius: 14px;
+      border-radius: 8px;
     }
 
     .fs-header {
@@ -90,17 +92,18 @@
       width: 28px;
       height: 28px;
       background: var(--fs-gradient);
-      border-radius: 8px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 3px 10px rgba(99, 145, 255, 0.35);
+      box-shadow: 0 3px 10px rgba(232, 176, 32, 0.25);
     }
 
     .fs-logo-icon svg {
       width: 16px;
       height: 16px;
-      fill: #ffffff;
+      stroke: #07090e;
+      fill: none;
     }
 
     .fs-title {
@@ -125,7 +128,7 @@
       font-size: 11px;
       font-weight: 600;
       padding: 3px 9px;
-      border-radius: 12px;
+      border-radius: 6px;
       margin-top: 4px;
       margin-bottom: 14px;
       max-width: 90%;
@@ -147,7 +150,7 @@
       position: relative;
       background: var(--fs-qr-bg);
       padding: 12px;
-      border-radius: 16px;
+      border-radius: 8px;
       display: inline-block;
       margin: 0 auto 14px auto;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
@@ -162,10 +165,10 @@
       border-style: solid;
       pointer-events: none;
     }
-    .fs-c-tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
-    .fs-c-tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
-    .fs-c-bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
-    .fs-c-br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
+    .fs-c-tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-top-left-radius: 4px; }
+    .fs-c-tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-top-right-radius: 4px; }
+    .fs-c-bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-bottom-left-radius: 4px; }
+    .fs-c-br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-bottom-right-radius: 4px; }
 
     #fs-qrcode {
       display: flex;
@@ -177,7 +180,7 @@
 
     #fs-qrcode img, #fs-qrcode canvas, #fs-qrcode svg {
       display: block;
-      border-radius: 8px;
+      border-radius: 6px;
     }
 
     .fs-status-box {
@@ -194,7 +197,7 @@
     .fs-spinner {
       width: 14px;
       height: 14px;
-      border: 2px solid rgba(99, 145, 255, 0.25);
+      border: 2px solid rgba(232, 176, 32, 0.25);
       border-top-color: var(--fs-accent-1);
       border-radius: 50%;
       animation: fsSpin 0.9s linear infinite;
@@ -215,7 +218,7 @@
     .fs-step-pill {
       font-size: 11px;
       padding: 3px 8px;
-      border-radius: 10px;
+      border-radius: 6px;
       background: rgba(255, 255, 255, 0.06);
       color: var(--fs-text-sub);
       transition: all 0.2s;
@@ -238,14 +241,14 @@
       justify-content: center;
       gap: 6px;
       background: var(--fs-gradient);
-      color: #ffffff;
+      color: #07090e;
       text-decoration: none;
       font-size: 12px;
-      font-weight: 600;
-      padding: 7px 14px;
-      border-radius: 10px;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 6px;
       margin-top: 2px;
-      box-shadow: 0 4px 12px rgba(99, 145, 255, 0.3);
+      box-shadow: 0 4px 12px rgba(232, 176, 32, 0.25);
       cursor: pointer;
       border: none;
       transition: transform 0.15s, opacity 0.15s;
@@ -260,8 +263,8 @@
     .fs-expired-overlay {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(13, 16, 29, 0.92);
-      border-radius: 20px;
+      background: rgba(7, 9, 14, 0.94);
+      border-radius: 8px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -280,15 +283,15 @@
 
     .fs-refresh-btn {
       background: var(--fs-gradient);
-      color: #fff;
+      color: #07090e;
       border: none;
       padding: 10px 20px;
-      border-radius: 12px;
-      font-weight: 600;
+      border-radius: 6px;
+      font-weight: 700;
       font-size: 14px;
       cursor: pointer;
       margin-top: 10px;
-      box-shadow: 0 4px 14px rgba(99, 145, 255, 0.4);
+      box-shadow: 0 4px 14px rgba(232, 176, 32, 0.3);
     }
 
     /* Success checkmark animation */
@@ -296,7 +299,7 @@
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
       background: var(--fs-card-bg);
-      border-radius: 20px;
+      border-radius: 8px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -314,17 +317,18 @@
     }
 
     .fs-check-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
       background: var(--fs-success);
-      color: #fff;
+      color: #07090e;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      font-size: 24px;
+      font-weight: 800;
       margin-bottom: 12px;
-      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+      box-shadow: 0 6px 20px rgba(74, 222, 128, 0.3);
       animation: fsPopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
@@ -334,7 +338,11 @@
     }
 
     .fs-footer-text {
-      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 11px;
       color: var(--fs-text-sub);
       margin-top: 10px;
       letter-spacing: 0.2px;
@@ -372,7 +380,7 @@
 
     <div class="fs-status-box" id="fs-status">
       <div class="fs-spinner" id="fs-spinner"></div>
-      <span id="fs-status-text">Warte auf Scan…</span>
+      <span id="fs-status-text">Warte auf Scan:</span>
     </div>
 
     <div class="fs-steps">
@@ -392,12 +400,13 @@
     </div>
 
     <div class="fs-footer-text">
-      🔒 Zero-Knowledge Ende-zu-Ende verschlüsselt
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>Zero-Knowledge Ende-zu-Ende verschlüsselt</span>
     </div>
 
     <!-- Expired Overlay -->
     <div class="fs-expired-overlay" id="fs-expired">
-      <div style="font-size:32px;margin-bottom:8px;">⏳</div>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E8B020" stroke-width="2" style="margin-bottom:8px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <h3 style="font-size:16px;margin-bottom:6px;" id="fs-expired-title">Sitzung abgelaufen</h3>
       <p style="font-size:12px;color:var(--fs-text-sub);margin-bottom:14px;" id="fs-expired-desc">Aus Sicherheitsgründen laufen QR-Codes nach 5 Minuten ab.</p>
       <button class="fs-refresh-btn" id="fs-refresh-btn">Neuen Code laden</button>
@@ -405,7 +414,7 @@
 
     <!-- Success Overlay -->
     <div class="fs-success-overlay" id="fs-success">
-      <div class="fs-check-icon">✓</div>
+      <div class="fs-check-icon"></div>
       <h3 style="font-size:16px;margin-bottom:4px;" id="fs-success-title">Erfolgreich angemeldet!</h3>
       <p style="font-size:12px;color:var(--fs-text-sub);" id="fs-success-desc">Daten werden übertragen…</p>
     </div>
@@ -430,7 +439,7 @@
           refreshBtn: 'Neuen Code laden',
           successTitle: 'Erfolgreich autorisiert!',
           successDesc: 'Anmeldedaten werden sicher ausgefüllt…',
-          zkFooter: '🔒 Zero-Knowledge Ende-zu-Ende verschlüsselt'
+          zkFooter: 'Zero-Knowledge Ende-zu-Ende verschlüsselt'
         },
         en: {
           waiting: 'Waiting for scan…',
@@ -445,7 +454,7 @@
           refreshBtn: 'Generate new code',
           successTitle: 'Successfully Authorized!',
           successDesc: 'Filling login credentials safely…',
-          zkFooter: '🔒 Zero-Knowledge End-to-End Encrypted'
+          zkFooter: 'Zero-Knowledge End-to-End Encrypted'
         },
         fr: {
           waiting: 'En attente du scan…',
@@ -460,7 +469,7 @@
           refreshBtn: 'Nouveau code',
           successTitle: 'Autorisation réussie !',
           successDesc: 'Remplissage sécurisé des identifiants…',
-          zkFooter: '🔒 Chiffrement de bout en bout Zero-Knowledge'
+          zkFooter: 'Chiffrement de bout en bout Zero-Knowledge'
         },
         es: {
           waiting: 'Esperando escaneo…',
@@ -475,7 +484,7 @@
           refreshBtn: 'Generar nuevo código',
           successTitle: '¡Autorizado con éxito!',
           successDesc: 'Rellenando credenciales de forma segura…',
-          zkFooter: '🔒 Cifrado de extremo a extremo Zero-Knowledge'
+          zkFooter: 'Cifrado de extremo a extremo Zero-Knowledge'
         }
       };
 
@@ -656,9 +665,18 @@
               action: decrypted.action || 'login'
             };
 
-            // Post to parent window (both wildcard for compatibility and specific origin if available)
+            // Determine target origin for postMessage
+            let targetOrigin = '*';
+            try {
+              if (document.referrer) {
+                targetOrigin = new URL(document.referrer).origin;
+              } else if (params.get('origin')) {
+                targetOrigin = params.get('origin');
+              }
+            } catch (_) {}
+
             if (window.parent && window.parent !== window) {
-              window.parent.postMessage(messagePayload, '*');
+              window.parent.postMessage(messagePayload, targetOrigin);
             }
           }
         });
@@ -667,11 +685,15 @@
         socket.on('totp-data', async (payload) => {
           const decrypted = await decryptData(payload, currentKeyHex);
           if (decrypted && decrypted.code && window.parent && window.parent !== window) {
+            let targetOrigin = '*';
+            try {
+              if (document.referrer) targetOrigin = new URL(document.referrer).origin;
+            } catch (_) {}
             window.parent.postMessage({
               type: 'FLAKESECURE_TOTP_DATA',
               source: 'flakesecure-embed',
               code: decrypted.code
-            }, '*');
+            }, targetOrigin);
           }
         });
 

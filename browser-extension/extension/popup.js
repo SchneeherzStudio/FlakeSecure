@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Browser Extension Popup Script (Chrome / Chromium) v2.0.0
+ * FlakeSecure - Browser Extension Popup Script (Chrome / Chromium) v2.0.1
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & WORKFLOW:
@@ -9,7 +9,11 @@
  *    - Loads and persists displayMode, autoLogin, autoOverlay, and app_language from chrome.storage.
  *    - Updates popup UI text dynamically based on selected language (EN, DE, FR, ES).
  * 
- * 2. AUTHENTICATION & SESSION HANDLING:
+ * 2. THEME ENGINE:
+ *    - Detects OS prefers-color-scheme by default.
+ *    - Manual toggle persisted in chrome.storage.local (ext_theme).
+ * 
+ * 3. AUTHENTICATION & SESSION HANDLING:
  *    - updateAuthUI(user): Toggles between login form and authenticated profile state.
  *    - Login handler: Calls /api/auth/login, stores JWT token and user info in chrome.storage.local.
  *    - Logout handler: Calls /api/auth/logout and clears local auth storage.
@@ -26,14 +30,14 @@ const EXT_I18N = {
     logoutBtn: "Log Out",
     statusLabel: "Status",
     statusReady: "Ready",
-    statusSaved: "Saved ✓",
+    statusSaved: "Saved [OK]",
     displayModeLabel: "Display Mode",
     modePopup: "Open Popup directly",
     modeButton: 'Show "FlakeSecure" Button',
     autoLogin: "Auto-Login",
     autoOverlay: "Overlay on password field",
     encryption: "Encryption",
-    footer: "FlakeSecure – Biometric Security",
+    footer: "FlakeSecure: Biometric Security",
     fillAllFields: "Please fill in all fields",
     loginError: "Login failed"
   },
@@ -46,14 +50,14 @@ const EXT_I18N = {
     logoutBtn: "Abmelden",
     statusLabel: "Status",
     statusReady: "Bereit",
-    statusSaved: "Gespeichert ✓",
+    statusSaved: "Gespeichert [OK]",
     displayModeLabel: "Anzeige-Modus",
     modePopup: "Direkt Popup öffnen",
     modeButton: '"FlakeSecure" Button anzeigen',
     autoLogin: "Auto-Login",
     autoOverlay: "Overlay bei Passwortfeld",
     encryption: "Verschlüsselung",
-    footer: "FlakeSecure – Biometrische Sicherheit",
+    footer: "FlakeSecure: Biometrische Sicherheit",
     fillAllFields: "Bitte alle Felder ausfüllen",
     loginError: "Anmeldung fehlgeschlagen"
   },
@@ -66,14 +70,14 @@ const EXT_I18N = {
     logoutBtn: "Déconnexion",
     statusLabel: "Statut",
     statusReady: "Prêt",
-    statusSaved: "Enregistré ✓",
+    statusSaved: "Enregistré [OK]",
     displayModeLabel: "Mode d'affichage",
     modePopup: "Ouvrir directement le popup",
     modeButton: 'Afficher le bouton "FlakeSecure"',
     autoLogin: "Connexion automatique",
     autoOverlay: "Superposition sur le mot de passe",
     encryption: "Chiffrement",
-    footer: "FlakeSecure – Sécurité Biométrique",
+    footer: "FlakeSecure: Sécurité Biométrique",
     fillAllFields: "Veuillez remplir tous les champs",
     loginError: "Échec de connexion"
   },
@@ -86,14 +90,14 @@ const EXT_I18N = {
     logoutBtn: "Cerrar sesión",
     statusLabel: "Estado",
     statusReady: "Listo",
-    statusSaved: "Guardado ✓",
+    statusSaved: "Guardado [OK]",
     displayModeLabel: "Modo de visualización",
     modePopup: "Abrir ventana emergente directamente",
     modeButton: 'Mostrar botón "FlakeSecure"',
     autoLogin: "Auto-Login",
     autoOverlay: "Superposición en campo de contraseña",
     encryption: "Cifrado",
-    footer: "FlakeSecure – Seguridad Biométrica",
+    footer: "FlakeSecure: Seguridad Biométrica",
     fillAllFields: "Por favor, completa todos los campos",
     loginError: "Error de inicio de sesión"
   }
@@ -161,6 +165,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const autoOverlayToggle = document.getElementById('auto-overlay');
   const statusMsg = document.getElementById('status-msg');
   const langSelect = document.getElementById('ext-lang-select');
+  const themeToggleBtn = document.getElementById('ext-theme-toggle');
+  const sunIcon = document.getElementById('theme-icon-sun');
+  const moonIcon = document.getElementById('theme-icon-moon');
+
+  // Theme Initializer
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'light') {
+      if (sunIcon) sunIcon.style.display = 'block';
+      if (moonIcon) moonIcon.style.display = 'none';
+    } else {
+      if (sunIcon) sunIcon.style.display = 'none';
+      if (moonIcon) moonIcon.style.display = 'block';
+    }
+  }
+
+  chrome.storage.local.get(['ext_theme'], (res) => {
+    let activeTheme = res.ext_theme;
+    if (!activeTheme) {
+      activeTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    applyTheme(activeTheme);
+  });
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      applyTheme(nextTheme);
+      chrome.storage.local.set({ ext_theme: nextTheme });
+    });
+  }
 
   chrome.storage.sync.get(['displayMode', 'autoLogin', 'autoOverlay', 'app_language'], (result) => {
     if (result.displayMode === 'button') {

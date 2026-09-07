@@ -2,17 +2,6 @@
  * ============================================================================
  * FlakeSecure Mobile App - Login Confirmation Screen (ConfirmScreen)
  * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. INITIALIZATION & CREDENTIAL LOOKUP:
- *    - init(): Identifies supported biometric methods (Face ID / Touch ID / Biometrics) and queries stored credentials matching the target domain.
- * 
- * 2. BIOMETRIC CONFIRMATION & RELAY (handleConfirm / sendCredentials):
- *    - Executes biometric authentication via LocalAuthentication.
- *    - Encrypts username and password with the one-time QR key using AES-256-CTR + HMAC-SHA256.
- *    - Relays the ciphertext to POST /send-login for browser autofill.
- * ============================================================================
  */
 
 import React, { useState, useEffect } from 'react';
@@ -24,14 +13,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { AppIcon } from '../components/CategoryIcons';
 import FaviconImage from '../components/FaviconImage';
 import { findCredentialsForDomain, getTotpItems } from '../utils/storage';
 import { encryptCredentials } from '../utils/crypto';
-
-const SERVER_URL = 'https://flakesecure.snowystudio.dev';
+import { sendLogin } from '../utils/api';
+import { CredentialCardSkeleton } from '../components/Skeleton';
+import { TapFeedback } from '../components/TapFeedback';
 
 export default function ConfirmScreen({ route, navigation }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
   const sid = route.params?.sid || route.params?.s;
   const key = route.params?.key || route.params?.k;
   const domain = route.params?.domain || route.params?.d;
@@ -106,20 +99,10 @@ export default function ConfirmScreen({ route, navigation }) {
         password: credentials.password
       }, key);
 
-      const response = await fetch(`${SERVER_URL}/send-login`, {
-        method: 'POST',
-        headers: { 
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Origin': 'https://flakesecure.snowystudio.dev'
-        },
-        body: JSON.stringify({ sid, payload: encrypted })
-      });
+      const data = await sendLogin(sid, encrypted);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Server error');
+      if (data && data.error) {
+        throw new Error(data.error);
       }
 
       const totpItems = await getTotpItems();
@@ -146,28 +129,28 @@ export default function ConfirmScreen({ route, navigation }) {
     switch (state) {
       case 'loading':
         return (
-          <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color="#6391ff" />
-            <Text style={styles.loadingText}>{t('confirm.searchingCredentials')}</Text>
+          <View style={[styles.centerContent, { width: '100%', paddingHorizontal: 20 }]}>
+            <CredentialCardSkeleton />
+            <Text style={[styles.loadingText, { color: colors.textMuted, marginTop: 12 }]}>{t('confirm.searchingCredentials')}</Text>
           </View>
         );
 
       case 'no-credentials':
         return (
           <View style={styles.centerContent}>
-            <Text style={styles.stateIcon}>🔍</Text>
-            <Text style={styles.stateTitle}>{t('confirm.noCredentials')}</Text>
-            <Text style={styles.stateText}>
+            <AppIcon name="alert" size={48} color={colors.gold} style={{ marginBottom: 8 }} />
+            <Text style={[styles.stateTitle, { color: colors.textMain }]}>{t('confirm.noCredentials')}</Text>
+            <Text style={[styles.stateText, { color: colors.textSub }]}>
               {t('confirm.noCredentialsFor', { domain })}
             </Text>
-            <TouchableOpacity
-              style={styles.addCredBtn}
+            <TapFeedback
+              style={[styles.addCredBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
               onPress={() => navigation.navigate('Credentials', { prefillDomain: domain })}
             >
-              <Text style={styles.addCredBtnText}>{t('confirm.addCredentials')}</Text>
-            </TouchableOpacity>
+              <Text style={[styles.addCredBtnText, { color: colors.gold }]}>{t('confirm.addCredentials')}</Text>
+            </TapFeedback>
             <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.goBack()}>
-              <Text style={styles.cancelLinkText}>{t('cancel')}</Text>
+              <Text style={[styles.cancelLinkText, { color: colors.textMuted }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -175,39 +158,39 @@ export default function ConfirmScreen({ route, navigation }) {
       case 'ready':
         return (
           <View style={styles.centerContent}>
-            <View style={styles.domainCard}>
-              <Text style={styles.domainCardTitle}>{t('confirm.confirmLogin')}</Text>
+            <View style={[styles.domainCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+              <Text style={[styles.domainCardTitle, { color: colors.textMuted }]}>{t('confirm.confirmLogin')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginVertical: 8 }}>
-                <FaviconImage domain={domain} size={28} borderRadius={8} />
-                <Text style={styles.domainCardDomain}>{domain}</Text>
+                <FaviconImage domain={domain} size={28} borderRadius={6} />
+                <Text style={[styles.domainCardDomain, { color: colors.textMain }]}>{domain}</Text>
               </View>
               {credentials && (
-                <View style={styles.credPreview}>
-                  <Text style={styles.credLabel}>{t('confirm.user')}</Text>
-                  <Text style={styles.credValue}>{credentials.username}</Text>
+                <View style={[styles.credPreview, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+                  <Text style={[styles.credLabel, { color: colors.textMuted }]}>{t('confirm.user')}</Text>
+                  <Text style={[styles.credValue, { color: colors.gold }]}>{credentials.username}</Text>
                 </View>
               )}
             </View>
 
-            <TouchableOpacity
+            <TapFeedback
               style={styles.confirmButton}
               onPress={handleConfirm}
-              activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#6391ff', '#7c6aff']}
+                colors={colors.goldGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.confirmGradient}
               >
+                <AppIcon name="scan" size={20} color="#ffffff" />
                 <Text style={styles.confirmButtonText}>
                   {t('confirm.confirmWith', { biometricType })}
                 </Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </TapFeedback>
 
             <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.goBack()}>
-              <Text style={styles.cancelLinkText}>{t('cancel')}</Text>
+              <Text style={[styles.cancelLinkText, { color: colors.textMuted }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -215,31 +198,33 @@ export default function ConfirmScreen({ route, navigation }) {
       case 'biometrics':
         return (
           <View style={styles.centerContent}>
-            <Animated.Text
-              style={[styles.bigIcon, { transform: [{ scale: pulseAnim }] }]}
+            <Animated.View
+              style={{ transform: [{ scale: pulseAnim }], marginBottom: 16 }}
             >
-              {biometricType === 'Face ID' ? '👤' : '👆'}
-            </Animated.Text>
-            <Text style={styles.stateTitle}>{biometricType}</Text>
-            <Text style={styles.stateText}>{t('confirm.authenticating')}</Text>
+              <AppIcon name="scan" size={56} color={colors.gold} />
+            </Animated.View>
+            <Text style={[styles.stateTitle, { color: colors.textMain }]}>{biometricType}</Text>
+            <Text style={[styles.stateText, { color: colors.textSub }]}>{t('confirm.authenticating')}</Text>
           </View>
         );
 
       case 'sending':
         return (
           <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color="#6391ff" />
-            <Text style={styles.stateTitle}>{t('confirm.sendingEncrypted')}</Text>
-            <Text style={styles.stateText}>{t('confirm.encryptionNote')}</Text>
+            <ActivityIndicator size="large" color={colors.gold} />
+            <Text style={[styles.stateTitle, { color: colors.textMain, marginTop: 12 }]}>{t('confirm.sendingEncrypted')}</Text>
+            <Text style={[styles.stateText, { color: colors.textSub }]}>{t('confirm.encryptionNote')}</Text>
           </View>
         );
 
       case 'success':
         return (
           <View style={styles.centerContent}>
-            <Text style={styles.bigIcon}>✅</Text>
-            <Text style={styles.stateTitle}>{t('confirm.success')}</Text>
-            <Text style={styles.stateText}>
+            <View style={[styles.successIconBox, { backgroundColor: colors.successBg, borderColor: colors.successBorder }]}>
+              <AppIcon name="check" size={42} color={colors.success} />
+            </View>
+            <Text style={[styles.stateTitle, { color: colors.textMain }]}>{t('confirm.success')}</Text>
+            <Text style={[styles.stateText, { color: colors.textSub }]}>
               {t('confirm.successText')}
             </Text>
 
@@ -253,7 +238,7 @@ export default function ConfirmScreen({ route, navigation }) {
                 }
               >
                 <LinearGradient
-                  colors={['#6391ff', '#7c6aff']}
+                  colors={colors.goldGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.gradientBtn}
@@ -270,14 +255,17 @@ export default function ConfirmScreen({ route, navigation }) {
       case 'error':
         return (
           <View style={styles.centerContent}>
-            <Text style={styles.bigIcon}>⚠️</Text>
-            <Text style={styles.stateTitle}>{t('error')}</Text>
-            <Text style={styles.errorText}>{errorMsg}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={() => setState('ready')}>
-              <Text style={styles.retryBtnText}>{t('retry')}</Text>
+            <AppIcon name="alert" size={48} color={colors.danger} style={{ marginBottom: 8 }} />
+            <Text style={[styles.stateTitle, { color: colors.textMain }]}>{t('error')}</Text>
+            <Text style={[styles.errorText, { color: colors.danger }]}>{errorMsg}</Text>
+            <TouchableOpacity
+              style={[styles.retryBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
+              onPress={() => setState('ready')}
+            >
+              <Text style={[styles.retryBtnText, { color: colors.gold }]}>{t('retry')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.navigate('Home')}>
-              <Text style={styles.cancelLinkText}>{t('common.back')}</Text>
+              <Text style={[styles.cancelLinkText, { color: colors.textMuted }]}>{t('common.back')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -285,9 +273,12 @@ export default function ConfirmScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <Text style={styles.logoText}>❄️ FlakeSecure</Text>
+        <View style={styles.logoRow}>
+          <AppIcon name="snowflake" size={20} color={colors.gold} style={{ marginRight: 6 }} />
+          <Text style={[styles.logoText, { color: colors.textMain }]}>FlakeSecure</Text>
+        </View>
       </View>
       <View style={styles.content}>
         {renderContent()}
@@ -297,53 +288,80 @@ export default function ConfirmScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#090b14' },
-  header: { alignItems: 'center', paddingVertical: 20 },
-  logoText: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  container: { flex: 1 },
+  header: { alignItems: 'center', paddingVertical: 18 },
+  logoRow: { flexDirection: 'row', alignItems: 'center' },
+  logoText: { fontSize: 18, fontWeight: '700' },
   content: { flex: 1, paddingHorizontal: 24 },
   centerContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  loadingText: { fontSize: 16, color: 'rgba(255,255,255,0.5)', marginTop: 12 },
-  stateIcon: { fontSize: 56, marginBottom: 8 },
-  bigIcon: { fontSize: 72, marginBottom: 8 },
-  stateTitle: { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center' },
-  stateText: { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 22 },
-  errorText: { fontSize: 14, color: '#fca5a5', textAlign: 'center', paddingHorizontal: 20 },
-  domainHighlight: { color: '#6391ff', fontWeight: '600' },
+  loadingText: { fontSize: 15, textAlign: 'center' },
+  stateTitle: { fontSize: 20, fontWeight: '700', textAlign: 'center' },
+  stateText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  errorText: { fontSize: 14, textAlign: 'center', paddingHorizontal: 20 },
   domainCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 20, padding: 24, alignItems: 'center', gap: 10
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    gap: 8,
   },
-  domainCardTitle: { fontSize: 13, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.08 },
-  domainCardDomain: { fontSize: 20, fontWeight: '700', color: '#fff' },
+  domainCardTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' },
+  domainCardDomain: { fontSize: 20, fontWeight: '700' },
   credPreview: {
-    backgroundColor: 'rgba(99,145,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.2)',
-    borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10,
-    alignItems: 'center', width: '100%'
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 4,
   },
-  credLabel: { fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2 },
-  credValue: { fontSize: 15, color: '#8eb0ff', fontWeight: '500' },
-  confirmButton: { width: '100%', borderRadius: 16, overflow: 'hidden', marginTop: 8 },
+  credLabel: { fontSize: 11, marginBottom: 2, textTransform: 'uppercase' },
+  credValue: { fontSize: 15, fontWeight: '700' },
+  confirmButton: { width: '100%', borderRadius: 8, overflow: 'hidden', marginTop: 8 },
   confirmGradient: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, paddingVertical: 18
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 8,
   },
-  biometricIcon: { fontSize: 22 },
-  confirmBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  confirmButtonText: { fontSize: 16, fontWeight: '800', color: '#ffffff' },
+  gradientBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 8,
+  },
+  successIconBox: {
+    width: 68,
+    height: 68,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   addCredBtn: {
-    backgroundColor: 'rgba(99,145,255,0.15)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.3)',
-    borderRadius: 14, paddingHorizontal: 24, paddingVertical: 14
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginTop: 8,
   },
-  addCredBtnText: { color: '#6391ff', fontWeight: '600', fontSize: 15 },
-  cancelLink: { marginTop: 8 },
-  cancelLinkText: { color: 'rgba(255,255,255,0.35)', fontSize: 14 },
+  addCredBtnText: { fontWeight: '700', fontSize: 14 },
+  cancelLink: { marginTop: 8, padding: 8 },
+  cancelLinkText: { fontSize: 14, fontWeight: '500' },
   retryBtn: {
-    backgroundColor: 'rgba(99,145,255,0.15)',
-    borderWidth: 1, borderColor: 'rgba(99,145,255,0.3)',
-    borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginTop: 8,
   },
-  retryBtnText: { color: '#6391ff', fontWeight: '600', fontSize: 14 }
+  retryBtnText: { fontWeight: '700', fontSize: 14 },
 });

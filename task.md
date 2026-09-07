@@ -4,7 +4,7 @@
 
 - [x] **Phase 1: Server Infrastructure & Core APIs**
   - [x] Update database schema (`server/db/schema.sql`)
-  - [x] Update server `package.json` (nodemailer, expo-server-sdk, express-rate-limit, v2.0.0)
+  - [x] Update server `package.json` (nodemailer, expo-server-sdk, express-rate-limit, v2.0.1)
   - [x] Update server `.env` (SMTP, ADMIN_SECRET)
   - [x] Create `server/routes/system.js` (Announcements, Status, Maintenance)
   - [x] Create `server/routes/otp.js` (Email OTP verification with nodemailer)
@@ -30,7 +30,7 @@
   - [x] Update `app/src/screens/OnboardingScreen.js` (OTP email verification)
   - [x] Update `app/src/screens/ConfirmScreen.js` (Post-login TOTP streaming shortcut)
   - [x] Update `app/src/context/AuthContext.js` (Vault restoration on login, local purge on logout)
-  - [x] Bump `app.json` & `package.json` to v2.0.0
+  - [x] Bump `app.json` & `package.json` to v2.0.1
 
 - [x] **Phase 3: Browser Extensions**
   - [x] Update Chrome `content.js` (Pass domain on session join, autofill TOTP codes)
@@ -44,4 +44,4 @@
 - [x] **Phase 5: Scalability & SDK Mirror Sync**
   - [x] Create `SCALABILITY.md` (Regional GeoDNS, Redis Socket.IO adapter, sticky sessions)
   - [x] Mirror all app changes from `FlakeSecure (SDK57)` to `FlakeSecure (SDK54)`
-  - [x] Bump `FlakeSecure (SDK54)` version to 2.0.0
+  - [x] Bump `FlakeSecure (SDK54)` version to 2.0.1

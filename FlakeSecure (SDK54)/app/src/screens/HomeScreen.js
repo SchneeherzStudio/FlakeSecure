@@ -10,19 +10,20 @@
  *    - Renders top announcement banners and offline connectivity alerts.
  * 
  * 2. QUICK ACTION BAR:
- *    - Instant navigation shortcuts: Scan QR 📸, Authenticator 2FA 🔑, Activity Logs 📋, Add Login ➕.
+ *    - Instant navigation shortcuts: Scan QR, Authenticator 2FA, Activity Logs, Add Login.
  * 
  * 3. CATEGORIZATION & FILTERING:
  *    - Horizontally scrollable category filter chips with live credential counts.
  *    - Custom category creation modal and long-press deletion.
+ *    - SVG geometric category icons (zero emojis).
  * 
  * 4. CREDENTIAL LIST RENDERING:
- *    - Displays saved domain credentials with security badges (hidden 🔒, expiring ⏱, category tag).
+ *    - Displays saved domain credentials with security badges (hidden, expiring, category tag).
  *    - Tap to view/edit with biometric gate, swipe/button to delete.
  * ============================================================================
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,28 +35,90 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { getAllCredentials, deleteCredentials, getCategories, saveCategory, deleteCategory } from '../utils/storage';
+import { getVault } from '../utils/api';
+import { syncVaultFromServer } from '../utils/vault';
 import FaviconImage from '../components/FaviconImage';
+import { CredentialCardSkeleton } from '../components/Skeleton';
+import { TapFeedback } from '../components/TapFeedback';
+import { CategoryIcon, AppIcon, AVAILABLE_CATEGORY_ICONS } from '../components/CategoryIcons';
 
-const AVAILABLE_ICONS = ['👤', '💼', '💳', '💬', '🎮', '📁', '🛍️', '🛒', '🔒', '🏠', '✈️', '📧', '🎓', '💻', '🎵', '🍔', '🚗', '🏥', '🔑', '⭐'];
-
-export default function HomeScreen({ navigation, bannerAnnouncements = [], isOffline = false }) {
+export default function HomeScreen({ navigation, bannerAnnouncements = [], onDismissBanner = null, isOffline = false }) {
   const { user } = useAuth();
   const { t, locale } = useLanguage();
+  const { colors } = useTheme();
+
   const [credentials, setCredentials] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('tag');
+
+  // Cloud Vault Pull Prompt directly after login
+  const [showVaultPullModal, setShowVaultPullModal] = useState(false);
+  const [isPullingVault, setIsPullingVault] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const pendingCheck = await AsyncStorage.getItem('pending_vault_pull_check');
+        if (pendingCheck === 'true') {
+          await AsyncStorage.removeItem('pending_vault_pull_check');
+          const res = await getVault();
+          if (res && res.vault && res.vault.encrypted_blob) {
+            setShowVaultPullModal(true);
+          }
+        }
+      } catch (err) {
+        console.log('[Home] Vault pull prompt check error:', err.message);
+      }
+    })();
+  }, []);
+
+  const handleConfirmPullVault = async () => {
+    setIsPullingVault(true);
+    try {
+      const saved = await SecureStore.getItemAsync('auth_credentials');
+      if (!saved) {
+        setShowVaultPullModal(false);
+        setIsPullingVault(false);
+        return;
+      }
+      const { password, identifier, email } = JSON.parse(saved);
+      const success = await syncVaultFromServer(password, identifier, email);
+      if (success) {
+        await loadData();
+        setShowVaultPullModal(false);
+        Alert.alert(t('common.success') || 'Erfolg', t('vaultPrompt.pullSuccess') || 'Deine gespeicherten Logindaten wurden erfolgreich geladen!');
+      } else {
+        setShowVaultPullModal(false);
+        Alert.alert(t('error') || 'Fehler', t('vaultPrompt.pullFailed') || 'Zugangsdaten konnten nicht geladen werden.');
+      }
+    } catch (e) {
+      console.log('[Home] Vault pull error:', e.message);
+      setShowVaultPullModal(false);
+    } finally {
+      setIsPullingVault(false);
+    }
+  };
+
+  const handleDeclinePullVault = () => {
+    setShowVaultPullModal(false);
+  };
 
   const loadData = async () => {
     try {
@@ -67,6 +130,8 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
       setCategories(allCats);
     } catch (e) {
       console.log('Failed to load data', e);
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -115,7 +180,7 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
         setSelectedFilter(created.id);
       }
       setNewCategoryName('');
-      setNewCategoryIcon('🏷️');
+      setNewCategoryIcon('tag');
       setShowCategoryModal(false);
     } catch (e) {
       Alert.alert(t('error'), 'Failed to create category');
@@ -145,27 +210,31 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
     );
   };
 
-  const getDomainIcon = (domain) => {
-    const icons = {
-      'google.com': '🌐',
-      'github.com': '🐱',
-      'amazon.com': '📦',
-      'apple.com': '🍎',
-      'ea.com': '🎮',
-      'netflix.com': '🎬',
-      'spotify.com': '🎵',
-      'twitter.com': '🐦',
-      'linkedin.com': '💼',
-      'gmx.net': '📧',
-      'web.de': '📧',
-      'riotgames.com': '🎮',
-      'playvalorant.com': '🎮',
-    };
-    for (const [key, icon] of Object.entries(icons)) {
-      if (domain.includes(key.split('.')[0])) return icon;
+  const getPriorityTheme = useCallback((priority = 0) => {
+    const p = Number(priority) || 0;
+    if (p >= 50) {
+      return {
+        color: colors.red,
+        bg: colors.redDim,
+        border: colors.redBorder,
+        iconName: 'alert',
+      };
+    } else if (p >= 10) {
+      return {
+        color: '#f59e0b',
+        bg: 'rgba(245, 158, 11, 0.16)',
+        border: 'rgba(245, 158, 11, 0.55)',
+        iconName: 'alert',
+      };
+    } else {
+      return {
+        color: colors.gold,
+        bg: colors.goldDim,
+        border: colors.goldBorder,
+        iconName: 'info',
+      };
     }
-    return '🔑';
-  };
+  }, [colors]);
 
   const getCategoryInfo = (categoryId) => {
     if (!categoryId) return null;
@@ -174,7 +243,7 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
     return {
       name: cat.name,
       displayName: cat.isDefault ? t(`categories.${cat.id}`) || cat.name : cat.name,
-      icon: cat.icon || '🏷️',
+      icon: cat.icon || 'tag',
     };
   };
 
@@ -189,125 +258,165 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      {/* Header */}
       <View style={styles.topHeader}>
         <View style={styles.brandRow}>
-          <Text style={styles.brandEmoji}>❄️</Text>
-          <Text style={styles.brandTitle}>
-            Flake<Text style={styles.brandAccent}>Secure</Text>
+          <AppIcon name="snowflake" size={22} color={colors.gold} style={{ marginRight: 6 }} />
+          <Text style={[styles.brandTitle, { color: colors.text }]}>
+            Flake<Text style={{ color: colors.gold }}>Secure</Text>
           </Text>
         </View>
 
         <TouchableOpacity
-          style={styles.userBadge}
+          style={[styles.userBadge, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
           onPress={() => navigation.navigate('Settings')}
           activeOpacity={0.7}
         >
-          <View style={styles.userDot} />
-          <Text style={styles.userBadgeText} numberOfLines={1}>
+          <View style={[styles.userDot, { backgroundColor: colors.green }]} />
+          <Text style={[styles.userBadgeText, { color: colors.text }]} numberOfLines={1}>
             {user?.username || t('common.account')}
           </Text>
-          <Text style={styles.userChevron}>⚙️</Text>
+          <AppIcon name="gear" size={13} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
       {isOffline && (
         <View style={styles.offlineBox}>
-          <Text style={styles.offlineText}>📡 {t('common.offlineNotice')}</Text>
+          <AppIcon name="wifiOff" size={14} color="#ffb340" style={{ marginRight: 6 }} />
+          <Text style={styles.offlineText}>{t('common.offlineNotice')}</Text>
         </View>
       )}
 
-      {bannerAnnouncements.map((banner) => (
-        <View key={banner.id} style={styles.announcementBanner}>
-          <Text style={styles.announcementIcon}>📢</Text>
-          <Text style={styles.announcementText}>{banner.message}</Text>
-        </View>
-      ))}
+      {bannerAnnouncements.map((banner) => {
+        const theme = getPriorityTheme(banner.priority);
+        return (
+          <View
+            key={banner.id}
+            style={[
+              styles.announcementBanner,
+              {
+                backgroundColor: theme.bg,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <AppIcon name={theme.iconName} size={16} color={theme.color} style={{ marginRight: 8 }} />
+            <Text style={[styles.announcementText, { color: colors.text }]}>{banner.message}</Text>
+            <TouchableOpacity
+              style={styles.announcementCloseBtn}
+              onPress={() => onDismissBanner && onDismissBanner(banner.id, banner.display)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <AppIcon name="close" size={12} color={theme.color} />
+            </TouchableOpacity>
+          </View>
+        );
+      })}
 
       {/* Hero Scan Action Button */}
-      <TouchableOpacity
+      <TapFeedback
         style={styles.heroScanBtn}
         onPress={() => navigation.navigate('Scan')}
-        activeOpacity={0.85}
       >
         <LinearGradient
-          colors={['#6391ff', '#7c6aff']}
+          colors={colors.goldGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.heroScanGradient}
         >
-          <View style={styles.heroScanIconBg}>
-            <Text style={styles.heroScanIcon}>📷</Text>
+          <View style={[styles.heroScanIconBg, { backgroundColor: 'rgba(255, 255, 255, 0.22)' }]}>
+            <AppIcon name="scan" size={22} color="#ffffff" />
           </View>
           <View style={styles.heroScanInfo}>
-            <Text style={styles.heroScanTitle}>{t('home.scanQr')}</Text>
-            <Text style={styles.heroScanSubtitle}>{t('home.scanQrSub')}</Text>
+            <Text style={[styles.heroScanTitle, { color: '#ffffff' }]}>{t('home.scanQr')}</Text>
+            <Text style={[styles.heroScanSubtitle, { color: 'rgba(255, 255, 255, 0.85)' }]}>{t('home.scanQrSub')}</Text>
           </View>
-          <Text style={styles.heroScanArrow}>→</Text>
+          <Text style={[styles.heroScanArrow, { color: '#ffffff' }]}>→</Text>
         </LinearGradient>
-      </TouchableOpacity>
+      </TapFeedback>
 
       {/* Quick Action Navigation Bar */}
       <View style={styles.quickBar}>
-        <TouchableOpacity
-          style={styles.quickBarItem}
+        <TapFeedback
+          style={[styles.quickBarItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
           onPress={() => navigation.navigate('Authenticator')}
-          activeOpacity={0.7}
         >
-          <View style={styles.quickBarIconCircle}>
-            <Text style={styles.quickBarIconText}>🔑</Text>
+          <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
+            <AppIcon name="totp" size={18} color={colors.gold} />
           </View>
-          <Text style={styles.quickBarLabel}>{t('home.quick2fa')}</Text>
-        </TouchableOpacity>
+          <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>{t('home.quick2fa')}</Text>
+        </TapFeedback>
 
-        <TouchableOpacity
-          style={styles.quickBarItem}
+        <TapFeedback
+          style={[styles.quickBarItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
           onPress={() => navigation.navigate('Logs')}
-          activeOpacity={0.7}
         >
-          <View style={styles.quickBarIconCircle}>
-            <Text style={styles.quickBarIconText}>📋</Text>
+          <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
+            <AppIcon name="logs" size={18} color={colors.gold} />
           </View>
-          <Text style={styles.quickBarLabel}>{t('home.quickLogs')}</Text>
-        </TouchableOpacity>
+          <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>{t('home.quickLogs')}</Text>
+        </TapFeedback>
 
-        <TouchableOpacity
-          style={styles.quickBarItem}
+        <TapFeedback
+          style={[styles.quickBarItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
           onPress={() => navigation.navigate('Credentials')}
-          activeOpacity={0.7}
         >
-          <View style={styles.quickBarIconCircle}>
-            <Text style={styles.quickBarIconText}>➕</Text>
+          <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
+            <AppIcon name="plus" size={18} color={colors.gold} />
           </View>
-          <Text style={styles.quickBarLabel}>{t('home.quickNew')}</Text>
-        </TouchableOpacity>
+          <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>{t('home.quickNew')}</Text>
+        </TapFeedback>
 
-        <TouchableOpacity
-          style={styles.quickBarItem}
+        <TapFeedback
+          style={[styles.quickBarItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
           onPress={() => navigation.navigate('ShareImport', { mode: 'share' })}
-          activeOpacity={0.7}
         >
-          <View style={styles.quickBarIconCircle}>
-            <Text style={styles.quickBarIconText}>📲</Text>
+          <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
+            <AppIcon name="share" size={18} color={colors.gold} />
           </View>
-          <Text style={styles.quickBarLabel}>{t('home.quickShare')}</Text>
-        </TouchableOpacity>
+          <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>{t('home.quickShare')}</Text>
+        </TapFeedback>
       </View>
 
       {/* Categories Filter Strip */}
       <View style={styles.filterSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           <TouchableOpacity
-            style={[styles.filterChip, selectedFilter === 'all' && styles.filterChipActive]}
+            style={[
+              styles.filterChip,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              selectedFilter === 'all' && { backgroundColor: colors.gold, borderColor: colors.gold },
+            ]}
             onPress={() => setSelectedFilter('all')}
             activeOpacity={0.7}
           >
-            <Text style={styles.filterChipIcon}>🌟</Text>
-            <Text style={[styles.filterChipText, selectedFilter === 'all' && styles.filterChipTextActive]}>
+            <AppIcon
+              name="snowflake"
+              size={14}
+              color={selectedFilter === 'all' ? '#ffffff' : colors.gold}
+            />
+            <Text
+              style={[
+                styles.filterChipText,
+                { color: colors.textSecondary },
+                selectedFilter === 'all' && { color: '#ffffff', fontWeight: '700' },
+              ]}
+            >
               {t('categories.all')}
             </Text>
-            <View style={[styles.filterCountBadge, selectedFilter === 'all' && styles.filterCountBadgeActive]}>
-              <Text style={[styles.filterCountText, selectedFilter === 'all' && styles.filterCountTextActive]}>
+            <View
+              style={[
+                styles.filterCountBadge,
+                { backgroundColor: selectedFilter === 'all' ? (colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.3)') : colors.borderSubtle },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterCountText,
+                  { color: selectedFilter === 'all' ? '#ffffff' : colors.textMuted },
+                ]}
+              >
                 {getCategoryCount('all')}
               </Text>
             </View>
@@ -320,18 +429,42 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
             return (
               <TouchableOpacity
                 key={cat.id}
-                style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                  isSelected && { backgroundColor: colors.gold, borderColor: colors.gold },
+                ]}
                 onPress={() => setSelectedFilter(cat.id)}
                 onLongPress={() => handleCategoryLongPress(cat)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.filterChipIcon}>{cat.icon || '🏷️'}</Text>
-                <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+                <CategoryIcon
+                  name={cat.icon || 'tag'}
+                  size={13}
+                  color={isSelected ? '#ffffff' : colors.gold}
+                />
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    { color: colors.textSecondary },
+                    isSelected && { color: '#ffffff', fontWeight: '700' },
+                  ]}
+                >
                   {displayName}
                 </Text>
                 {count > 0 && (
-                  <View style={[styles.filterCountBadge, isSelected && styles.filterCountBadgeActive]}>
-                    <Text style={[styles.filterCountText, isSelected && styles.filterCountTextActive]}>
+                  <View
+                    style={[
+                      styles.filterCountBadge,
+                      { backgroundColor: isSelected ? (colors.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.3)') : colors.borderSubtle },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterCountText,
+                        { color: isSelected ? '#ffffff' : colors.textMuted },
+                      ]}
+                    >
                       {count}
                     </Text>
                   </View>
@@ -341,90 +474,108 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
           })}
 
           <TouchableOpacity
-            style={styles.addCategoryChip}
+            style={[styles.addCategoryChip, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
             onPress={() => setShowCategoryModal(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.addCategoryChipIcon}>➕</Text>
+            <AppIcon name="plus" size={13} color={colors.gold} />
           </TouchableOpacity>
         </ScrollView>
       </View>
 
       {/* Section Header */}
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
           {t('home.savedCredentials')}
-          <Text style={styles.count}> ({filteredCredentials.length})</Text>
+          <Text style={[styles.count, { color: colors.textMuted }]}> ({filteredCredentials.length})</Text>
         </Text>
       </View>
 
       {/* Credentials List */}
-      {credentials.length === 0 ? (
+      {isLoadingData ? (
+        <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
+          <CredentialCardSkeleton />
+          <CredentialCardSkeleton />
+          <CredentialCardSkeleton />
+        </View>
+      ) : credentials.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>🔒</Text>
-          <Text style={styles.emptyTitle}>{t('home.noEntries')}</Text>
-          <Text style={styles.emptyText}>{t('home.noEntriesText')}</Text>
-          <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('Credentials')}>
-            <Text style={styles.addButtonText}>{t('home.addButton')}</Text>
+          <AppIcon name="lock" size={44} color={colors.gold} style={{ marginBottom: 14 }} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('home.noEntries')}</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('home.noEntriesText')}</Text>
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}
+            onPress={() => navigation.navigate('Credentials')}
+          >
+            <Text style={[styles.addButtonText, { color: colors.gold }]}>{t('home.addButton')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.restoreVaultEmptyBtn}
+            style={[styles.restoreVaultEmptyBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
             onPress={() => navigation.navigate('VaultTransfer', { mode: 'check_or_receive' })}
           >
-            <Text style={styles.restoreVaultEmptyText}>☁️ {t('settings.restoreVault') || 'Restore from Cloud Vault'}</Text>
+            <Text style={[styles.restoreVaultEmptyText, { color: colors.textSecondary }]}>
+              {t('settings.restoreVault') || 'Restore from Cloud Vault'}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : filteredCredentials.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📁</Text>
-          <Text style={styles.emptyTitle}>{t('home.noEntriesInCategory')}</Text>
-          <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('Credentials')}>
-            <Text style={styles.addButtonText}>{t('home.addButton')}</Text>
+          <AppIcon name="folder" size={44} color={colors.gold} style={{ marginBottom: 14 }} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('home.noEntriesInCategory')}</Text>
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}
+            onPress={() => navigation.navigate('Credentials')}
+          >
+            <Text style={[styles.addButtonText, { color: colors.gold }]}>{t('home.addButton')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={filteredCredentials}
           keyExtractor={(item) => item.domain}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6391ff" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
             const catInfo = getCategoryInfo(item.category);
             return (
-              <TouchableOpacity
-                style={styles.credItem}
+              <TapFeedback
+                style={[styles.credItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 onPress={() => navigation.navigate('ViewCredential', { domain: item.domain })}
-                activeOpacity={0.7}
               >
                 <FaviconImage
                   domain={item.domain}
-                  size={44}
-                  borderRadius={12}
-                  fallbackIcon={catInfo?.icon || getDomainIcon(item.domain)}
+                  size={40}
+                  borderRadius={8}
+                  fallbackIcon={catInfo?.icon || 'globe'}
                   style={{ marginRight: 12 }}
                 />
                 <View style={styles.credInfo}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <Text style={styles.credDomain}>{item.domain}</Text>
-                    {item.hidden && <Text style={{ fontSize: 12 }}>🔒</Text>}
+                    <Text style={[styles.credDomain, { color: colors.text }]}>{item.domain}</Text>
+                    {item.hidden && (
+                      <AppIcon name="lock" size={12} color={colors.textMuted} />
+                    )}
                     {catInfo && (
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryBadgeIcon}>{catInfo.icon}</Text>
-                        <Text style={styles.categoryBadgeText}>{catInfo.displayName}</Text>
+                      <View style={[styles.categoryBadge, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}>
+                        <CategoryIcon name={catInfo.icon} size={10} color={colors.gold} />
+                        <Text style={[styles.categoryBadgeText, { color: colors.gold }]}>{catInfo.displayName}</Text>
                       </View>
                     )}
                   </View>
-                  <Text style={styles.credUsername}>{item.username}</Text>
+                  <Text style={[styles.credUsername, { color: colors.textSecondary }]}>{item.username}</Text>
                   {item.expiresAt && (
-                    <Text style={{ fontSize: 11, color: '#ff6b6b', marginTop: 2 }}>
-                      ⏱ Ablauf: {new Date(item.expiresAt).toLocaleDateString()}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                      <AppIcon name="clock" size={11} color={colors.red} />
+                      <Text style={{ fontSize: 11, color: colors.red }}>
+                        Ablauf: {new Date(item.expiresAt).toLocaleDateString()}
+                      </Text>
+                    </View>
                   )}
                 </View>
                 <TouchableOpacity style={styles.credDelete} onPress={() => handleDelete(item.domain)}>
-                  <Text style={styles.credDeleteText}>✕</Text>
+                  <AppIcon name="close" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
-              </TouchableOpacity>
+              </TapFeedback>
             );
           }}
         />
@@ -432,54 +583,122 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
 
       {/* Category Creation Modal */}
       <Modal visible={showCategoryModal} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('categories.newCategory')}</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modalOverlay }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.modalCard, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('categories.newCategory')}</Text>
 
-            <Text style={styles.modalLabel}>{t('categories.categoryName')}</Text>
+            <Text style={[styles.modalLabel, { color: colors.textMuted }]}>{t('categories.categoryName')}</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               placeholder="z.B. Shopping, Uni, Banking"
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor={colors.textMuted}
               autoFocus
             />
 
-            <Text style={styles.modalLabel}>{t('categories.categoryIcon')}</Text>
+            <Text style={[styles.modalLabel, { color: colors.textMuted }]}>{t('categories.categoryIcon')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconPickerScroll}>
-              {AVAILABLE_ICONS.map((icon) => (
+              {AVAILABLE_CATEGORY_ICONS.map((iconKey) => (
                 <TouchableOpacity
-                  key={icon}
-                  style={[styles.iconChoice, newCategoryIcon === icon && styles.iconChoiceSelected]}
-                  onPress={() => setNewCategoryIcon(icon)}
+                  key={iconKey}
+                  style={[
+                    styles.iconChoice,
+                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    newCategoryIcon === iconKey && { backgroundColor: colors.goldDim, borderColor: colors.gold, borderWidth: 1.5 },
+                  ]}
+                  onPress={() => setNewCategoryIcon(iconKey)}
                 >
-                  <Text style={styles.iconChoiceText}>{icon}</Text>
+                  <CategoryIcon
+                    name={iconKey}
+                    size={20}
+                    color={newCategoryIcon === iconKey ? colors.gold : colors.textSecondary}
+                  />
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
+                style={[styles.modalCancelBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 onPress={() => {
                   setShowCategoryModal(false);
                   setNewCategoryName('');
                 }}
               >
-                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
+                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>{t('cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleCreateCategory}>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleCreateCategory} activeOpacity={0.85}>
                 <LinearGradient
-                  colors={['#6391ff', '#7c6aff']}
+                  colors={colors.goldGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.modalSaveGradient}
                 >
-                  <Text style={styles.modalSaveText}>{t('categories.createCategory')}</Text>
+                  <Text style={[styles.modalSaveText, { color: '#ffffff' }]}>{t('categories.createCategory')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cloud Vault Pull Prompt Modal directly after Login */}
+      <Modal
+        visible={showVaultPullModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isPullingVault) setShowVaultPullModal(false);
+        }}
+      >
+        <View style={[styles.vaultModalOverlay, { backgroundColor: colors.modalOverlay }]}>
+          <View style={[styles.vaultModalCard, { backgroundColor: colors.modalCard, borderColor: colors.goldBorder }]}>
+            <View style={[styles.vaultModalIconCircle, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}>
+              <AppIcon name="shield" size={30} color={colors.gold} />
+            </View>
+            <Text style={[styles.vaultModalTitle, { color: colors.text }]}>{t('vaultPrompt.foundTitle') || 'Logindaten verfügbar'}</Text>
+            <Text style={[styles.vaultModalDesc, { color: colors.textSecondary }]}>
+              {t('vaultPrompt.foundPrompt') || 'Für deinen Account wurden gespeicherte Logindaten im Tresor gefunden. Möchtest du diese jetzt automatisch in die App laden?'}
+            </Text>
+
+            {isPullingVault ? (
+              <View style={styles.vaultModalLoadingBox}>
+                <ActivityIndicator size="small" color={colors.gold} />
+                <Text style={[styles.vaultModalLoadingText, { color: colors.gold }]}>
+                  {t('vaultPrompt.pulling') || 'Daten werden geladen & entschlüsselt…'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.vaultModalBtnRow}>
+                <TouchableOpacity
+                  style={[styles.vaultModalCancelBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+                  onPress={handleDeclinePullVault}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.vaultModalCancelText, { color: colors.textSecondary }]}>
+                    {t('vaultPrompt.skip') || 'Nicht jetzt'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.vaultModalConfirmBtn}
+                  onPress={handleConfirmPullVault}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={colors.goldGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.vaultModalConfirmGradient}
+                  >
+                    <Text style={[styles.vaultModalConfirmText, { color: '#ffffff' }]}>
+                      {t('vaultPrompt.pullNow') || 'Jetzt laden'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -490,7 +709,6 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], isOff
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090b14',
   },
   topHeader: {
     flexDirection: 'row',
@@ -503,52 +721,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  brandEmoji: {
-    fontSize: 22,
-    marginRight: 6,
-  },
   brandTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#fff',
     letterSpacing: -0.5,
-  },
-  brandAccent: {
-    color: '#6391ff',
   },
   userBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 12,
+    borderRadius: 8,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     maxWidth: 160,
+    gap: 6,
   },
   userDot: {
     width: 7,
     height: 7,
-    borderRadius: 4,
-    backgroundColor: '#4cd964',
-    marginRight: 6,
+    borderRadius: 3.5,
   },
   userBadgeText: {
-    color: '#fff',
     fontSize: 13,
     fontWeight: '600',
-    marginRight: 4,
-  },
-  userChevron: {
-    fontSize: 12,
-    opacity: 0.7,
   },
   offlineBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255, 149, 0, 0.15)',
     borderColor: 'rgba(255, 149, 0, 0.3)',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 14,
     marginHorizontal: 20,
@@ -562,105 +765,90 @@ const styles = StyleSheet.create({
   announcementBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(99, 145, 255, 0.12)',
-    borderColor: 'rgba(99, 145, 255, 0.25)',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginHorizontal: 20,
     marginBottom: 10,
   },
-  announcementIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
   announcementText: {
-    color: '#fff',
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
+    lineHeight: 18,
+  },
+  announcementCloseBtn: {
+    marginLeft: 8,
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heroScanBtn: {
     marginHorizontal: 20,
     marginTop: 4,
     marginBottom: 12,
-    borderRadius: 18,
+    borderRadius: 8,
     overflow: 'hidden',
-    shadowColor: '#6391ff',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
   },
   heroScanGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   heroScanIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
-  },
-  heroScanIcon: {
-    fontSize: 22,
+    marginRight: 12,
   },
   heroScanInfo: {
     flex: 1,
   },
   heroScanTitle: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
   },
   heroScanSubtitle: {
-    color: 'rgba(255, 255, 255, 0.75)',
     fontSize: 12,
     marginTop: 2,
   },
   heroScanArrow: {
-    color: '#fff',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
   },
   quickBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 14,
+    gap: 8,
   },
   quickBarItem: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 10,
-    marginHorizontal: 4,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 2,
+    minHeight: 74,
   },
   quickBarIconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(99, 145, 255, 0.12)',
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
-  },
-  quickBarIconText: {
-    fontSize: 16,
+    marginBottom: 6,
   },
   quickBarLabel: {
-    color: 'rgba(255, 255, 255, 0.75)',
     fontSize: 11,
     fontWeight: '600',
+    textAlign: 'center',
   },
   filterSection: {
     marginBottom: 12,
@@ -672,72 +860,44 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     gap: 6,
   },
-  filterChipActive: {
-    backgroundColor: 'rgba(99, 145, 255, 0.2)',
-    borderColor: '#6391ff',
-  },
-  filterChipIcon: {
-    fontSize: 13,
-  },
   filterChipText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
   },
-  filterChipTextActive: {
-    color: '#fff',
-    fontWeight: '700',
-  },
   filterCountBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 10,
-    paddingHorizontal: 6,
+    borderRadius: 4,
+    paddingHorizontal: 5,
     paddingVertical: 1,
   },
-  filterCountBadgeActive: {
-    backgroundColor: '#6391ff',
-  },
   filterCountText: {
-    color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 10,
     fontWeight: '700',
   },
-  filterCountTextActive: {
-    color: '#fff',
-  },
   addCategoryChip: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderRadius: 20,
-    width: 36,
-    height: 32,
+    borderRadius: 8,
+    width: 32,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  addCategoryChipIcon: {
-    fontSize: 11,
-    color: '#6391ff',
   },
   sectionHeaderRow: {
     paddingHorizontal: 20,
     marginBottom: 8,
   },
   sectionTitle: {
-    color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.05,
   },
   count: {
-    color: 'rgba(255, 255, 255, 0.4)',
     fontWeight: '400',
   },
   list: {
@@ -747,135 +907,92 @@ const styles = StyleSheet.create({
   credItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.07)',
     borderWidth: 1,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
-  },
-  credIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  credIconText: {
-    fontSize: 20,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
   },
   credInfo: {
     flex: 1,
   },
   credDomain: {
-    color: '#fff',
     fontSize: 15,
     fontWeight: '700',
   },
   credUsername: {
-    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 13,
     marginTop: 2,
   },
   categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(99, 145, 255, 0.12)',
-    borderColor: 'rgba(99, 145, 255, 0.25)',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 6,
+    borderRadius: 4,
+    paddingHorizontal: 5,
     paddingVertical: 1,
     gap: 3,
   },
-  categoryBadgeIcon: {
-    fontSize: 10,
-  },
   categoryBadgeText: {
-    color: '#6391ff',
     fontSize: 10,
     fontWeight: '700',
   },
   credDelete: {
     padding: 8,
   },
-  credDeleteText: {
-    color: 'rgba(255, 255, 255, 0.3)',
-    fontSize: 16,
-  },
   empty: {
     alignItems: 'center',
     paddingVertical: 50,
     paddingHorizontal: 20,
   },
-  emptyIcon: {
-    fontSize: 44,
-    marginBottom: 12,
-  },
   emptyTitle: {
-    color: '#fff',
     fontSize: 17,
     fontWeight: '700',
     marginBottom: 6,
   },
   emptyText: {
-    color: 'rgba(255, 255, 255, 0.45)',
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 20,
   },
   addButton: {
-    backgroundColor: 'rgba(99, 145, 255, 0.15)',
-    borderColor: 'rgba(99, 145, 255, 0.3)',
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 22,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
   addButtonText: {
-    color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   restoreVaultEmptyBtn: {
     marginTop: 10,
-    backgroundColor: 'rgba(99, 145, 255, 0.1)',
-    borderColor: 'rgba(99, 145, 255, 0.3)',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
   },
   restoreVaultEmptyText: {
-    color: '#6391ff',
     fontSize: 13,
     fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(9, 11, 20, 0.85)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#0f1220',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: 12,
+    padding: 20,
   },
   modalTitle: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: '800',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   modalLabel: {
-    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -883,13 +1000,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   modalInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#fff',
+    paddingVertical: 9,
     fontSize: 14,
   },
   iconPickerScroll: {
@@ -898,35 +1012,26 @@ const styles = StyleSheet.create({
   iconChoice: {
     width: 38,
     height: 38,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 6,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
-  iconChoiceSelected: {
-    backgroundColor: 'rgba(99, 145, 255, 0.3)',
-    borderColor: '#6391ff',
-    borderWidth: 1,
-  },
-  iconChoiceText: {
-    fontSize: 18,
-  },
   modalButtons: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 20,
+    marginTop: 18,
   },
   modalCancelBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 12,
+    borderWidth: 1,
+    borderRadius: 8,
   },
   modalCancelText: {
-    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -934,13 +1039,88 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalSaveGradient: {
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 11,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalSaveText: {
-    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  vaultModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  vaultModalCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 380,
+  },
+  vaultModalIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  vaultModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  vaultModalDesc: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  vaultModalLoadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  vaultModalLoadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  vaultModalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  vaultModalCancelBtn: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  vaultModalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  vaultModalConfirmBtn: {
+    flex: 1.2,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  vaultModalConfirmGradient: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vaultModalConfirmText: {
     fontSize: 14,
     fontWeight: '700',
   },

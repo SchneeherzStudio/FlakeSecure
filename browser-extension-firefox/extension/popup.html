@@ -1,19 +1,94 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FlakeSecure</title>
   <style>
+    :root, [data-theme="dark"] {
+      --bg-primary: #07090e;
+      --bg-body: #090b14;
+      --bg-surface: #0c101b;
+      --bg-card: rgba(15, 20, 34, 0.85);
+      --bg-card-hover: rgba(22, 30, 50, 0.95);
+      --border-color: #1e293b;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: #E8B020;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-gold: #E8B020;
+      --accent-gold-hover: #F5D070;
+      --accent-gold-dim: rgba(232, 176, 32, 0.12);
+      --accent-gold-border: rgba(232, 176, 32, 0.35);
+      --accent-green: #4ADE80;
+      --accent-danger: #EF4444;
+      --btn-primary-bg: #E8B020;
+      --btn-primary-text: #07090e;
+      --btn-primary-border: #C9930A;
+      --input-bg: rgba(0, 0, 0, 0.35);
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f1f5f9;
+      --bg-body: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f1f5f9;
+      --border-color: #cbd5e1;
+      --border-subtle: #e2e8f0;
+      --border-focus: #D97706;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --accent-gold: #D97706;
+      --accent-gold-hover: #B45309;
+      --accent-gold-dim: rgba(217, 119, 6, 0.1);
+      --accent-gold-border: rgba(217, 119, 6, 0.3);
+      --accent-green: #16A34A;
+      --accent-danger: #DC2626;
+      --btn-primary-bg: #D97706;
+      --btn-primary-text: #ffffff;
+      --btn-primary-border: #B45309;
+      --input-bg: #ffffff;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg-primary: #f1f5f9;
+        --bg-body: #f8fafc;
+        --bg-surface: #ffffff;
+        --bg-card: #ffffff;
+        --bg-card-hover: #f1f5f9;
+        --border-color: #cbd5e1;
+        --border-subtle: #e2e8f0;
+        --border-focus: #D97706;
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --text-muted: #64748b;
+        --accent-gold: #D97706;
+        --accent-gold-hover: #B45309;
+        --accent-gold-dim: rgba(217, 119, 6, 0.1);
+        --accent-gold-border: rgba(217, 119, 6, 0.3);
+        --accent-green: #16A34A;
+        --accent-danger: #DC2626;
+        --btn-primary-bg: #D97706;
+        --btn-primary-text: #ffffff;
+        --btn-primary-border: #B45309;
+        --input-bg: #ffffff;
+      }
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      width: 330px;
+      width: 340px;
       min-height: 200px;
-      background: linear-gradient(160deg, #090b14 0%, #101424 100%);
-      color: #fff;
+      background: var(--bg-body);
+      color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      padding: 20px;
+      padding: 18px;
       user-select: none;
+      transition: background 0.2s ease, color 0.2s ease;
     }
 
     /* Header */
@@ -22,104 +97,145 @@
       align-items: center;
       gap: 10px;
       margin-bottom: 16px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
     }
     .logo-icon {
       width: 32px; height: 32px;
-      background: linear-gradient(135deg, #6391ff, #a78bfa);
-      border-radius: 9px;
+      background: var(--accent-gold);
+      border-radius: 8px;
       display: grid;
       place-items: center;
-      font-size: 16px;
-      box-shadow: 0 4px 12px rgba(99, 145, 255, 0.35);
+      box-shadow: 0 2px 8px var(--accent-gold-dim);
       flex-shrink: 0;
     }
+    .logo-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--btn-primary-text);
+    }
     .logo-text {
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
       letter-spacing: -0.3px;
+      color: var(--text-primary);
     }
-    .logo-text span { color: #6391ff; }
+    .logo-text span { color: var(--accent-gold); }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .theme-toggle-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: 6px;
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .theme-toggle-btn:hover {
+      border-color: var(--accent-gold);
+      color: var(--text-primary);
+    }
+
+    .lang-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+
     .version {
       font-size: 11px;
-      color: rgba(255,255,255,0.3);
-      margin-left: auto;
+      color: var(--text-muted);
     }
 
     /* Cards */
     .card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
       padding: 14px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     /* Auth Card */
     .auth-card {
-      background: linear-gradient(145deg, rgba(99,145,255,0.08), rgba(124,106,255,0.04));
-      border: 1px solid rgba(99,145,255,0.22);
-      border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 14px;
-    }
-    .auth-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: rgba(255,255,255,0.7);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+      border-radius: 8px;
+      padding: 14px;
       margin-bottom: 12px;
     }
-    .form-group {
+    .auth-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       margin-bottom: 10px;
+    }
+    .form-group {
+      margin-bottom: 8px;
     }
     .form-input {
       width: 100%;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
-      padding: 10px 12px;
-      color: #fff;
+      background: var(--input-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 9px 12px;
+      color: var(--text-primary);
       font-size: 13px;
       font-family: inherit;
       outline: none;
       transition: all 0.2s ease;
     }
     .form-input::placeholder {
-      color: rgba(255,255,255,0.3);
+      color: var(--text-muted);
     }
     .form-input:focus {
-      border-color: #6391ff;
-      background: rgba(0,0,0,0.45);
-      box-shadow: 0 0 0 2px rgba(99, 145, 255, 0.2);
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 2px var(--accent-gold-dim);
     }
     .auth-btn {
       width: 100%;
-      background: linear-gradient(135deg, #6391ff, #7c6aff);
-      border: none;
-      border-radius: 10px;
-      padding: 10px 16px;
-      color: #fff;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
+      border: 1px solid var(--btn-primary-border);
+      border-radius: 6px;
+      padding: 9px 14px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: opacity 0.2s, transform 0.1s;
       font-family: inherit;
-      box-shadow: 0 4px 12px rgba(99, 145, 255, 0.3);
       margin-top: 4px;
     }
-    .auth-btn:hover { opacity: 0.9; }
-    .auth-btn:active { transform: scale(0.98); }
+    .auth-btn:hover { opacity: 0.92; }
+    .auth-btn:active { transform: scale(0.99); }
     .auth-error {
-      color: #f87171;
-      background: rgba(248, 113, 113, 0.1);
-      border: 1px solid rgba(248, 113, 113, 0.25);
-      border-radius: 8px;
+      color: var(--accent-danger);
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 6px;
       padding: 8px 10px;
       font-size: 11px;
-      margin-top: 10px;
+      margin-top: 8px;
       display: none;
       line-height: 1.4;
     }
@@ -129,61 +245,61 @@
       display: none;
       justify-content: space-between;
       align-items: center;
-      background: rgba(99, 145, 255, 0.08);
-      border: 1px solid rgba(99, 145, 255, 0.2);
-      border-radius: 14px;
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+      border-radius: 8px;
       padding: 12px 14px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     .user-info-label {
       font-size: 10px;
-      color: rgba(255,255,255,0.45);
+      color: var(--text-secondary);
       text-transform: uppercase;
       letter-spacing: 0.06em;
       margin-bottom: 2px;
     }
     .user-info-name {
       font-size: 14px;
-      color: #fff;
+      color: var(--text-primary);
       font-weight: 600;
     }
     .logout-btn {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
       padding: 6px 12px;
-      color: rgba(255,255,255,0.8);
+      color: var(--text-primary);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
       font-family: inherit;
     }
     .logout-btn:hover {
-      background: rgba(255,77,79,0.15);
-      border-color: rgba(255,77,79,0.3);
-      color: #ff6b6b;
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: var(--accent-danger);
     }
 
     /* Status Card */
     .status-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
       padding: 12px 14px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     .status-label {
       font-size: 10px;
-      color: rgba(255,255,255,0.4);
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-bottom: 4px;
     }
     .status-value {
       font-size: 13px;
-      color: #8eb0ff;
-      font-weight: 500;
+      color: var(--text-primary);
+      font-weight: 600;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -192,42 +308,43 @@
       display: inline-block;
       width: 7px; height: 7px;
       border-radius: 50%;
-      background: #34d399;
-      box-shadow: 0 0 6px #34d399;
+      background: var(--accent-green);
+      box-shadow: 0 0 6px var(--accent-green);
     }
 
     /* Display Mode Options */
     .section-title {
       font-size: 11px;
-      color: rgba(255,255,255,0.4);
+      color: var(--text-muted);
       margin-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
+      font-weight: 600;
     }
     .radio-group {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin-bottom: 14px;
+      gap: 6px;
+      margin-bottom: 12px;
     }
     .radio-label {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 13px;
+      font-size: 12px;
       cursor: pointer;
-      color: rgba(255,255,255,0.85);
-      background: rgba(255,255,255,0.02);
-      border: 1px solid rgba(255,255,255,0.06);
+      color: var(--text-primary);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
       padding: 8px 10px;
-      border-radius: 8px;
-      transition: background 0.15s;
+      border-radius: 6px;
+      transition: background 0.15s, border-color 0.15s;
     }
     .radio-label:hover {
-      background: rgba(255,255,255,0.05);
+      border-color: var(--accent-gold-border);
     }
     .radio-label input {
-      accent-color: #6391ff;
+      accent-color: var(--accent-gold);
     }
 
     /* Toggle Rows */
@@ -236,12 +353,12 @@
       align-items: center;
       justify-content: space-between;
       padding: 9px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 13px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
     }
     .info-row:last-of-type { border-bottom: none; }
-    .info-key { color: rgba(255,255,255,0.6); }
-    .info-val { color: rgba(255,255,255,0.9); font-weight: 500; font-size: 12px; }
+    .info-key { color: var(--text-secondary); }
+    .info-val { color: var(--text-primary); font-weight: 600; font-size: 11.5px; }
     .toggle {
       position: relative;
       width: 36px; height: 20px;
@@ -250,17 +367,17 @@
     .toggle input { display: none; }
     .toggle-track {
       width: 100%; height: 100%;
-      background: rgba(255,255,255,0.12);
-      border-radius: 10px;
+      background: var(--border-subtle);
+      border-radius: 6px;
       transition: background 0.2s;
     }
-    .toggle input:checked + .toggle-track { background: #6391ff; }
+    .toggle input:checked + .toggle-track { background: var(--accent-gold); }
     .toggle-thumb {
       position: absolute;
       top: 2px; left: 2px;
       width: 16px; height: 16px;
       background: #fff;
-      border-radius: 50%;
+      border-radius: 4px;
       transition: left 0.2s;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
@@ -271,22 +388,42 @@
       margin-top: 14px;
       text-align: center;
       font-size: 11px;
-      color: rgba(255,255,255,0.25);
+      color: var(--text-muted);
     }
   </style>
 </head>
 <body>
   <!-- Header -->
   <div class="header">
-    <div class="logo-icon">❄️</div>
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93"></path>
+      </svg>
+    </div>
     <div class="logo-text">Flake<span>Secure</span></div>
-    <select id="ext-lang-select" aria-label="Language" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 2px 6px; font-size: 11px; cursor: pointer; outline: none; margin-left: auto;">
-      <option value="en" style="background: #111424; color: #fff;">🇬🇧 EN</option>
-      <option value="de" style="background: #111424; color: #fff;">🇩🇪 DE</option>
-      <option value="fr" style="background: #111424; color: #fff;">🇫🇷 FR</option>
-      <option value="es" style="background: #111424; color: #fff;">🇪🇸 ES</option>
-    </select>
-    <div class="version">v2.0.0</div>
+    
+    <div class="header-actions">
+      <button class="theme-toggle-btn" id="ext-theme-toggle" aria-label="Toggle theme" title="Toggle Light/Dark Theme">
+        <svg id="theme-icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg id="theme-icon-moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+
+      <select id="ext-lang-select" class="lang-select" aria-label="Language">
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+        <option value="fr">FR</option>
+        <option value="es">ES</option>
+      </select>
+      <div class="version">v2.0.2</div>
+    </div>
   </div>
 
   <!-- Account / Auth Section -->
@@ -360,11 +497,11 @@
 
     <div class="info-row">
       <span class="info-key" id="t-encryption">Verschlüsselung</span>
-      <span class="info-val">AES-256 (Zero-Knowledge) ✓</span>
+      <span class="info-val">AES-256 (Zero-Knowledge) [OK]</span>
     </div>
   </div>
 
-  <div class="footer" id="t-footer">FlakeSecure – Biometrische Sicherheit</div>
+  <div class="footer" id="t-footer">FlakeSecure: Biometrische Sicherheit</div>
 
   <script src="popup.js"></script>
 </body>

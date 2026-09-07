@@ -25,6 +25,7 @@ export default {};
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { register as apiRegister, login as apiLogin, logout as apiLogout, getMe } from '../utils/api';
 import { syncVaultFromServer, syncVaultToServer, purgeLocalVault } from '../utils/vault';
 import { i18n } from '../i18n';
@@ -166,16 +167,13 @@ export function AuthProvider({ children }) {
       username: data.user?.username || identifier,
       password 
     }));
+
+    // Flag that user just logged in so HomeScreen can check and prompt to pull vault
+    await AsyncStorage.setItem('pending_vault_pull_check', 'true');
+
     setToken(data.token);
     setUser(data.user);
     setNeedsBiometricUnlock(false);
-
-    // Synchronously restore vault from server before switching screens
-    try {
-      await syncVaultFromServer(password, identifier, data.user?.email);
-    } catch (syncErr) {
-      console.log('[Auth] Login vault sync warning:', syncErr.message);
-    }
 
     return data;
   }, []);

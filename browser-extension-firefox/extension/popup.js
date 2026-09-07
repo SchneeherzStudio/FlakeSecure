@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Browser Extension Popup Script (Firefox MV3) v2.0.0
+ * FlakeSecure - Browser Extension Popup Script (Firefox MV3) v2.0.1
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & WORKFLOW:
@@ -9,12 +9,18 @@
  *    - Loads and persists displayMode, autoLogin, autoOverlay, and app_language from browser.storage.
  *    - Updates popup UI text dynamically based on selected language (EN, DE, FR, ES).
  * 
- * 2. AUTHENTICATION & SESSION HANDLING:
+ * 2. THEME ENGINE:
+ *    - Detects OS prefers-color-scheme by default.
+ *    - Manual toggle persisted in browser.storage.local (ext_theme).
+ * 
+ * 3. AUTHENTICATION & SESSION HANDLING:
  *    - updateAuthUI(user): Toggles between login form and authenticated profile state.
  *    - Login handler: Calls /api/auth/login, stores JWT token and user info in browser.storage.local.
  *    - Logout handler: Calls /api/auth/logout and clears local auth storage.
  * ============================================================================
  */
+
+const storageAPI = (typeof browser !== 'undefined' && browser.storage) ? browser.storage : chrome.storage;
 
 const EXT_I18N = {
   en: {
@@ -26,14 +32,14 @@ const EXT_I18N = {
     logoutBtn: "Log Out",
     statusLabel: "Status",
     statusReady: "Ready",
-    statusSaved: "Saved ✓",
+    statusSaved: "Saved [OK]",
     displayModeLabel: "Display Mode",
     modePopup: "Open Popup directly",
     modeButton: 'Show "FlakeSecure" Button',
     autoLogin: "Auto-Login",
     autoOverlay: "Overlay on password field",
     encryption: "Encryption",
-    footer: "FlakeSecure – Biometric Security",
+    footer: "FlakeSecure: Biometric Security",
     fillAllFields: "Please fill in all fields",
     loginError: "Login failed"
   },
@@ -46,14 +52,14 @@ const EXT_I18N = {
     logoutBtn: "Abmelden",
     statusLabel: "Status",
     statusReady: "Bereit",
-    statusSaved: "Gespeichert ✓",
+    statusSaved: "Gespeichert [OK]",
     displayModeLabel: "Anzeige-Modus",
     modePopup: "Direkt Popup öffnen",
     modeButton: '"FlakeSecure" Button anzeigen',
     autoLogin: "Auto-Login",
     autoOverlay: "Overlay bei Passwortfeld",
     encryption: "Verschlüsselung",
-    footer: "FlakeSecure – Biometrische Sicherheit",
+    footer: "FlakeSecure: Biometrische Sicherheit",
     fillAllFields: "Bitte alle Felder ausfüllen",
     loginError: "Anmeldung fehlgeschlagen"
   },
@@ -66,14 +72,14 @@ const EXT_I18N = {
     logoutBtn: "Déconnexion",
     statusLabel: "Statut",
     statusReady: "Prêt",
-    statusSaved: "Enregistré ✓",
+    statusSaved: "Enregistré [OK]",
     displayModeLabel: "Mode d'affichage",
     modePopup: "Ouvrir directement le popup",
     modeButton: 'Afficher le bouton "FlakeSecure"',
     autoLogin: "Connexion automatique",
     autoOverlay: "Superposition sur le mot de passe",
     encryption: "Chiffrement",
-    footer: "FlakeSecure – Sécurité Biométrique",
+    footer: "FlakeSecure: Sécurité Biométrique",
     fillAllFields: "Veuillez remplir tous les champs",
     loginError: "Échec de connexion"
   },
@@ -86,14 +92,14 @@ const EXT_I18N = {
     logoutBtn: "Cerrar sesión",
     statusLabel: "Estado",
     statusReady: "Listo",
-    statusSaved: "Guardado ✓",
+    statusSaved: "Guardado [OK]",
     displayModeLabel: "Modo de visualización",
     modePopup: "Abrir ventana emergente directamente",
     modeButton: 'Mostrar botón "FlakeSecure"',
     autoLogin: "Auto-Login",
     autoOverlay: "Superposición en campo de contraseña",
     encryption: "Cifrado",
-    footer: "FlakeSecure – Seguridad Biométrica",
+    footer: "FlakeSecure: Seguridad Biométrica",
     fillAllFields: "Por favor, completa todos los campos",
     loginError: "Error de inicio de sesión"
   }
@@ -161,24 +167,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const autoOverlayToggle = document.getElementById('auto-overlay');
   const statusMsg = document.getElementById('status-msg');
   const langSelect = document.getElementById('ext-lang-select');
+  const themeToggleBtn = document.getElementById('ext-theme-toggle');
+  const sunIcon = document.getElementById('theme-icon-sun');
+  const moonIcon = document.getElementById('theme-icon-moon');
 
-  browser.storage.sync.get(['displayMode', 'autoLogin', 'autoOverlay', 'app_language']).then((result) => {
-    if (result.displayMode === 'button') {
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'light') {
+      if (sunIcon) sunIcon.style.display = 'block';
+      if (moonIcon) moonIcon.style.display = 'none';
+    } else {
+      if (sunIcon) sunIcon.style.display = 'none';
+      if (moonIcon) moonIcon.style.display = 'block';
+    }
+  }
+
+  storageAPI.local.get(['ext_theme'], (res) => {
+    let activeTheme = res?.ext_theme;
+    if (!activeTheme) {
+      activeTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    applyTheme(activeTheme);
+  });
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      applyTheme(nextTheme);
+      storageAPI.local.set({ ext_theme: nextTheme });
+    });
+  }
+
+  storageAPI.sync.get(['displayMode', 'autoLogin', 'autoOverlay', 'app_language'], (result) => {
+    if (result?.displayMode === 'button') {
       modeButton.checked = true;
     } else {
       modePopup.checked = true;
     }
-    if (result.autoLogin !== undefined) autoLoginToggle.checked = result.autoLogin;
-    if (result.autoOverlay !== undefined) autoOverlayToggle.checked = result.autoOverlay;
+    if (result?.autoLogin !== undefined) autoLoginToggle.checked = result.autoLogin;
+    if (result?.autoOverlay !== undefined) autoOverlayToggle.checked = result.autoOverlay;
 
-    const savedLang = result.app_language || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en');
+    const savedLang = result?.app_language || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en');
     applyTranslations(savedLang);
   });
 
   if (langSelect) {
     langSelect.addEventListener('change', (e) => {
       const newLang = e.target.value;
-      browser.storage.sync.set({ app_language: newLang }).then(() => {
+      storageAPI.sync.set({ app_language: newLang }, () => {
         applyTranslations(newLang);
         statusMsg.textContent = EXT_I18N[newLang].statusSaved;
         setTimeout(() => { statusMsg.textContent = EXT_I18N[newLang].statusReady; }, 1800);
@@ -188,9 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   [modePopup, modeButton].forEach(radio => {
     radio.addEventListener('change', () => {
-      browser.storage.sync.set({
+      storageAPI.sync.set({
         displayMode: document.querySelector('input[name="display-mode"]:checked').value
-      }).then(() => {
+      }, () => {
         const t = EXT_I18N[currentLang] || EXT_I18N.en;
         statusMsg.textContent = t.statusSaved;
         setTimeout(() => { statusMsg.textContent = t.statusReady; }, 1800);
@@ -200,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   [autoLoginToggle, autoOverlayToggle].forEach(toggle => {
     toggle.addEventListener('change', () => {
-      browser.storage.sync.set({
+      storageAPI.sync.set({
         autoLogin: autoLoginToggle.checked,
         autoOverlay: autoOverlayToggle.checked
       });
@@ -229,8 +266,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  browser.storage.local.get(['authToken', 'authUser']).then((res) => {
-    updateAuthUI(res.authUser);
+  storageAPI.local.get(['authToken', 'authUser'], (res) => {
+    updateAuthUI(res?.authUser);
   });
 
   loginBtn.addEventListener('click', async () => {
@@ -261,10 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(data.error || t.loginError);
       }
       
-      browser.storage.local.set({
+      storageAPI.local.set({
         authToken: data.token,
         authUser: data.user
-      }).then(() => {
+      }, () => {
         updateAuthUI(data.user);
         loginIdentifier.value = '';
         loginPassword.value = '';
@@ -280,7 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   logoutBtn.addEventListener('click', async () => {
     try {
-      const { authToken } = await browser.storage.local.get(['authToken']);
+      const res = await new Promise(r => storageAPI.local.get(['authToken'], r));
+      const authToken = res?.authToken;
       if (authToken) {
         await fetch(`${API_URL}/api/auth/logout`, {
           method: 'POST',
@@ -292,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e) {
     } finally {
-      browser.storage.local.remove(['authToken', 'authUser']).then(() => {
+      storageAPI.local.remove(['authToken', 'authUser'], () => {
         updateAuthUI(null);
       });
     }

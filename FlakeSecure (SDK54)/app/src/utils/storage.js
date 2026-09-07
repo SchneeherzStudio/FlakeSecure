@@ -44,12 +44,12 @@ const DEFAULT_PROFILE_KEY = 'flakesecure_default_profile_v1';
 const TOTP_ITEMS_KEY = 'flakesecure_totp_items_v1';
 
 export const DEFAULT_CATEGORIES = [
-  { id: 'personal', name: 'Personal', icon: '👤', isDefault: true },
-  { id: 'work', name: 'Work', icon: '💼', isDefault: true },
-  { id: 'finance', name: 'Finance', icon: '💳', isDefault: true },
-  { id: 'social', name: 'Social', icon: '💬', isDefault: true },
-  { id: 'entertainment', name: 'Entertainment', icon: '🎮', isDefault: true },
-  { id: 'other', name: 'Other', icon: '📁', isDefault: true },
+  { id: 'personal', name: 'Personal', icon: 'user', isDefault: true },
+  { id: 'work', name: 'Work', icon: 'briefcase', isDefault: true },
+  { id: 'finance', name: 'Finance', icon: 'card', isDefault: true },
+  { id: 'social', name: 'Social', icon: 'message', isDefault: true },
+  { id: 'entertainment', name: 'Entertainment', icon: 'code', isDefault: true },
+  { id: 'other', name: 'Other', icon: 'folder', isDefault: true },
 ];
 
 export async function getDefaultProfile() {
@@ -86,7 +86,7 @@ export async function saveCategory(category) {
   const categories = await getCategories();
   const id = category.id || `cat_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const cleanName = category.name.trim();
-  const icon = category.icon || '🏷️';
+  const icon = category.icon || 'tag';
 
   const existingIdx = categories.findIndex(c => c.id === id || c.name.toLowerCase() === cleanName.toLowerCase());
   if (existingIdx >= 0) {

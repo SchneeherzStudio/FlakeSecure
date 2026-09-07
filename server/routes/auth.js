@@ -86,15 +86,17 @@ router.post('/register', async (req, res) => {
         return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
-    if (otpToken) {
-        try {
-            const decoded = jwt.verify(otpToken, process.env.JWT_SECRET);
-            if (decoded.email !== cleanEmail || decoded.purpose !== 'register' || !decoded.verified) {
-                return res.status(400).json({ error: 'Invalid or expired email verification token' });
-            }
-        } catch (otpErr) {
-            return res.status(400).json({ error: 'Email verification required. Please verify your email first.' });
+    if (!otpToken) {
+        return res.status(400).json({ error: 'Email verification required. Please verify your email first.' });
+    }
+
+    try {
+        const decoded = jwt.verify(otpToken, process.env.JWT_SECRET);
+        if (decoded.email !== cleanEmail || decoded.purpose !== 'register' || !decoded.verified) {
+            return res.status(400).json({ error: 'Invalid or expired email verification token' });
         }
+    } catch (otpErr) {
+        return res.status(400).json({ error: 'Email verification token expired. Please request a new code.' });
     }
 
     try {
@@ -126,6 +128,111 @@ router.post('/register', async (req, res) => {
         if (error.code === '23505') {
             return res.status(409).json({ error: 'Username or email already exists' });
         }
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Valid email address is required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    try {
+        const { rows } = await db.query(
+            'SELECT id, email, username, language FROM users WHERE email = $1 AND deleted_at IS NULL',
+            [cleanEmail]
+        );
+
+        // Always return success to prevent email enumeration
+        if (rows.length === 0) {
+            return res.json({ 
+                success: true, 
+                message: 'If that email is registered, a password reset link has been sent.' 
+            });
+        }
+
+        const user = rows[0];
+        const rawToken = require('crypto').randomBytes(32).toString('hex');
+        const tokenHash = require('crypto').createHash('sha256').update(rawToken).digest('hex');
+
+        // Invalidate older unused reset tokens
+        await db.query('DELETE FROM password_resets WHERE user_id = $1', [user.id]);
+
+        // Insert new reset token valid for 30 minutes
+        await db.query(
+            "INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 minutes')",
+            [user.id, tokenHash]
+        );
+
+        const baseUrl = process.env.BASE_URL || 'https://flakesecure.snowystudio.dev';
+        const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
+
+        const { sendPasswordResetEmail } = require('../utils/email');
+        await sendPasswordResetEmail(user.email, user.username, resetUrl, user.language);
+
+        res.json({
+            success: true,
+            message: 'If that email is registered, a password reset link has been sent.'
+        });
+    } catch (err) {
+        console.error('Forgot password error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/reset-password', async (req, res) => {
+    const { token, password } = req.body;
+    if (!token || !password) {
+        return res.status(400).json({ error: 'Reset token and new password are required' });
+    }
+
+    if (/\s/.test(password)) {
+        return res.status(400).json({ error: 'Password cannot contain spaces or whitespace characters' });
+    }
+
+    if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    }
+
+    try {
+        const tokenHash = require('crypto').createHash('sha256').update(token).digest('hex');
+
+        const { rows } = await db.query(
+            'SELECT pr.id as reset_id, pr.user_id, pr.expires_at, pr.used_at, u.email, u.username FROM password_resets pr JOIN users u ON pr.user_id = u.id WHERE pr.token_hash = $1 AND pr.expires_at > NOW() AND pr.used_at IS NULL',
+            [tokenHash]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired password reset link. Please request a new one.' });
+        }
+
+        const resetRecord = rows[0];
+        const newPasswordHash = await argon2.hash(password);
+
+        // Update password and mark token used
+        await db.query(
+            'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+            [newPasswordHash, resetRecord.user_id]
+        );
+
+        await db.query(
+            'UPDATE password_resets SET used_at = NOW() WHERE id = $1',
+            [resetRecord.reset_id]
+        );
+
+        // Invalidate all active sessions for security
+        await db.query('DELETE FROM sessions WHERE user_id = $1', [resetRecord.user_id]);
+
+        res.json({
+            success: true,
+            message: 'Password has been successfully updated. You can now log in with your new password.',
+            vaultNotice: 'Zero-Knowledge Notice: Your cloud vault was encrypted with your previous password key. Open and unlock your FlakeSecure mobile app to synchronize your vault with your new credentials.'
+        });
+    } catch (err) {
+        console.error('Reset password error:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -178,7 +285,7 @@ router.post('/login', async (req, res) => {
             const loginDevice = deviceInfo.substring(0, 50);
             await sendPushToUser(
                 user.id,
-                '❄️ Neuer Login erkannt',
+                'Neuer Login erkannt',
                 `Anmeldung von ${loginDevice} (${city || country || 'Unbekannter Ort'})`,
                 { type: 'new_login', device: loginDevice }
             );

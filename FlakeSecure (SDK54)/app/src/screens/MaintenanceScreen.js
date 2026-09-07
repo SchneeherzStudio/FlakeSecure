@@ -2,17 +2,6 @@
  * ============================================================================
  * FlakeSecure Mobile App - Maintenance & Outdated Blocking Screen
  * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. BLOCKING SYSTEM DISPLAY:
- *    - Displays full-screen blocking overlay when maintenance is active or when the app version is outdated.
- *    - Renders offline banner ("Du bist zurzeit offline – Funktionen eingeschränkt") when network is unreachable.
- * 
- * 2. SYSTEM STATUS POLLING & RETRY:
- *    - handleRetry(): Triggers immediate status re-check against /api/system/status.
- *    - Auto-polls every 30 seconds to automatically dismiss screen when server maintenance ends.
- * ============================================================================
  */
 
 import React, { useEffect, useState } from 'react';
@@ -29,6 +18,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { AppIcon } from '../components/CategoryIcons';
 
 export default function MaintenanceScreen({
   reason = 'maintenance',
@@ -40,6 +31,7 @@ export default function MaintenanceScreen({
   onRetry,
 }) {
   const { t, locale } = useLanguage();
+  const { colors } = useTheme();
   const [checking, setChecking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -78,30 +70,32 @@ export default function MaintenanceScreen({
     : null;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6391ff" />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />
         }
       >
         {isOffline && (
-          <View style={styles.offlineBanner}>
-            <Text style={styles.offlineIcon}>📡</Text>
-            <Text style={styles.offlineText}>
+          <View style={[styles.offlineBanner, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+            <AppIcon name="wifiOff" size={18} color={colors.gold} style={{ marginRight: 8 }} />
+            <Text style={[styles.offlineText, { color: colors.gold }]}>
               {t('maintenance.offlineBanner')}
             </Text>
           </View>
         )}
 
-        <View style={styles.card}>
-          <View style={styles.iconContainer}>
-            <Text style={styles.mainEmoji}>
-              {reason === 'outdated' ? '🚀' : isOffline ? '🔌' : '🛠️'}
-            </Text>
+        <View style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+            <AppIcon
+              name={isOffline ? 'wifiOff' : reason === 'outdated' ? 'alert' : 'gear'}
+              size={36}
+              color={colors.gold}
+            />
           </View>
 
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.textMain }]}>
             {reason === 'outdated'
               ? t('maintenance.outdatedTitle')
               : isOffline
@@ -109,16 +103,16 @@ export default function MaintenanceScreen({
               : t('maintenance.maintenanceTitle')}
           </Text>
 
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textSub }]}>
             {reason === 'outdated'
               ? t('maintenance.outdatedMsg', { current: currentVersion, min: minVersion })
               : message || t('maintenance.defaultMaintMsg')}
           </Text>
 
           {formattedUntil && reason === 'maintenance' && (
-            <View style={styles.timeBox}>
-              <Text style={styles.timeLabel}>{t('maintenance.availableUntil')}</Text>
-              <Text style={styles.timeValue}>{formattedUntil}</Text>
+            <View style={[styles.timeBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Text style={[styles.timeLabel, { color: colors.textMuted }]}>{t('maintenance.availableUntil')}</Text>
+              <Text style={[styles.timeValue, { color: colors.gold }]}>{formattedUntil}</Text>
             </View>
           )}
 
@@ -128,7 +122,7 @@ export default function MaintenanceScreen({
               onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/#downloads')}
             >
               <LinearGradient
-                colors={['#6391ff', '#7c6aff']}
+                colors={colors.goldGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientBtn}
@@ -143,13 +137,13 @@ export default function MaintenanceScreen({
               disabled={checking}
             >
               <LinearGradient
-                colors={['#6391ff', '#7c6aff']}
+                colors={colors.goldGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientBtn}
               >
                 {checking ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
                   <Text style={styles.btnText}>{t('maintenance.checkAgain')}</Text>
                 )}
@@ -157,7 +151,7 @@ export default function MaintenanceScreen({
             </TouchableOpacity>
           )}
 
-          <Text style={styles.footerNote}>
+          <Text style={[styles.footerNote, { color: colors.textMuted }]}>
             {reason === 'outdated'
               ? t('maintenance.outdatedNote')
               : t('maintenance.localVaultSafeNote')}
@@ -171,114 +165,91 @@ export default function MaintenanceScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090b14',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
   },
   offlineBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 149, 0, 0.15)',
-    borderColor: 'rgba(255, 149, 0, 0.3)',
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 20,
-  },
-  offlineIcon: {
-    fontSize: 18,
-    marginRight: 10,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
   },
   offlineText: {
-    color: '#ffb340',
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderRadius: 24,
-    padding: 30,
+    borderRadius: 10,
+    padding: 24,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 8,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(99, 145, 255, 0.1)',
+    width: 68,
+    height: 68,
+    borderRadius: 12,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-  },
-  mainEmoji: {
-    fontSize: 40,
+    marginBottom: 18,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#fff',
     textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: -0.5,
+    marginBottom: 10,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: 20,
+    marginBottom: 20,
   },
   timeBox: {
-    backgroundColor: 'rgba(99, 145, 255, 0.08)',
-    borderColor: 'rgba(99, 145, 255, 0.2)',
     borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
     width: '100%',
   },
   timeLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginBottom: 4,
+    fontSize: 11,
+    marginBottom: 2,
     fontWeight: '600',
   },
   timeValue: {
-    fontSize: 16,
-    color: '#6391ff',
+    fontSize: 15,
     fontWeight: '700',
   },
   actionBtn: {
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   gradientBtn: {
-    paddingVertical: 16,
-    borderRadius: 14,
+    paddingVertical: 14,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   btnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
   },
   footerNote: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.35)',
     textAlign: 'center',
     lineHeight: 18,
   },

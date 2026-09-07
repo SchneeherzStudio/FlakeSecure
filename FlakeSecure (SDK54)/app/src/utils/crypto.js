@@ -108,7 +108,7 @@ function utf8Decode(bytes) {
       str += String.fromCharCode(0xD800 + (adjusted >> 10), 0xDC00 + (adjusted & 0x3FF));
       i += 4;
     } else {
-      // Invalid byte — skip it
+      // Invalid byte - skip it
       str += String.fromCharCode(0xFFFD);
       i += 1;
     }

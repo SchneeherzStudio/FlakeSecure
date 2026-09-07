@@ -1,6 +1,6 @@
-# ❄️ FlakeSecure
+ FlakeSecure
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.0.2-blue.svg)](package.json)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Chrome%20%7C%20Firefox-success.svg)](#-platform-support)
 [![Security](https://img.shields.io/badge/encryption-AES--256--CTR%20%2B%20HMAC--SHA256-orange.svg)](#-security-architecture--protocols)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](#)
@@ -10,91 +10,91 @@
 
 ---
 
-## 📋 Table of Contents
+ Table of Contents
 
-- [✨ What's New in Version 2.0.0 (Changelog)](#-whats-new-in-version-200-changelog)
-- [✨ Core Features](#-core-features)
-- [🏗 Project Structure](#-project-structure)
-- [🚀 Setup & Installation](#-setup--installation)
+- [ What's New in Version 2.0.2 (Changelog)](#-whats-new-in-version-202-changelog)
+- [ Core Features](#-core-features)
+- [ Project Structure](#-project-structure)
+- [ Setup & Installation](#-setup--installation)
   - [1. Relay & API Server](#1-relay--api-server)
   - [2. Chrome / Edge / Chromium Extension](#2-chrome--edge--chromium-extension)
   - [3. Firefox Extension](#3-firefox-extension)
   - [4. Mobile App (iOS / Android)](#4-mobile-app-ios--android)
-- [🔐 Security Architecture & Protocols](#-security-architecture--protocols)
-- [🌐 Scalability & Multi-Region Clustering](#-scalability--multi-region-clustering)
-- [📦 Dependencies & Tech Stack](#-dependencies--tech-stack)
-- [📄 License](#-license)
+- [ Security Architecture & Protocols](#-security-architecture--protocols)
+- [ Scalability & Multi-Region Clustering](#-scalability--multi-region-clustering)
+- [ Dependencies & Tech Stack](#-dependencies--tech-stack)
+- [ License](#-license)
 
 ---
 
-## ✨ What's New in Version 2.0.0 (Changelog)
+ What's New in Version 2.0.2 (Changelog)
 
-With the **v2.0.0** release, FlakeSecure expands into a unified zero-knowledge security platform, introducing a built-in 2FA Authenticator, zero-knowledge cloud vault synchronization, email OTP verifications, in-app announcement pushups, maintenance blocking screens, and a revamped UI.
+With the **v2.0.2** release, FlakeSecure introduces full GDPR/TDDDG compliance, technical device detection, active session management, 45-second clipboard auto-clear, multi-lingual legal frameworks, and major security enhancements.
 
-### 🌟 Key Changes & New Features:
+ Key Changes & New Features:
 
-1. 🔑 **Built-in 2FA TOTP Authenticator (`AuthenticatorScreen.js`, `totp.js`)**:
+1.  **Built-in 2FA TOTP Authenticator (`AuthenticatorScreen.js`, `totp.js`)**:
    - Integrated **RFC 6238 TOTP engine** with pure JavaScript HMAC-SHA1 and Base32 decoding (zero external native dependencies).
    - Rotating **30-second live countdown timer**, visual progress indicator, and 1-tap clipboard copying.
    - Support for manual Base32 key entry and `otpauth://totp/...` URI parsing from QR codes.
    - **Seamless Relay Streaming**: Socket.IO connection is maintained for 2 minutes after login relay, allowing 1-tap streaming of 2FA codes directly to browser extensions for automatic OTP autofill.
 
-2. ☁️ **Account-Bound Zero-Knowledge Cloud Vault Sync (`vault.js`, `/api/vault/sync`)**:
+2.  **Account-Bound Zero-Knowledge Cloud Vault Sync (`vault.js`, `/api/vault/sync`)**:
    - Client-side 256-bit AES key derivation using PBKDF2 with SHA-256 iterations from user password and salt.
    - Full end-to-end encrypted backup and synchronization of credentials, categories, autofill profile presets, and 2FA secrets.
    - **Automatic restore on login** and **complete local SecureStore purge on logout** ensuring account-bound data isolation.
 
-3. ✉️ **One-Time-Code (OTP) Email Verification (`/api/otp`, `nodemailer`)**:
+3.  **One-Time-Code (OTP) Email Verification (`/api/otp`, `nodemailer`)**:
    - Cryptographically random 6-digit OTP verification codes delivered via branded HTML emails.
    - Enforced during new account registration in the mobile app, onboarding, and the web portal.
    - High-security double confirmation required for permanent account deletion.
 
-4. 📢 **Server Announcements & Pushup System (`/api/system/announcements`)**:
+4.  **Server Announcements & Pushup System (`/api/system/announcements`)**:
    - Admin endpoints to broadcast maintenance alerts, updates, and notices.
    - Support for **Popup Modals** upon app startup and **Top Banners** with customizable display behavior (`once` or `always`).
    - Per-user dismissal tracking in PostgreSQL (`dismissed_announcements`).
 
-5. 🛠️ **Maintenance Mode & Outdated Version Blocking (`MaintenanceScreen.js`)**:
+5.  **Maintenance Mode & Outdated Version Blocking (`MaintenanceScreen.js`)**:
    - Real-time blocking screen triggered when a maintenance window is active or the client version is outdated.
    - Offline connectivity indicator (*"Du bist zurzeit offline – Funktionen eingeschränkt"* / *"Server nicht erreichbar"*).
    - Automated 30-second polling to smoothly resume app operation once the server is available.
 
-6. 📋 **Fixed Activity Logs & Custom Date Formatting (`LogsScreen.js`)**:
+6.  **Fixed Activity Logs & Custom Date Formatting (`LogsScreen.js`)**:
    - Fixed response object extraction bug for paginated audit logs.
    - Enriched human-readable action labels (`Login`, `Credential Sent`, `QR Share`, `Account Created`, `Account Deleted`).
    - Customizable timestamp formats in Settings: *Systemstandard*, German (*HH:MM TT.MM.JJJJ*), or ISO (*YYYY-MM-DD*).
    - Filter chips for fast inspection (All, Logins, Transfers, Shares).
 
-7. 📱 **Mobile UI Redesign & Quick Action Navigation (`HomeScreen.js`)**:
+7.  **Mobile UI Redesign & Quick Action Navigation (`HomeScreen.js`)**:
    - Current logged-in user pill badge prominently displayed in the top header.
    - Quick Action Bar on the Home screen for immediate access to **2FA Codes**, **Logs**, **Neu (Add Login)**, and **Teilen (Share)**.
    - Active session manager in `SettingsScreen.js` with remote session termination.
 
-8. 🌐 **Web Account Portal (`/account`)**:
+8.  **Web Account Portal (`/account`)**:
    - Dedicated web interface for registration with OTP, login, active session inspection, and OTP-confirmed account deletion.
 
-9. 📲 **Push Notifications (Expo Server SDK)**:
+9.  **Push Notifications (Expo Server SDK)**:
    - Push notifications dispatched to registered mobile devices upon new account logins and browser extension triggers.
 
-10. 🌍 **Scalability Architecture (`SCALABILITY.md`)**:
+10.  **Scalability Architecture (`SCALABILITY.md`)**:
     - Comprehensive technical specification for regional GeoDNS edge clusters (`de.flakesecure...`, `us.flakesecure...`), Socket.IO Redis pub/sub adapters, and Nginx sticky load balancing.
 
 ---
 
-## ✨ Core Features
+ Core Features
 
-- **⚡ Instant QR Login**: No need to type lengthy master passwords or secrets on public or desktop devices.
-- **🔑 Seamless 2FA Autofill**: Generate and stream 6-digit TOTP codes directly to browser extension input fields.
-- **🔒 End-to-End Encryption**: AES-256-CTR + HMAC-SHA256 with ephemeral session keys – the server processes only ciphertext.
-- **☁️ Zero-Knowledge Cloud Vault**: Client-side encrypted cloud backup and multi-device synchronization.
-- **🧬 Native Biometrics**: Face ID, Touch ID, or Android Biometric authentication required before releasing credentials.
-- **📂 Secure Storage**: All credentials stored encrypted inside hardware-backed SecureStore (iOS Keychain / Android Keystore).
-- **🛡️ Whitelist Sharing**: Share credentials securely with friends, family, or colleagues with fine-grained permission control.
-- **📱 Universal Deep Linking**: Seamless QR code recognition via camera scan or direct web links (`flakesecure://`).
+- ** Instant QR Login**: No need to type lengthy master passwords or secrets on public or desktop devices.
+- ** Seamless 2FA Autofill**: Generate and stream 6-digit TOTP codes directly to browser extension input fields.
+- ** End-to-End Encryption**: AES-256-CTR + HMAC-SHA256 with ephemeral session keys – the server processes only ciphertext.
+- ** Zero-Knowledge Cloud Vault**: Client-side encrypted cloud backup and multi-device synchronization.
+- ** Native Biometrics**: Face ID, Touch ID, or Android Biometric authentication required before releasing credentials.
+- ** Secure Storage**: All credentials stored encrypted inside hardware-backed SecureStore (iOS Keychain / Android Keystore).
+- ** Whitelist Sharing**: Share credentials securely with friends, family, or colleagues with fine-grained permission control.
+- ** Universal Deep Linking**: Seamless QR code recognition via camera scan or direct web links (`flakesecure://`).
 
 ---
 
-## 🏗 Project Structure
+ Project Structure
 
 ```
 flakesecure/
@@ -176,22 +176,22 @@ flakesecure/
 
 ---
 
-## 🚀 Setup & Installation
+ Setup & Installation
 
-### 1. Relay & API Server
+ 1. Relay & API Server
 
-#### Prerequisites:
+ Prerequisites:
 - Node.js (v18+)
 - PostgreSQL Database
 - SMTP Server credentials (for email OTPs)
 
-#### Installation:
+ Installation:
 ```bash
 cd server
 npm install
 ```
 
-#### Configuration (`server/.env`):
+ Configuration (`server/.env`):
 Create a `.env` file in the `server/` directory:
 ```env
 PORT=4000
@@ -203,7 +203,7 @@ PGPASSWORD=your_postgres_password
 JWT_SECRET=your_super_secret_jwt_key_at_least_64_characters
 ADMIN_SECRET=your_secret_admin_header_key
 
-# SMTP Configuration for Email OTP:
+ SMTP Configuration for Email OTP:
 SMTP_HOST=smtp.your-provider.com
 SMTP_PORT=587
 SMTP_USER=noreply@flakesecure.snowystudio.dev
@@ -211,24 +211,24 @@ SMTP_PASS=your_smtp_password
 SMTP_FROM=FlakeSecure <noreply@flakesecure.snowystudio.dev>
 ```
 
-#### Database Setup:
+ Database Setup:
 ```bash
 psql -U postgres -d flakesecure -f db/schema.sql
 ```
 
-#### Run Server:
+ Run Server:
 ```bash
-# Development mode:
+ Development mode:
 npm run dev
 
-# Production start:
+ Production start:
 npm start
-# → Server runs on port 4000
+ → Server runs on port 4000
 ```
 
 ---
 
-### 2. Chrome / Edge / Chromium Extension
+ 2. Chrome / Edge / Chromium Extension
 
 1. Open `chrome://extensions` (or `edge://extensions`) in your browser.
 2. Enable **Developer mode** in the top right corner.
@@ -238,7 +238,7 @@ npm start
 
 ---
 
-### 3. Firefox Extension
+ 3. Firefox Extension
 
 1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
 2. Click **Load Temporary Add-on...**.
@@ -247,37 +247,37 @@ npm start
 
 ---
 
-### 4. Mobile App (iOS / Android)
+ 4. Mobile App (iOS / Android)
 
-#### Installation:
+ Installation:
 ```bash
 cd "FlakeSecure (SDK57)"
 npm install
 ```
 
-#### Start in Development Mode:
+ Start in Development Mode:
 ```bash
 npx expo start
 ```
 - **Android**: Open the Expo Go app → scan the QR code, or press `a` for Android Emulator.
 - **iOS**: Open the Camera app → scan the QR code (Expo Go), or press `i` for iOS Simulator.
 
-#### Native Production Builds (EAS Build):
+ Native Production Builds (EAS Build):
 ```bash
-# Build Android APK / AAB
+ Build Android APK / AAB
 eas build -p android --profile preview
 
-# Build iOS IPA
+ Build iOS IPA
 eas build -p ios --profile preview
 ```
 
 ---
 
-## 🔐 Security Architecture & Protocols
+ Security Architecture & Protocols
 
 FlakeSecure is built strictly upon the **Zero-Knowledge Principle**: The relay server transports only authenticated ciphertexts and never possesses cryptographic keys or plaintext passwords.
 
-### 🔄 Login & 2FA Streaming Flow (Sequence Diagram)
+ Login & 2FA Streaming Flow (Sequence Diagram)
 
 ```
 Browser Extension                Relay Server                   Mobile App
@@ -318,16 +318,16 @@ Browser Extension                Relay Server                   Mobile App
       ▼                               ▼                              ▼
 ```
 
-### 🛡️ Security Highlights:
-- **🔑 Authenticated Encryption**: AES-256-CTR with HMAC-SHA256 (Encrypt-then-MAC) prevents both eavesdropping and tampering.
-- **🎲 Ephemeral Keys**: Unique 256-bit session keys transmitted exclusively over the physical optical QR channel.
-- **☁️ Zero-Knowledge Cloud Vault**: PBKDF2 (SHA-256) client-side derived key protects all server-stored vault backups.
-- **✉️ Cryptographic OTP**: Argon2 hashed OTP codes with 10-minute expiry and attempt rate-limiting.
-- **💾 Hardware-Backed Storage**: Credentials isolated in the iOS Keychain / Android Keystore via `expo-secure-store`.
+ Security Highlights:
+- ** Authenticated Encryption**: AES-256-CTR with HMAC-SHA256 (Encrypt-then-MAC) prevents both eavesdropping and tampering.
+- ** Ephemeral Keys**: Unique 256-bit session keys transmitted exclusively over the physical optical QR channel.
+- ** Zero-Knowledge Cloud Vault**: PBKDF2 (SHA-256) client-side derived key protects all server-stored vault backups.
+- ** Cryptographic OTP**: Argon2 hashed OTP codes with 10-minute expiry and attempt rate-limiting.
+- ** Hardware-Backed Storage**: Credentials isolated in the iOS Keychain / Android Keystore via `expo-secure-store`.
 
 ---
 
-## 🌐 Scalability & Multi-Region Clustering
+ Scalability & Multi-Region Clustering
 
 For large-scale deployments, FlakeSecure supports horizontal scaling and geo-distributed clustering. See [SCALABILITY.md](SCALABILITY.md) for details on:
 - **GeoDNS Regional Routing** (`de.flakesecure...`, `us.flakesecure...`, `ap.flakesecure...`).
@@ -336,7 +336,7 @@ For large-scale deployments, FlakeSecure supports horizontal scaling and geo-dis
 
 ---
 
-## 📦 Dependencies & Tech Stack
+ Dependencies & Tech Stack
 
 | Component | Technologies & Packages |
 |-----------|-------------------------|
@@ -347,6 +347,6 @@ For large-scale deployments, FlakeSecure supports horizontal scaling and geo-dis
 
 ---
 
-## 📄 License
+ License
 
 This project is licensed under the **MIT License**. For legal notices, see `/legal` and `/imprint` in the web application.

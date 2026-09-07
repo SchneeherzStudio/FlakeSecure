@@ -2,16 +2,6 @@
  * ============================================================================
  * FlakeSecure Mobile App - Biometric Unlock Screen (BiometricUnlockScreen)
  * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. BIOMETRIC UNLOCK & AUTH SESSION REFRESH:
- *    - handleUnlock(): Executes biometric authentication and automatically refreshes session token using stored credentials from SecureStore.
- *    - Auto-unlock prompt on screen mount (useEffect).
- * 
- * 2. MANUAL FALLBACK:
- *    - handleUsePassword(): Allows switching to manual password authentication (LoginScreen) in case of biometric hardware issues or changed credentials.
- * ============================================================================
  */
 
 import React, { useEffect, useState } from 'react';
@@ -20,10 +10,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { AppIcon } from '../components/CategoryIcons';
 
 export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
   const { biometricUnlock, switchToPasswordLogin } = useAuth();
   const { t } = useLanguage();
+  const { colors } = useTheme();
   const [error, setError] = useState(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
@@ -66,23 +59,23 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoEmoji}>❄️</Text>
+          <View style={[styles.logoBadge, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+            <AppIcon name="snowflake" size={36} color={colors.gold} />
           </View>
-          <Text style={styles.logoText}>
-            Flake<Text style={styles.logoAccent}>Secure</Text>
+          <Text style={[styles.logoText, { color: colors.textMain }]}>
+            Flake<Text style={{ color: colors.gold }}>Secure</Text>
           </Text>
-          <Text style={styles.title}>{t('biometricUnlock.title')}</Text>
-          <Text style={styles.subtitle}>{t('biometricUnlock.subtitle')}</Text>
+          <Text style={[styles.title, { color: colors.textMain }]}>{t('biometricUnlock.title')}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSub }]}>{t('biometricUnlock.subtitle')}</Text>
         </View>
 
         {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>⚠️</Text>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder }]}>
+            <AppIcon name="alert" size={18} color={colors.danger} />
+            <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
           </View>
         ) : null}
 
@@ -94,16 +87,16 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#6391ff', '#7c6aff']}
+              colors={colors.goldGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.unlockGradient}
             >
               {isAuthenticating ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color="#ffffff" size="small" />
               ) : (
                 <>
-                  <Text style={styles.unlockIcon}>👆</Text>
+                  <AppIcon name="scan" size={20} color="#ffffff" />
                   <Text style={styles.unlockButtonText}>
                     {t('biometricUnlock.unlockBtn')}
                   </Text>
@@ -113,11 +106,11 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.usePasswordButton}
+            style={[styles.usePasswordButton, { backgroundColor: colors.cardBg, borderColor: colors.border }]}
             onPress={handleUsePassword}
             activeOpacity={0.7}
           >
-            <Text style={styles.usePasswordText}>
+            <Text style={[styles.usePasswordText, { color: colors.textSub }]}>
               {t('biometricUnlock.usePassword')}
             </Text>
           </TouchableOpacity>
@@ -130,7 +123,6 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090b14',
   },
   content: {
     flex: 1,
@@ -145,37 +137,26 @@ const styles = StyleSheet.create({
   logoBadge: {
     width: 72,
     height: 72,
-    borderRadius: 22,
-    backgroundColor: 'rgba(99, 145, 255, 0.12)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(99, 145, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
-  logoEmoji: {
-    fontSize: 36,
-  },
   logoText: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#ffffff',
     letterSpacing: -0.5,
     marginBottom: 12,
-  },
-  logoAccent: {
-    color: '#6391ff',
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 6,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
     paddingHorizontal: 16,
   },
@@ -183,22 +164,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 14,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 24,
     width: '100%',
   },
-  errorIcon: {
-    fontSize: 18,
-  },
   errorText: {
     flex: 1,
     fontSize: 13,
-    color: '#fca5a5',
     lineHeight: 18,
   },
   actions: {
@@ -206,40 +181,30 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   unlockButton: {
-    borderRadius: 16,
+    borderRadius: 8,
     overflow: 'hidden',
-    shadowColor: '#6391ff',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
   },
   unlockGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    paddingVertical: 16,
-  },
-  unlockIcon: {
-    fontSize: 20,
+    paddingVertical: 14,
+    borderRadius: 8,
   },
   unlockButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   usePasswordButton: {
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   usePasswordText: {
-    color: '#6391ff',
     fontSize: 14,
     fontWeight: '600',
   },

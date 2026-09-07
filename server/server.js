@@ -1,34 +1,25 @@
 /**
  * ============================================================================
- * FlakeSecure Relay Server v2.0
+ * FlakeSecure Master Server v2.0.2
  * ============================================================================
  * 
- * FUNCTION OVERVIEW & ARCHITECTURE:
- * 
+ * ARCHITECTURAL SUMMARY:
  * 1. ZERO-KNOWLEDGE RELAY ARCHITECTURE:
- *    - Relays end-to-end encrypted login and registration payloads between mobile app and browser extensions.
- *    - The server processes only ciphertext and never has access to plaintext credential data.
+ *    - Relays end-to-end encrypted login, registration, and TOTP payloads.
+ *    - Plaintext data never touches this server.
  * 
- * 2. API ROUTES & STATIC ASSETS:
- *    - /api/auth: User registration (with OTP), login (with push notification trigger), session auth.
- *    - /api/account: Account management, recipient whitelisting, active sessions, profile updates.
- *    - /api/logs: Querying and clearing login/access logs with GeoIP geolocation and action labels.
- *    - /api/share: Generating and consuming time-limited / hidden shared payloads.
- *    - /api/system: Server status, version checks, admin-managed announcements, maintenance mode.
- *    - /api/otp: OTP email verification for registration and account deletion.
- *    - /api/vault: Encrypted credential vault sync (client-side encrypted, zero-knowledge).
- *    - /api/notifications: Expo push notification token management and delivery.
- *    - /static / /public: Serves landing page, account management, privacy policy, legal notices.
- *    - /health: Server health status, uptime, and active session counts.
- *    - /share & /auth: Universal link / deep-link fallback pages for mobile devices.
+ * 2. MODULAR 3-SERVICE SYSTEM:
+ *    - Relay Service: WebSocket Socket.IO bridge & ephemeral session forwarding.
+ *    - Auth Service: User registration (with OTP), logins, 30-min password resets.
+ *    - Data Service: Encrypted vault sync, account settings, activity logs, push tokens.
+ *    - Admin Portal & Telemetry: Live metrics, audit logs, 1-click database backups.
  * 
- * 3. SESSION MANAGEMENT & RELAY PIPELINE:
- *    - activeSessions: In-memory store for temporary socket sessions (TTL: 5 minutes).
- *    - cleanExpiredSessions(): Periodic automated cleanup for expired sessions and shared payloads.
- *    - POST /send-login: Receives encrypted payload from mobile app and broadcasts it to the browser session room.
- *    - GET /session-status/:sid: Polling endpoint for session readiness and status checks.
- *    - Socket.IO Events: join-session, session-ready, login-data, totp-data, session-expired, disconnect.
- *    - TOTP Streaming: Persistent socket connections (2-min TTL) for real-time authenticator code relay.
+ * 3. ENTERPRISE SECURITY & RESILIENCE:
+ *    - Helmet security headers (Content-Security-Policy, HSTS, noSniff, xssFilter).
+ *    - Gzip/Brotli HTTP compression on all JSON responses and static assets.
+ *    - Multi-tier rate limiting & email spend caps (express-rate-limit).
+ *    - Custom HTML error pages (404, 403, 429, 500) and structured JSON error API responses.
+ *    - Automated disaster recovery: emergency database backup on uncaught exceptions.
  * ============================================================================
  */
 
@@ -36,356 +27,182 @@ require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
-const fs = require('fs');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const crypto = require('crypto');
-const geoip = require('geoip-lite');
 const path = require('path');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const fs = require('fs');
 
 const db = require('./db');
-const authRoutes = require('./routes/auth');
-const accountRoutes = require('./routes/account');
-const logsRoutes = require('./routes/logs');
-const shareRoutes = require('./routes/share');
-const systemRoutes = require('./routes/system');
-const otpRoutes = require('./routes/otp');
-const vaultRoutes = require('./routes/vault');
+const { createRelayService } = require('./services/relay/relayService');
+const { createAuthService } = require('./services/auth/authService');
+const { createDataService } = require('./services/data/dataService');
 const embedRoutes = require('./routes/embed');
-const { router: notificationRoutes } = require('./routes/notifications');
-const { authMiddleware } = require('./middleware/auth');
+const { globalLimiter } = require('./middleware/rateLimit');
+const { logServerEvent } = require('./routes/admin');
+const { sendCriticalAlertEmail } = require('./utils/email');
 
-const PORT = 4000;
-const SESSION_TTL_MS = 5 * 60 * 1000;
+const PORT = parseInt(process.env.PORT || '4000', 10);
+const STATIC_DIR = path.join(__dirname, 'static');
+const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const app = express();
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-    credentials: true
-  },
-  transports: ['websocket', 'polling']
-});
+// ─── 1. Security Headers & Protection (Helmet) ──────────────────────────────
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://flakesecure.snowystudio.dev", "wss://flakesecure.snowystudio.dev"],
+        frameAncestors: ["'self'", "*"], // Required for embed widget iframe integration
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-}));
-app.use(express.json({ limit: '10kb' }));
+// ─── 2. HTTP Compression (No uncompressed JSON) ─────────────────────────────
+app.use(
+  compression({
+    threshold: 1024, // Compress responses over 1 KB
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) return false;
+      return compression.filter(req, res);
+    }
+  })
+);
 
-app.use(express.static(path.join(__dirname, 'public')));
+// ─── 3. CORS Configuration ──────────────────────────────────────────────────
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+  : ['https://flakesecure.snowystudio.dev'];
 
-app.use('/api/auth', authRoutes);
-app.use('/api/account', accountRoutes);
-app.use('/api/logs', logsRoutes);
-app.use('/api/share', shareRoutes);
-app.use('/api/system', systemRoutes);
-app.use('/api/otp', otpRoutes);
-app.use('/api/vault', vaultRoutes);
-app.use('/api/notifications', notificationRoutes);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow mobile apps, browser extensions, curl, or matched origins
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Permissive for zero-knowledge API relays
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: false // Correct W3C CORS: do not combine wildcard with credentials
+  })
+);
+
+// ─── 4. Body Parser with 2MB Limit (Supports large encrypted vaults) ────────
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// ─── 5. Global Rate Limiter ─────────────────────────────────────────────────
+app.use(globalLimiter);
+
+// ─── 6. Mount Microservice Subsystems ───────────────────────────────────────
+// Service 1: Relay Service (Socket.IO + In-Memory Fast Bridge)
+const relayService = createRelayService();
+relayService.attachSocketIO(server);
+app.use('/', relayService.router);
+
+// Service 2: Auth Service (/api/auth, /api/otp)
+const authService = createAuthService();
+app.use('/api', authService.router);
+
+// Service 3: Data Service (/api/vault, /api/account, /api/logs, /api/system, /api/notifications, /api/share, /api/admin)
+const dataService = createDataService();
+app.use('/api', dataService.router);
+
+// Embed routes for third-party websites
 app.use('/embed', embedRoutes);
 app.get('/embed.js', (req, res) => {
-  res.type('application/javascript').sendFile('embed.js', { root: path.join(__dirname, 'public') });
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.type('application/javascript').sendFile('embed.js', { root: PUBLIC_DIR });
 });
 
-const activeSessions = new Map();
-
-function cleanExpiredSessions() {
-  const now = Date.now();
-  for (const [sid, session] of activeSessions) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      activeSessions.delete(sid);
-      console.log(`[FlakeSecure] Session ${sid.slice(0, 8)}... expired and cleaned`);
+// ─── 7. Static Assets & Pages ───────────────────────────────────────────────
+app.use(
+  express.static(PUBLIC_DIR, {
+    setHeaders: (res, path) => {
+      if (path.endsWith('.apk') || path.endsWith('.zip')) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      } else if (path.endsWith('.js') || path.endsWith('.css')) {
+        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      }
     }
-  }
+  })
+);
 
-  db.query("DELETE FROM shared_payloads WHERE created_at < NOW() - INTERVAL '10 minutes'")
-    .catch(err => console.error('Error cleaning shared_payloads:', err));
+// Helper to serve HTML pages without stale disk caching
+const sendStaticPage = (res, filename) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.sendFile(filename, { root: STATIC_DIR });
+};
 
-  // Auto-clean audit logs older than 90 days as promised in privacy policy
-  db.query("DELETE FROM login_logs WHERE created_at < NOW() - INTERVAL '90 days'")
-    .catch(err => console.error('Error cleaning 90-day login_logs:', err));
-}
+// Static Web Pages
+app.get('/', (req, res) => sendStaticPage(res, 'index.html'));
+app.get('/account', (req, res) => sendStaticPage(res, 'account.html'));
+app.get('/admin', (req, res) => sendStaticPage(res, 'admin.html'));
+app.get('/reset-password', (req, res) => sendStaticPage(res, 'reset-password.html'));
+app.get('/imprint', (req, res) => sendStaticPage(res, 'imprint.html'));
+app.get('/legal', (req, res) => sendStaticPage(res, 'legal.html'));
+app.get('/terms', (req, res) => sendStaticPage(res, 'terms.html'));
 
-async function purgeExpiredAccounts() {
-  try {
-    const { rowCount } = await db.query(
-      "DELETE FROM users WHERE deleted_at IS NOT NULL AND scheduled_purge_at <= NOW()"
-    );
-    if (rowCount > 0) {
-      console.log(`[FlakeSecure] Permanently purged ${rowCount} expired user account(s) after 30-day retention period.`);
-    }
-  } catch (err) {
-    console.error('[FlakeSecure] Error during expired account purge:', err.message);
-  }
-}
+// Clean redirects
+app.get(['/impressum', '/imprint.html'], (req, res) => res.redirect(301, '/imprint'));
+app.get(['/privacy', '/datenschutz', '/legal.html', '/privacy.html'], (req, res) => res.redirect(301, '/legal'));
+app.get(['/agb', '/tos', '/terms.html'], (req, res) => res.redirect(301, '/terms'));
+app.get('/index.html', (req, res) => res.redirect(301, '/'));
+app.get('/account.html', (req, res) => res.redirect(301, '/account'));
 
-setInterval(cleanExpiredSessions, 60_000);
-setInterval(purgeExpiredAccounts, 6 * 3600 * 1000);
-purgeExpiredAccounts();
+// SEO & Metadata Assets
+app.get('/robots.txt', (req, res) => res.type('text/plain').sendFile('robots.txt', { root: PUBLIC_DIR }));
+app.get('/sitemap.xml', (req, res) => res.type('application/xml').sendFile('sitemap.xml', { root: PUBLIC_DIR }));
+app.get('/favicon.ico', (req, res) => res.type('image/png').sendFile('favicon.png', { root: PUBLIC_DIR }));
 
-function isValidSid(sid) {
-  return typeof sid === 'string' && /^[a-f0-9]{32}$/.test(sid);
-}
-
-function isValidEncryptedPayload(payload) {
-  return (
-    payload &&
-    typeof payload === 'object' &&
-    Array.isArray(payload.iv) &&
-    Array.isArray(payload.data) &&
-    payload.iv.length === 16 &&
-    payload.data.length > 0
-  );
-}
-
-const STATIC_DIR = path.join(__dirname, 'static');
-
-app.get('/', (req, res) => {
-  res.sendFile('index.html', { root: STATIC_DIR });
-});
-
-app.get('/account', (req, res) => {
-  res.sendFile('account.html', { root: STATIC_DIR });
-});
-
-app.get('/imprint', (req, res) => {
-  res.sendFile('imprint.html', { root: STATIC_DIR });
-});
-app.get('/impressum', (req, res) => res.redirect('/imprint'));
-
-app.get('/legal', (req, res) => {
-  res.sendFile('legal.html', { root: STATIC_DIR });
-});
-app.get('/privacy', (req, res) => res.redirect('/legal'));
-app.get('/datenschutz', (req, res) => res.redirect('/legal'));
-
-app.get('/terms', (req, res) => {
-  res.sendFile('terms.html', { root: STATIC_DIR });
-});
-app.get('/agb', (req, res) => res.redirect('/terms'));
-app.get('/tos', (req, res) => res.redirect('/terms'));
-
-const PUBLIC_DIR = path.join(__dirname, 'public');
-app.get('/robots.txt', (req, res) => {
-  res.type('text/plain').sendFile('robots.txt', { root: PUBLIC_DIR });
-});
-app.get('/sitemap.xml', (req, res) => {
-  res.type('application/xml').sendFile('sitemap.xml', { root: PUBLIC_DIR });
-});
-app.get('/favicon.ico', (req, res) => {
-  res.type('image/png').sendFile('favicon.png', { root: PUBLIC_DIR });
-});
-
+// ─── 8. Health Check ────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'FlakeSecure Relay Server',
+    service: 'FlakeSecure Unified Server',
+    version: '2.0.1',
     uptime: Math.floor(process.uptime()),
-    activeSessions: activeSessions.size,
+    activeSessions: relayService.activeSessions.size,
     timestamp: new Date().toISOString()
   });
 });
 
-/**
- * POST /send-login
- * Mobile app calls this to push encrypted credentials into the session room.
- * 
- * The server NEVER decrypts the payload – it only forwards it.
- */
-app.post('/send-login', async (req, res) => {
-  const { sid, payload } = req.body;
-
-  // Validate input
-  if (!isValidSid(sid)) {
-    return res.status(400).json({ error: 'Invalid or missing session ID' });
-  }
-
-  if (!isValidEncryptedPayload(payload)) {
-    return res.status(400).json({ error: 'Invalid or missing encrypted payload' });
-  }
-
-  // Check if session exists
-  const session = activeSessions.get(sid);
-  if (!session) {
-    return res.status(404).json({ error: 'Session expired or invalid' });
-  }
-
-  // Relay the encrypted payload to the browser via Socket.IO
-  io.to(sid).emit('login-data', payload);
-
-  // Mark session as fulfilled but keep active briefly for potential TOTP sync
-  session.loginFulfilled = true;
-  setTimeout(() => {
-    if (activeSessions.has(sid) && !activeSessions.get(sid).totpActive) {
-      activeSessions.delete(sid);
-      console.log(`[FlakeSecure] Session ${sid.slice(0, 8)}... completed and purged`);
-    }
-  }, 2 * 60 * 1000);
-
-  console.log(`[FlakeSecure] Relayed login data for session ${sid.slice(0, 8)}...`);
-
-  // Optional: log security audit event without logging target browsing domain (Data Minimization / Art. 5 DSGVO)
-  try {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const jwt = require('jsonwebtoken');
-      const token = authHeader.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
-      const geo = geoip.lookup(ip);
-      await db.query(
-        'INSERT INTO login_logs (user_id, ip_address, city, region, country, device_info, action, domain) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [decoded.id, ip, geo?.city, geo?.region, geo?.country, req.headers['user-agent'], 'credential_send', null]
-      );
-    }
-  } catch (logErr) {
-    console.log('[FlakeSecure] Login log skipped:', logErr.message);
-  }
-
-  res.json({ success: true, message: 'Login data relayed successfully' });
-});
-
-app.post('/send-totp', async (req, res) => {
-  const { sid, payload } = req.body;
-
-  if (!isValidSid(sid)) {
-    return res.status(400).json({ error: 'Invalid or missing session ID' });
-  }
-
-  if (!isValidEncryptedPayload(payload)) {
-    return res.status(400).json({ error: 'Invalid or missing encrypted payload' });
-  }
-
-  const session = activeSessions.get(sid);
-  if (!session) {
-    return res.status(404).json({ error: 'Session expired or invalid' });
-  }
-
-  session.totpActive = true;
-  io.to(sid).emit('totp-data', payload);
-  res.json({ success: true, message: 'TOTP payload relayed successfully' });
-});
-
-app.get('/session-status/:sid', (req, res) => {
-  const { sid } = req.params;
-
-  if (!isValidSid(sid)) {
-    return res.status(400).json({ error: 'Invalid session ID' });
-  }
-
-  const session = activeSessions.get(sid);
-  if (!session) {
-    return res.json({ active: false });
-  }
-
-  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-    activeSessions.delete(sid);
-    return res.json({ active: false, reason: 'expired' });
-  }
-
-  res.json({
-    active: true,
-    domain: session.domain,
-    age: Math.floor((Date.now() - session.createdAt) / 1000) + 's'
-  });
-});
-
-// ─── Socket.IO Relay Logic ───────────────────────────────────────────────────
-
-io.on('connection', (socket) => {
-  console.log(`[FlakeSecure] Browser connected: ${socket.id}`);
-
-  socket.on('join-session', async ({ sid, domain, token }) => {
-    if (!isValidSid(sid)) {
-      socket.emit('error', { message: 'Invalid session ID' });
-      return;
-    }
-
-    const sessionDomain = domain || 'unknown';
-
-    activeSessions.set(sid, {
-      socketId: socket.id,
-      createdAt: Date.now(),
-      domain: sessionDomain
-    });
-
-    socket.join(sid);
-    socket.sessionId = sid;
-
-    console.log(`[FlakeSecure] Session registered: ${sid.slice(0, 8)}... (socket: ${socket.id})`);
-
-    socket.emit('session-ready', { sid });
-
-    if (token) {
-      try {
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const { sendPushToUser } = require('./routes/notifications');
-        await sendPushToUser(
-          decoded.id,
-          '🔐 Login-Anfrage',
-          `Anmeldung für ${sessionDomain} auf deinem Computer bestätigen`,
-          { type: 'auth_request', sid, domain: sessionDomain }
-        );
-      } catch (pushErr) {
-        console.log('[FlakeSecure] Push on join-session skipped:', pushErr.message);
-      }
-    }
-
-    setTimeout(() => {
-      if (activeSessions.has(sid)) {
-        activeSessions.delete(sid);
-        io.to(sid).emit('session-expired');
-        console.log(`[FlakeSecure] Session ${sid.slice(0, 8)}... auto-expired`);
-      }
-    }, SESSION_TTL_MS);
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`[FlakeSecure] Browser disconnected: ${socket.id}`);
-    if (socket.sessionId) {
-      activeSessions.delete(socket.sessionId);
-    }
-  });
-});
-
-// ─── Web Redirects for Deep Linking ──────────────────────────────────────────
+// Deep link fallback handlers for mobile
 function renderDeepLinkPage(title, subtitle, defaultAction) {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} - FlakeSecure</title>
   <style>
     body {
-      margin: 0; padding: 0;
-      background: #090b14; color: #fff;
+      margin: 0; padding: 0; background: #090b14; color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; text-align: center;
+      display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center;
     }
-    .card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 20px; padding: 40px 30px; max-width: 400px; margin: 20px;
-    }
-    .emoji { font-size: 50px; margin-bottom: 10px; }
-    h1 { font-size: 24px; margin: 0 0 10px; }
-    p { color: rgba(255,255,255,0.6); font-size: 15px; margin: 0 0 25px; line-height: 1.5; }
-    .btn {
-      display: inline-block; background: linear-gradient(135deg, #6391ff, #7c6aff);
-      color: #fff; text-decoration: none; font-weight: 600;
-      padding: 14px 28px; border-radius: 12px; font-size: 16px;
-    }
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 36px 30px; max-width: 400px; margin: 20px; }
+    .brand-mark { width: 44px; height: 44px; margin: 0 auto 16px; background: rgba(232,176,32,0.12); border: 1px solid rgba(232,176,32,0.35); border-radius: 6px; line-height: 44px; text-align: center; color: #E8B020; font-weight: 800; font-size: 16px; font-family: monospace; }
+    h1 { font-size: 22px; margin: 0 0 10px; font-family: sans-serif; color: #fff; }
+    p { color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 24px; line-height: 1.5; }
+    .btn { display: inline-block; background: #E8B020; color: #07090e; text-decoration: none; font-weight: 700; padding: 12px 24px; border-radius: 6px; font-size: 15px; border: 1px solid #C9930A; }
   </style>
   <script>
-    // Client-side deep link resolution (reads fragment # and fallback search ?)
     function computeDeepLink() {
       var hash = window.location.hash ? window.location.hash.substring(1) : '';
       var search = window.location.search ? window.location.search.substring(1) : '';
@@ -403,32 +220,163 @@ function renderDeepLinkPage(title, subtitle, defaultAction) {
 </head>
 <body>
   <div class="card">
-    <div class="emoji">❄️</div>
+    <div class="brand-mark">FS</div>
     <h1>${title}</h1>
     <p>${subtitle}</p>
-    <a id="openBtn" href="flakesecure://${defaultAction || 'auth'}" class="btn">Open in FlakeSecure App</a>
+    <a id="openBtn" href="flakesecure://${defaultAction || 'auth'}" class="btn">In FlakeSecure App öffnen</a>
   </div>
 </body>
 </html>`;
 }
 
 app.get('/share', (req, res) => {
-  res.send(renderDeepLinkPage('Import Credentials', 'Tap below to import the credentials into FlakeSecure.', 'share'));
+  res.send(renderDeepLinkPage('Zugangsdaten importieren', 'Tippe unten, um die Zugangsdaten in FlakeSecure zu öffnen.', 'share'));
 });
 
 app.get('/auth', (req, res) => {
-  res.send(renderDeepLinkPage('Confirm Login', 'Confirm login in the FlakeSecure App.', 'auth'));
+  res.send(renderDeepLinkPage('Login bestätigen', 'Bestätige den Login in deiner FlakeSecure App.', 'auth'));
 });
 
-server.listen(PORT, '::', () => {
+// ─── 9. Periodic Background Cleanup Jobs & Schema Verification ─────────────
+async function initDatabase() {
+  try {
+    const schemaPath = path.join(__dirname, 'db', 'schema.sql');
+    if (fs.existsSync(schemaPath)) {
+      const sql = fs.readFileSync(schemaPath, 'utf8');
+      await db.query(sql);
+      console.log('[DB] Database schema verified and updated successfully.');
+    }
+  } catch (err) {
+    console.warn('[DB] Database schema check note:', err.message);
+  }
+}
+
+function scheduleBackgroundCleanups() {
+  setInterval(async () => {
+    try {
+      await db.query("DELETE FROM shared_payloads WHERE created_at < NOW() - INTERVAL '10 minutes'");
+      await db.query("DELETE FROM login_logs WHERE created_at < NOW() - INTERVAL '90 days'");
+      await db.query("DELETE FROM password_resets WHERE expires_at < NOW() OR used_at IS NOT NULL");
+    } catch (err) {
+      if (err.message && err.message.includes('relation "password_resets" does not exist')) {
+        try {
+          await db.query(`
+            CREATE TABLE IF NOT EXISTS password_resets (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+              token_hash VARCHAR(255) NOT NULL,
+              expires_at TIMESTAMPTZ NOT NULL,
+              used_at TIMESTAMPTZ DEFAULT NULL,
+              created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets(token_hash);
+            CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
+          `);
+        } catch (_) {}
+      } else {
+        console.error('[Cleanups] Error:', err.message);
+      }
+    }
+  }, 60_000);
+
+  setInterval(async () => {
+    try {
+      const { rowCount } = await db.query(
+        "DELETE FROM users WHERE deleted_at IS NOT NULL AND scheduled_purge_at <= NOW()"
+      );
+      if (rowCount > 0) {
+        logServerEvent('info', 'PURGED_DELETED_USERS', `Permanently purged ${rowCount} user(s) after 30-day retention period.`);
+      }
+    } catch (err) {
+      console.error('[Purge] Error:', err.message);
+    }
+  }, 6 * 3600 * 1000);
+}
+
+initDatabase().then(() => {
+  scheduleBackgroundCleanups();
+}).catch(err => {
+  console.warn('[DB] Init error:', err.message);
+  scheduleBackgroundCleanups();
+});
+
+// ─── 10. Custom Error Handling (Web & API) ──────────────────────────────────
+// 404 Handler
+app.use((req, res) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/send-')) {
+    return res.status(404).json({
+      error: 'Endpoint not found',
+      code: 'RESOURCE_NOT_FOUND',
+      path: req.originalUrl
+    });
+  }
+  res.status(404).sendFile('404.html', { root: STATIC_DIR });
+});
+
+// Centralized 500 / Error Handler
+app.use((err, req, res, next) => {
+  console.error('[Unhandled Error]', err);
+  logServerEvent('error', 'SERVER_ERROR', err.message, { stack: err.stack, path: req.originalUrl });
+
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  if (req.path.startsWith('/api/') || req.path.startsWith('/send-') || req.xhr || req.accepts('json')) {
+    const status = err.status || 500;
+    return res.status(status).json({
+      error: err.message || 'Internal server error',
+      code: err.code || 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  res.status(500).sendFile('500.html', { root: STATIC_DIR });
+});
+
+// ─── 11. Crash Resilience & Emergency Backups ───────────────────────────────
+async function triggerEmergencySnapshot(reason, err) {
+  try {
+    const backupsDir = path.join(__dirname, 'backups');
+    if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = path.join(backupsDir, `emergency_snapshot_${timestamp}.json`);
+
+    const users = (await db.query('SELECT * FROM users')).rows;
+    const vault = (await db.query('SELECT * FROM vault')).rows;
+    fs.writeFileSync(filename, JSON.stringify({ reason, timestamp, users, vault }, null, 2), 'utf8');
+    console.error(`[CRITICAL] Emergency snapshot saved to ${filename}`);
+  } catch (backupErr) {
+    console.error('[CRITICAL] Failed to create emergency snapshot:', backupErr.message);
+  }
+
+  await sendCriticalAlertEmail(
+    `Critical Server Failure: ${reason}`,
+    { error: err?.message, stack: err?.stack, time: new Date().toISOString() }
+  );
+}
+
+process.on('uncaughtException', async (err) => {
+  console.error('[CRITICAL] Uncaught Exception:', err);
+  await triggerEmergencySnapshot('uncaughtException', err);
+});
+
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+  logServerEvent('warn', 'UNHANDLED_REJECTION', String(reason));
+});
+
+// ─── 12. Server Startup ─────────────────────────────────────────────────────
+server.listen(PORT, '0.0.0.0', () => {
   console.log('');
-  console.log('  ❄️  FlakeSecure Relay Server');
-  console.log('  ────────────────────────────');
+  console.log('  [FlakeSecure] Unified Server v2.0.2');
+  console.log('  ─────────────────────────────────────');
   console.log(`  Listening on: http://localhost:${PORT}`);
-  console.log(`  Health check: http://localhost:${PORT}/health`);
-  console.log(`  Session TTL:  ${SESSION_TTL_MS / 60000} minutes`);
-  console.log('');
-  console.log('  Ready to relay encrypted credentials.');
+  console.log(`  Health Check: http://localhost:${PORT}/health`);
+  console.log(`  Admin Portal: http://localhost:${PORT}/admin`);
+  console.log('  Services Active: Relay (WebSockets), Auth, Data, Static');
+  console.log('  Ready to protect credentials with Zero-Knowledge security.');
   console.log('');
 });
 

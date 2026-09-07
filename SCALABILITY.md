@@ -1,10 +1,10 @@
-# FlakeSecure — Scalability & High-Availability Architecture
+ FlakeSecure — Scalability & High-Availability Architecture
 
 This document specifies the horizontal scaling, geo-distributed routing, and Socket.IO cluster architecture for the FlakeSecure ecosystem.
 
 ---
 
-## 1. Regional Server Infrastructure (GeoDNS)
+ 1. Regional Server Infrastructure (GeoDNS)
 
 When scaling FlakeSecure globally, relay latency and socket proximity are optimized using regional edge clusters:
 
@@ -29,7 +29,7 @@ When scaling FlakeSecure globally, relay latency and socket proximity are optimi
 └──────────────────┘    └──────────────────┘    └──────────────────┘
 ```
 
-### QR Code Regional Encoding
+ QR Code Regional Encoding
 The QR code and deep-link URI format supports regional targeting:
 ```
 flakesecure://auth?s=<SID>&k=<KEY>&d=<DOMAIN>&r=de
@@ -39,11 +39,11 @@ flakesecure://auth?s=<SID>&k=<KEY>&d=<DOMAIN>&r=de
 
 ---
 
-## 2. Horizontal Load Balancing for Socket.IO
+ 2. Horizontal Load Balancing for Socket.IO
 
 Socket.IO connections maintain stateful WebSocket sessions. Horizontal scaling across multiple Node.js instances requires:
 
-### A. Redis Pub/Sub Adapter
+ A. Redis Pub/Sub Adapter
 Using `@socket.io/redis-adapter` / `@socket.io/redis-streams-adapter`, events emitted to a session ID (`io.to(sid).emit(...)`) are broadcasted across all Node.js cluster processes:
 
 ```javascript
@@ -59,7 +59,7 @@ Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
 });
 ```
 
-### B. Nginx / HAProxy Sticky Sessions
+ B. Nginx / HAProxy Sticky Sessions
 Nginx terminates SSL and uses IP hash or cookie affinity (`ip_hash` or `sticky cookie`) for HTTP long-polling handshake before upgrading to WebSockets:
 
 ```nginx
@@ -97,7 +97,7 @@ server {
 
 ---
 
-## 3. Database Layer Scaling
+ 3. Database Layer Scaling
 
 1. **PgBouncer Connection Pooling**:
    - Transaction-level connection pooling (`pool_mode = transaction`) reduces PostgreSQL process overhead from thousands of concurrent clients to < 50 database connections.
@@ -108,7 +108,7 @@ server {
 
 ---
 
-## 4. Zero-Knowledge Preservation
+ 4. Zero-Knowledge Preservation
 
 Even in a multi-region cluster:
 - **Ciphertext only**: Only AES-256-CTR + HMAC-SHA256 encrypted blobs travel through Redis, Sockets, and PostgreSQL.

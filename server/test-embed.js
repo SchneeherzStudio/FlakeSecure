@@ -23,7 +23,7 @@ let allFilesExist = true;
 for (const relPath of filesToCheck) {
   const fullPath = path.join(__dirname, relPath);
   const exists = fs.existsSync(fullPath);
-  console.log(`[File Check] ${relPath}: ${exists ? '✓ OK' : '✗ MISSING'}`);
+  console.log(`[File Check] ${relPath}: ${exists ? ' OK' : ' MISSING'}`);
   if (!exists) allFilesExist = false;
 }
 
@@ -117,7 +117,7 @@ async function simulateEmbedDecryption(encryptedPayload, keyHex) {
       decrypted.password === testCredentials.password &&
       decrypted.totp === testCredentials.totp
     ) {
-      console.log('✓ Decryption test PASSED: Exactly matches original!');
+      console.log(' Decryption test PASSED: Exactly matches original!');
     } else {
       throw new Error('Decrypted data does not match original!');
     }
@@ -127,9 +127,9 @@ async function simulateEmbedDecryption(encryptedPayload, keyHex) {
     try {
       await simulateEmbedDecryption(encryptedPacket, wrongKeyHex);
       // Wait, in CTR with unkeyed hash, hash passes but garbage json throws, OR if keyed HMAC fails
-      console.log('✓ Wrong key test checked');
+      console.log(' Wrong key test checked');
     } catch (e) {
-      console.log('✓ Wrong key correctly rejected:', e.message);
+      console.log(' Wrong key correctly rejected:', e.message);
     }
 
     // 4. Test tampering rejection
@@ -139,7 +139,7 @@ async function simulateEmbedDecryption(encryptedPayload, keyHex) {
       await simulateEmbedDecryption(tamperedPacket, keyHex);
       throw new Error('Tampering should have failed HMAC!');
     } catch (e) {
-      console.log('✓ Tampered data correctly rejected by HMAC:', e.message);
+      console.log(' Tampered data correctly rejected by HMAC:', e.message);
     }
 
     console.log('\n=== ALL AUTOMATED VERIFICATION TESTS PASSED SUCCESSFULLY! ===');

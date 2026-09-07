@@ -10,13 +10,13 @@ All endpoints require the 'x-admin-secret' header matching ADMIN_SECRET in serve
 ============================================================================
 -->
 
-# ❄️ FlakeSecure Admin-Anleitung: Nachrichten & Wartungsmodus
+ FlakeSecure Admin-Anleitung: Nachrichten & Wartungsmodus
 
 Diese Anleitung beschreibt, wie du administrative Mitteilungen (Popups/Banner) an die Mobile Apps schickst und den Wartungsmodus aktivierst oder beendest.
 
 ---
 
-## 🔑 Authentifizierung (Admin-Secret)
+ Authentifizierung (Admin-Secret)
 
 Alle Admin-Endpunkte erfordern den HTTP-Header `x-admin-secret`.  
 Der geheime Schlüssel wird auf dem Server in der Datei `server/.env` definiert:
@@ -27,11 +27,11 @@ ADMIN_SECRET=DEIN_GEHEIMES_ADMIN_SECRET
 
 ---
 
-## 📢 1. Nachrichten an die App senden (`POST /api/system/announcement`)
+ 1. Nachrichten an die App senden (`POST /api/system/announcement`)
 
 Du kannst Nachrichten an die App schicken, die beim Start der App angezeigt werden.
 
-### ⚙️ Parameter (JSON Body):
+ Parameter (JSON Body):
 
 | Parameter | Typ | Erforderlich | Beschreibung |
 | :--- | :--- | :--- | :--- |
@@ -43,9 +43,9 @@ Du kannst Nachrichten an die App schicken, die beim Start der App angezeigt werd
 
 ---
 
-### 💻 Beispiele: Nachricht erstellen
+ Beispiele: Nachricht erstellen
 
-#### Option A: PowerShell
+ Option A: PowerShell
 ```powershell
 $headers = @{
     "Content-Type"   = "application/json"
@@ -62,7 +62,7 @@ $body = @{
 Invoke-RestMethod -Uri "https://flakesecure.snowystudio.dev/api/system/announcement" -Method Post -Headers $headers -Body $body
 ```
 
-#### Option B: cURL (Bash / Terminal)
+ Option B: cURL (Bash / Terminal)
 ```bash
 curl -X POST https://flakesecure.snowystudio.dev/api/system/announcement \
   -H "Content-Type: application/json" \
@@ -75,27 +75,35 @@ curl -X POST https://flakesecure.snowystudio.dev/api/system/announcement \
   }'
 ```
 
+>  **Bekanntes Problem:** Wird der Befehl aus einer Chat-/Web-Quelle kopiert, schleicht sich oft ein unsichtbares Leerzeichen nach dem `\` ein. Dadurch bricht die Zeile nicht korrekt um und curl interpretiert die folgenden Zeilen als eigene Argumente/URLs (`curl: (3) URL rejected: ...`), während der Server einen `SyntaxError: ... is not valid JSON` meldet.
+>
+> **Getestete Lösung — Einzeiler (funktioniert zuverlässig):**
+> ```bash
+> curl -X POST https://flakesecure.snowystudio.dev/api/system/announcement -H "Content-Type: application/json" -H "x-admin-secret: DEIN_GEHEIMES_ADMIN_SECRET" -d "{\"message\": \"Wartungsarbeiten am 05.09 von 14:00 bis 16:00 Uhr.\", \"type\": \"popup\", \"display\": \"once\", \"priority\": 10}"
+> ```
+> Falls doch eine mehrzeilige Version gewünscht ist, den Befehl manuell neu eintippen (nicht aus einer Web-/Chat-Quelle kopieren), damit sich kein Leerzeichen nach dem `\` einschleicht.
+
 ---
 
-## 🗑️ 2. Nachrichten verwalten & löschen
+ 2. Nachrichten verwalten & löschen
 
-### 📋 Alle aktiven Nachrichten abrufen (`GET /api/system/announcements`):
+ Alle aktiven Nachrichten abrufen (`GET /api/system/announcements`):
 ```bash
 curl https://flakesecure.snowystudio.dev/api/system/announcements
 ```
 
-### ❌ Eine Nachricht vorzeitig löschen (`DELETE /api/system/announcement/:id`):
+ Eine Nachricht vorzeitig löschen (`DELETE /api/system/announcement/:id`):
 ```powershell
 Invoke-RestMethod -Uri "https://flakesecure.snowystudio.dev/api/system/announcement/<ANNOUNCEMENT_UUID>" -Method Delete -Headers @{ "x-admin-secret" = "DEIN_GEHEIMES_ADMIN_SECRET" }
 ```
 
 ---
 
-## 🛠️ 3. Wartungsmodus aktivieren & aufheben (`POST /api/system/maintenance`)
+ 3. Wartungsmodus aktivieren & aufheben (`POST /api/system/maintenance`)
 
 Wenn der Wartungsmodus aktiv ist, schaltet die Mobile App automatisch auf den unbenutzbaren **Wartungs-Screen (`MaintenanceScreen`)** um, bis der Modus deaktiviert wird.
 
-### ⚙️ Parameter (JSON Body):
+ Parameter (JSON Body):
 
 | Parameter | Typ | Erforderlich | Beschreibung |
 | :--- | :--- | :--- | :--- |
@@ -105,9 +113,9 @@ Wenn der Wartungsmodus aktiv ist, schaltet die Mobile App automatisch auf den un
 
 ---
 
-### 💻 Wartung aktivieren:
+ Wartung aktivieren:
 
-#### PowerShell:
+ PowerShell:
 ```powershell
 $headers = @{
     "Content-Type"   = "application/json"
@@ -123,7 +131,7 @@ $body = @{
 Invoke-RestMethod -Uri "https://flakesecure.snowystudio.dev/api/system/maintenance" -Method Post -Headers $headers -Body $body
 ```
 
-#### cURL:
+ cURL:
 ```bash
 curl -X POST https://flakesecure.snowystudio.dev/api/system/maintenance \
   -H "Content-Type: application/json" \
@@ -135,11 +143,17 @@ curl -X POST https://flakesecure.snowystudio.dev/api/system/maintenance \
   }'
 ```
 
+>  **Gleiches bekanntes Problem wie bei Abschnitt 1:** Beim Kopieren aus Chat/Web kann sich ein unsichtbares Leerzeichen nach `\` einschleichen und die Zeilenfortsetzung bricht. Getestete Einzeiler-Lösung:
+> ```bash
+> curl -X POST https://flakesecure.snowystudio.dev/api/system/maintenance -H "Content-Type: application/json" -H "x-admin-secret: DEIN_GEHEIMES_ADMIN_SECRET" -d "{\"active\": true, \"message\": \"Wartungsarbeiten laufen - Server voruebergehend nicht erreichbar.\", \"until\": \"2026-09-01T18:00:00Z\"}"
+> ```
+> Hinweis: Der Gedankenstrich „–" (U+2013) im Original-Text ist gültiges UTF‑8/JSON, kann aber in manchen Terminals/Clipboards falsch übertragen werden — im Einzeiler oben daher vorsichtshalber durch ein normales Minuszeichen ersetzt.
+
 ---
 
-### 💻 Wartung beenden (App wieder freigeben):
+ Wartung beenden (App wieder freigeben):
 
-#### PowerShell:
+ PowerShell:
 ```powershell
 $headers = @{
     "Content-Type"   = "application/json"
@@ -153,7 +167,7 @@ $body = @{
 Invoke-RestMethod -Uri "https://flakesecure.snowystudio.dev/api/system/maintenance" -Method Post -Headers $headers -Body $body
 ```
 
-#### cURL:
+ cURL:
 ```bash
 curl -X POST https://flakesecure.snowystudio.dev/api/system/maintenance \
   -H "Content-Type: application/json" \

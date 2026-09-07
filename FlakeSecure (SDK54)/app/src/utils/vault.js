@@ -93,14 +93,12 @@ export async function syncVaultToServer(password, identifier, userEmail = null, 
       try {
         const existing = await getVault();
         if (existing && existing.vault && existing.vault.encrypted_blob) {
-          console.log('[Vault] Local vault is empty; skipping server overwrite to protect cloud backup.');
           return true;
         }
       } catch (e) {}
     }
 
-    // Determine primary identifier — keep it simple and deterministic:
-    // Always prefer userEmail, then identifier, then stored email.
+    // Determine primary identifier:
     let primaryId = (userEmail || identifier || '').trim().toLowerCase();
     if (!primaryId) {
       try {
@@ -113,15 +111,11 @@ export async function syncVaultToServer(password, identifier, userEmail = null, 
     }
 
     const vaultKeyHex = await deriveVaultKey(password, primaryId, DEFAULT_ROUNDS);
-    console.log(`[Vault] Encrypting vault with primaryId="${primaryId}" rounds=${DEFAULT_ROUNDS} keyPrefix=${vaultKeyHex.substring(0, 8)}`);
-
     const encryptedPacket = await encryptCredentials(fullData, vaultKeyHex);
     const blobString = JSON.stringify(encryptedPacket);
     await syncVault(blobString, 1);
-    console.log('[Vault] Vault successfully synced to server');
     return true;
   } catch (error) {
-    console.log('[Vault] Sync to server error:', error.message);
     return false;
   }
 }
@@ -131,7 +125,6 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
   try {
     const res = await getVault();
     if (!res || !res.vault || !res.vault.encrypted_blob) {
-      console.log('[Vault] No existing cloud vault found on server.');
       return false;
     }
 
@@ -145,24 +138,13 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
 
     // Verify we have a proper {iv, data} structure
     if (!encryptedPacket || !encryptedPacket.iv || !encryptedPacket.data) {
-      console.log('[Vault] encrypted_blob is not a valid {iv, data} packet. Type:', typeof encryptedPacket);
-      if (encryptedPacket && typeof encryptedPacket === 'string') {
-        console.log('[Vault] Blob preview (string):', encryptedPacket.substring(0, 200));
-      }
       return false;
     }
-
-    console.log(`[Vault] Blob structure: iv.length=${encryptedPacket.iv.length}, data.length=${encryptedPacket.data.length}`);
-    console.log(`[Vault] iv[0..3]=[${encryptedPacket.iv.slice(0,4)}] data[0..3]=[${encryptedPacket.data.slice(0,4)}]`);
 
     const candidateIds = await gatherAllIdentifiers(userEmail, identifier);
     const roundAttempts = [DEFAULT_ROUNDS, 5000, 1000, 100, 10];
 
-    console.log(`[Vault] Decrypt attempt: ${candidateIds.length} candidates × ${roundAttempts.length} round configs`);
-    console.log(`[Vault] Candidates: ${JSON.stringify(candidateIds)}`);
-
     let validVaultData = null;
-    let debugLogged = false;
 
     for (const rounds of roundAttempts) {
       for (const candId of candidateIds) {
@@ -170,20 +152,7 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
           const vaultKeyHex = await deriveVaultKey(password, candId, rounds);
           const decryptedStr = await decryptCredentials(encryptedPacket, vaultKeyHex);
 
-          if (!decryptedStr) {
-            if (!debugLogged) {
-              console.log(`[Vault] Candidate "${candId}" (${rounds}r): decryptedStr is null/empty`);
-            }
-            continue;
-          }
-
-          // Log the first candidate's decrypted output for diagnostics
-          if (!debugLogged) {
-            debugLogged = true;
-            console.log(`[Vault] DIAG decrypted type=${typeof decryptedStr} len=${decryptedStr.length}`);
-            console.log(`[Vault] DIAG first 300 chars: ${decryptedStr.substring(0, 300)}`);
-            console.log(`[Vault] DIAG charCode[0..9]: ${Array.from(decryptedStr.substring(0, 10)).map(c => c.charCodeAt(0)).join(',')}`);
-          }
+          if (!decryptedStr) continue;
 
           let parsed = null;
           try {
@@ -192,7 +161,6 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
               parsed = JSON.parse(parsed);
             }
           } catch (jsonErr) {
-            console.log(`[Vault] Candidate "${candId}" (${rounds}r): JSON parse error: ${jsonErr.message}`);
             continue;
           }
 
@@ -207,34 +175,23 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
               parsed.version !== undefined ||
               parsed.exportedAt !== undefined)
           ) {
-            console.log(
-              `[Vault] ✓ Decrypted successfully with candidate="${candId}" rounds=${rounds} keyPrefix=${vaultKeyHex.substring(0, 8)}`
-            );
             validVaultData = parsed;
             break;
           }
         } catch (decErr) {
-          // HMAC verification failed for this candidate — expected, try next
+          // HMAC verification failed for this candidate: expected, try next
         }
       }
       if (validVaultData) break;
     }
 
     if (!validVaultData) {
-      console.log('[Vault] ✗ Could not decrypt server vault with any candidate credentials.');
-      // Log first 8 chars of the first candidate key for debugging
-      if (candidateIds.length > 0) {
-        const debugKey = await deriveVaultKey(password, candidateIds[0], DEFAULT_ROUNDS);
-        console.log(`[Vault] Debug: first candidate="${candidateIds[0]}" rounds=${DEFAULT_ROUNDS} keyPrefix=${debugKey.substring(0, 8)}`);
-      }
       return false;
     }
 
     await importFullVault(validVaultData);
-    console.log('[Vault] Cloud vault restored successfully into local storage');
     return true;
   } catch (error) {
-    console.log('[Vault] Sync from server error:', error.message);
     return false;
   }
 }

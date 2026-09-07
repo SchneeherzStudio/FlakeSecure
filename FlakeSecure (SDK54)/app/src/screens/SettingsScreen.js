@@ -13,8 +13,9 @@
  *    - fetchSessions() / handleTerminateSession(): Lists active login sessions across devices with remote revoke.
  *    - Sharing permissions & whitelist recipient manager.
  * 
- * 3. CUSTOMIZATION & PREFERENCES:
- *    - Language selector (EN, DE, FR, ES) with instant reactive translation updates via useLanguage().
+ * 3. THEME & CUSTOMIZATION:
+ *    - Theme selector: System Standard, Dark Mode, Light Mode with instant live update and persistence.
+ *    - Language selector: English, Deutsch, Français, Español (clean badges, zero emojis).
  *    - Date format selector (System, German, ISO).
  *    - Default autofill profile presets (email, username, names, phone).
  * 
@@ -36,13 +37,16 @@ import {
   FlatList,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   updateAccount,
   getRestrictions,
@@ -55,10 +59,14 @@ import {
 } from '../utils/api';
 import { getDefaultProfile, saveDefaultProfile } from '../utils/storage';
 import { syncVaultToServer } from '../utils/vault';
+import { SessionCardSkeleton, SkeletonItem } from '../components/Skeleton';
+import { TapFeedback } from '../components/TapFeedback';
+import { AppIcon } from '../components/CategoryIcons';
 
 export default function SettingsScreen({ navigation }) {
   const { user, logout, updateUser } = useAuth();
   const { locale, changeLanguage, t } = useLanguage();
+  const { themeMode, setThemeMode, colors, isDark } = useTheme();
 
   const [currentDateFormat, setCurrentDateFormat] = useState('system');
   const [currentShareMode, setCurrentShareMode] = useState(user?.share_mode || 'whitelist');
@@ -122,7 +130,7 @@ export default function SettingsScreen({ navigation }) {
         lastName: profileLastName.trim(),
         phone: profilePhone.trim(),
       });
-      Alert.alert(t('success'), t('settings.saveProfile') + ' ✓');
+      Alert.alert(t('success'), t('settings.saveProfile'));
     } catch (e) {
       Alert.alert(t('error'), 'Konnte Profil nicht speichern');
     }
@@ -146,7 +154,7 @@ export default function SettingsScreen({ navigation }) {
       const res = await getSessions();
       setSessions(res.sessions || []);
     } catch (e) {
-      console.log('Failed to fetch active sessions', e);
+      console.log('Failed to fetch sessions', e);
     } finally {
       setLoadingSessions(false);
     }
@@ -154,8 +162,8 @@ export default function SettingsScreen({ navigation }) {
 
   const handleTerminateSession = (sessionId) => {
     Alert.alert(
-      t('settings.terminateConfirmTitle'),
-      t('settings.terminateConfirmMsg'),
+      t('settings.terminateSession'),
+      t('settings.terminateSessionConfirm'),
       [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -164,7 +172,7 @@ export default function SettingsScreen({ navigation }) {
           onPress: async () => {
             try {
               await deleteSession(sessionId);
-              fetchActiveSessions();
+              setSessions((prev) => prev.filter((s) => s.id !== sessionId));
             } catch (e) {
               Alert.alert(t('error'), 'Konnte Sitzung nicht beenden');
             }
@@ -175,75 +183,93 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const handleManualVaultSync = async () => {
+    setSyncingVault(true);
     try {
-      setSyncingVault(true);
-      const savedAuthCreds = await SecureStore.getItemAsync('auth_credentials');
-      if (savedAuthCreds) {
-        const { identifier, password } = JSON.parse(savedAuthCreds);
-        const success = await syncVaultToServer(password, identifier || user?.email);
-        if (success) {
-          Alert.alert(t('success'), t('settings.syncSuccess'));
-        } else {
-          Alert.alert(t('common.info'), t('settings.syncSuccess'));
-        }
+      const saved = await SecureStore.getItemAsync('auth_credentials');
+      if (!saved) {
+        Alert.alert(t('error'), 'Keine Anmeldedaten für die Tresor-Verschlüsselung gefunden.');
+        setSyncingVault(false);
+        return;
+      }
+      const { password, identifier, email } = JSON.parse(saved);
+      const success = await syncVaultToServer(password, identifier, email);
+      if (success) {
+        Alert.alert(t('success'), 'Tresor erfolgreich verschlüsselt in die Cloud synchronisiert.');
       } else {
-        Alert.alert(t('common.info'), t('settings.syncSuccess'));
+        Alert.alert(t('error'), 'Tresor-Synchronisation fehlgeschlagen.');
       }
     } catch (e) {
-      Alert.alert(t('error'), 'Synchronisation fehlgeschlagen.');
+      console.log('Manual sync vault error:', e);
+      Alert.alert(t('error'), e.message || 'Fehler beim Tresor-Sync');
     } finally {
       setSyncingVault(false);
     }
   };
 
-  const handleLanguageChange = async (lang) => {
+  const handleLanguageChange = async (langCode) => {
     try {
-      await changeLanguage(lang);
+      await changeLanguage(langCode);
+      if (user) {
+        updateAccount({ language: langCode }).catch(() => {});
+      }
     } catch (e) {
-      console.log('Failed to update language', e);
+      console.log('Failed to change language', e);
     }
   };
 
   const handleShareModeChange = async (mode) => {
     try {
       setCurrentShareMode(mode);
-      const res = await updateAccount({ share_mode: mode });
-      if (res.user) updateUser(res.user);
+      await updateAccount({ share_mode: mode });
+      updateUser({ ...user, share_mode: mode });
     } catch (e) {
-      console.log('Failed to update share mode', e);
+      Alert.alert(t('error'), 'Could not update sharing mode');
     }
   };
 
-  const handleRemoveRestriction = async (username) => {
-    try {
-      await removeRestriction(username);
-      fetchRestrictions();
-    } catch (e) {
-      Alert.alert(t('error'), 'Could not remove recipient');
-    }
+  const handleRemoveRestriction = (recipientUsername) => {
+    Alert.alert(
+      t('settings.removeRecipient'),
+      t('settings.removeRecipientConfirm', { username: recipientUsername }),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeRestriction(recipientUsername);
+              setRestrictions(restrictions.filter((r) => (r.recipient_username || r.username) !== recipientUsername));
+            } catch (e) {
+              Alert.alert(t('error'), 'Could not remove recipient');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSearchUsers = async () => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return;
+    if (!searchQuery.trim()) return;
+    setSearching(true);
     try {
-      setSearching(true);
-      const results = await searchUsers(query);
-      setSearchResults(results.users || []);
+      const res = await searchUsers(searchQuery.trim());
+      setSearchResults(res.users || []);
     } catch (e) {
-      console.log('Search failed', e);
+      console.log('Search users failed', e);
     } finally {
       setSearching(false);
     }
   };
 
-  const handleAddRestriction = async (username) => {
+  const handleAddRestriction = async (targetUsername) => {
     try {
-      await addRestriction(username.trim().toLowerCase());
+      await addRestriction(targetUsername);
       setSearchModalVisible(false);
       setSearchQuery('');
       setSearchResults([]);
       fetchRestrictions();
+      Alert.alert(t('success'), `${targetUsername} added to allowed recipients`);
     } catch (e) {
       Alert.alert(t('error'), 'Could not add recipient');
     }
@@ -288,10 +314,10 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const languages = [
-    { code: 'en', label: 'English 🇬🇧' },
-    { code: 'de', label: 'Deutsch 🇩🇪' },
-    { code: 'fr', label: 'Français 🇫🇷' },
-    { code: 'es', label: 'Español 🇪🇸' },
+    { code: 'en', label: 'English', badge: 'EN' },
+    { code: 'de', label: 'Deutsch', badge: 'DE' },
+    { code: 'fr', label: 'Français', badge: 'FR' },
+    { code: 'es', label: 'Español', badge: 'ES' },
   ];
 
   const dateFormats = [
@@ -301,86 +327,116 @@ export default function SettingsScreen({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
+          <Text style={[styles.backButtonText, { color: colors.gold }]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('settings.title')}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('settings.title')}</Text>
       </View>
 
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
         {/* Account Info Card */}
-        <Text style={styles.sectionHeader}>{t('settings.accountSection')}</Text>
-        <View style={styles.card}>
-          <Text style={styles.label}>{t('settings.username')}</Text>
-          <Text style={styles.value}>{user?.username || '-'}</Text>
-          <View style={styles.divider} />
-          <Text style={styles.label}>{t('settings.email')}</Text>
-          <Text style={styles.value}>{user?.email || '-'}</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.accountSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.label, { color: colors.textMuted }]}>{t('settings.username')}</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{user?.username || '-'}</Text>
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
+          <Text style={[styles.label, { color: colors.textMuted }]}>{t('settings.email')}</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{user?.email || '-'}</Text>
 
           <TouchableOpacity
-            style={styles.syncVaultBtn}
+            style={[styles.syncVaultBtn, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}
             onPress={handleManualVaultSync}
             disabled={syncingVault}
           >
             {syncingVault ? (
-              <ActivityIndicator color="#6391ff" size="small" />
+              <ActivityIndicator color={colors.gold} size="small" />
             ) : (
-              <Text style={styles.syncVaultText}>{t('settings.syncVault')}</Text>
+              <Text style={[styles.syncVaultText, { color: colors.gold }]}>{t('settings.syncVault')}</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.restoreVaultBtn}
+            style={[styles.restoreVaultBtn, { backgroundColor: colors.cardHover, borderColor: colors.cardBorder }]}
             onPress={() => navigation.navigate('VaultTransfer', { mode: 'check_or_receive' })}
           >
-            <Text style={styles.restoreVaultText}>{t('settings.restoreVault')}</Text>
+            <Text style={[styles.restoreVaultText, { color: colors.text }]}>{t('settings.restoreVault')}</Text>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-            <Text style={styles.logoutText}>{t('common.logout')}</Text>
-          </TouchableOpacity>
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
+          <TapFeedback style={styles.logoutBtn} onPress={logout}>
+            <Text style={[styles.logoutText, { color: colors.red }]}>{t('common.logout')}</Text>
+          </TapFeedback>
+        </View>
+
+        {/* Theme / Appearance Section */}
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>DARSTELLUNG & DESIGN</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          {[
+            { mode: 'system', label: 'System-Standard', icon: 'gear' },
+            { mode: 'dark', label: 'Dunkelmodus (Deep Navy)', icon: 'moon' },
+            { mode: 'light', label: 'Hellmodus (Clean Slate)', icon: 'sun' },
+          ].map((opt, idx) => (
+            <TouchableOpacity
+              key={opt.mode}
+              style={[styles.langItem, idx !== 2 && styles.borderBottom, { borderBottomColor: colors.borderSubtle }]}
+              onPress={() => setThemeMode(opt.mode)}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <AppIcon name={opt.icon} size={16} color={themeMode === opt.mode ? colors.gold : colors.textSecondary} />
+                <Text style={[styles.langText, { color: themeMode === opt.mode ? colors.gold : colors.textSecondary }, themeMode === opt.mode && { fontWeight: '700' }]}>
+                  {opt.label}
+                </Text>
+              </View>
+              {themeMode === opt.mode && <AppIcon name="check" size={16} color={colors.gold} />}
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Active Sessions */}
-        <Text style={styles.sectionHeader}>{t('settings.sessionsSection')} ({sessions.length})</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.sessionsSection')} ({sessions.length})</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           {loadingSessions ? (
-            <ActivityIndicator color="#6391ff" />
+            <View style={{ paddingVertical: 4 }}>
+              <SessionCardSkeleton />
+              <SessionCardSkeleton />
+            </View>
           ) : sessions.length === 0 ? (
-            <Text style={styles.emptyText}>{t('settings.noSessions')}</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>{t('settings.noSessions')}</Text>
           ) : (
             sessions.map((s, idx) => {
               const isCurrent = s.is_current;
               const info = s.device_info || 'Device';
               const isPhone = info.toLowerCase().includes('phone') || info.toLowerCase().includes('ios') || info.toLowerCase().includes('android');
-              const icon = isPhone ? '📱' : '💻';
 
               return (
-                <View key={s.id || idx} style={[styles.sessionItem, idx !== sessions.length - 1 && styles.borderBottom]}>
+                <View key={s.id || idx} style={[styles.sessionItem, idx !== sessions.length - 1 && styles.borderBottom, { borderBottomColor: colors.borderSubtle }]}>
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <View style={styles.sessionHeaderRow}>
-                      <Text style={styles.sessionDevice} numberOfLines={1}>
-                        {icon} {info}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <AppIcon name={isPhone ? 'share' : 'server'} size={14} color={colors.gold} />
+                        <Text style={[styles.sessionDevice, { color: colors.text }]} numberOfLines={1}>
+                          {info}
+                        </Text>
+                      </View>
                       {isCurrent && (
-                        <View style={styles.currentDeviceBadge}>
-                          <View style={styles.greenPulseDot} />
-                          <Text style={styles.currentDeviceText}>{t('settings.currentDevice')}</Text>
+                        <View style={[styles.currentDeviceBadge, { backgroundColor: colors.greenDim, borderColor: colors.greenBorder }]}>
+                          <View style={[styles.greenPulseDot, { backgroundColor: colors.green }]} />
+                          <Text style={[styles.currentDeviceText, { color: colors.green }]}>{t('settings.currentDevice')}</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.sessionIp}>IP: {s.ip_address || 'Local'}</Text>
+                    <Text style={[styles.sessionIp, { color: colors.textMuted }]}>IP: {s.ip_address || 'Local'}</Text>
                   </View>
                   {!isCurrent ? (
                     <TouchableOpacity onPress={() => handleTerminateSession(s.id)}>
-                      <Text style={styles.removeText}>{t('settings.terminate')}</Text>
+                      <Text style={[styles.removeText, { color: colors.red }]}>{t('settings.terminate')}</Text>
                     </TouchableOpacity>
                   ) : (
-                    <View style={styles.activeNowContainer}>
-                      <Text style={styles.activeNowText}>{t('settings.activeNow')}</Text>
+                    <View style={[styles.activeNowContainer, { backgroundColor: colors.goldDim }]}>
+                      <Text style={[styles.activeNowText, { color: colors.gold }]}>{t('settings.activeNow')}</Text>
                     </View>
                   )}
                 </View>
@@ -390,131 +446,151 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* Shortcuts Section */}
-        <Text style={styles.sectionHeader}>{t('settings.shortcutsSection')}</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.shortcutsSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('Authenticator')}>
-            <Text style={styles.dataItemText}>{t('settings.authenticatorShortcut')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="totp" size={16} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.authenticatorShortcut')}</Text>
+            </View>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('Logs')}>
-            <Text style={styles.dataItemText}>{t('settings.logsShortcut')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="logs" size={16} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.logsShortcut')}</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
         {/* Language Section */}
-        <Text style={styles.sectionHeader}>{t('settings.languageSection')}</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.languageSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           {languages.map((lang, index) => (
             <TouchableOpacity
               key={lang.code}
-              style={[styles.langItem, index !== languages.length - 1 && styles.borderBottom]}
+              style={[styles.langItem, index !== languages.length - 1 && styles.borderBottom, { borderBottomColor: colors.borderSubtle }]}
               onPress={() => handleLanguageChange(lang.code)}
             >
-              <Text style={[styles.langText, locale === lang.code && styles.langSelected]}>
-                {lang.label}
-              </Text>
-              {locale === lang.code && <Text style={styles.checkMark}>✓</Text>}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={[styles.langBadge, { backgroundColor: locale === lang.code ? colors.goldDim : colors.cardHover }]}>
+                  <Text style={[styles.langBadgeText, { color: locale === lang.code ? colors.gold : colors.textMuted }]}>
+                    {lang.badge}
+                  </Text>
+                </View>
+                <Text style={[styles.langText, { color: locale === lang.code ? colors.gold : colors.textSecondary }, locale === lang.code && styles.langSelected]}>
+                  {lang.label}
+                </Text>
+              </View>
+              {locale === lang.code && <AppIcon name="check" size={16} color={colors.gold} />}
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Date Format Section */}
-        <Text style={styles.sectionHeader}>{t('settings.dateFormatSection')}</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.dateFormatSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           {dateFormats.map((fmt, index) => (
             <TouchableOpacity
               key={fmt.code}
-              style={[styles.langItem, index !== dateFormats.length - 1 && styles.borderBottom]}
+              style={[styles.langItem, index !== dateFormats.length - 1 && styles.borderBottom, { borderBottomColor: colors.borderSubtle }]}
               onPress={() => handleDateFormatChange(fmt.code)}
             >
-              <Text style={[styles.langText, currentDateFormat === fmt.code && styles.langSelected]}>
+              <Text style={[styles.langText, { color: currentDateFormat === fmt.code ? colors.gold : colors.textSecondary }, currentDateFormat === fmt.code && styles.langSelected]}>
                 {fmt.label}
               </Text>
-              {currentDateFormat === fmt.code && <Text style={styles.checkMark}>✓</Text>}
+              {currentDateFormat === fmt.code && <AppIcon name="check" size={16} color={colors.gold} />}
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Standard Profile Autofill */}
-        <Text style={styles.sectionHeader}>{t('settings.autofillSection')}</Text>
-        <View style={styles.card}>
-          <Text style={styles.profileHint}>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.autofillSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.profileHint, { color: colors.textMuted }]}>
             {t('settings.autofillHint')}
           </Text>
 
-          <Text style={styles.inputLabel}>{t('settings.defaultEmail')}</Text>
+          <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('settings.defaultEmail')}</Text>
           <TextInput
-            style={styles.profileInput}
+            style={[styles.profileInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
             value={profileEmail}
             onChangeText={setProfileEmail}
             placeholder="email@domain.com"
-            placeholderTextColor="rgba(255,255,255,0.25)"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             keyboardType="email-address"
           />
 
-          <Text style={styles.inputLabel}>{t('settings.defaultUsername')}</Text>
+          <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('settings.defaultUsername')}</Text>
           <TextInput
-            style={styles.profileInput}
+            style={[styles.profileInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
             value={profileUsername}
             onChangeText={setProfileUsername}
             placeholder="username"
-            placeholderTextColor="rgba(255,255,255,0.25)"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
           />
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.inputLabel}>{t('settings.firstName')}</Text>
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('settings.firstName')}</Text>
               <TextInput
-                style={styles.profileInput}
+                style={[styles.profileInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
                 value={profileFirstName}
                 onChangeText={setProfileFirstName}
                 placeholder="Max"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="words"
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.inputLabel}>{t('settings.lastName')}</Text>
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('settings.lastName')}</Text>
               <TextInput
-                style={styles.profileInput}
+                style={[styles.profileInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
                 value={profileLastName}
                 onChangeText={setProfileLastName}
                 placeholder="Mustermann"
-                placeholderTextColor="rgba(255,255,255,0.25)"
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="words"
               />
             </View>
           </View>
 
-          <Text style={styles.inputLabel}>{t('settings.phone')}</Text>
+          <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('settings.phone')}</Text>
           <TextInput
-            style={styles.profileInput}
+            style={[styles.profileInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
             value={profilePhone}
             onChangeText={setProfilePhone}
             placeholder="+49 170 1234567"
-            placeholderTextColor="rgba(255,255,255,0.25)"
+            placeholderTextColor={colors.textMuted}
             keyboardType="phone-pad"
           />
 
-          <TouchableOpacity style={styles.saveProfileBtn} onPress={handleSaveProfile}>
-            <Text style={styles.saveProfileBtnText}>{t('settings.saveProfile')}</Text>
-          </TouchableOpacity>
+          <TapFeedback
+            style={[styles.saveProfileBtn, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}
+            onPress={handleSaveProfile}
+          >
+            <Text style={[styles.saveProfileBtnText, { color: colors.gold }]}>{t('settings.saveProfile')}</Text>
+          </TapFeedback>
         </View>
 
         {/* Sharing & Restrictions */}
-        <Text style={styles.sectionHeader}>{t('settings.securitySection')}</Text>
-        <View style={styles.card}>
-          <Text style={styles.subLabel}>{t('settings.whoCanSend')}</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.securitySection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.subLabel, { color: colors.textSecondary }]}>{t('settings.whoCanSend')}</Text>
           <View style={styles.shareModeContainer}>
             {['only_me', 'whitelist', 'all'].map((mode) => (
               <TouchableOpacity
                 key={mode}
-                style={[styles.shareModeBtn, currentShareMode === mode && styles.shareModeBtnActive]}
+                style={[
+                  styles.shareModeBtn,
+                  { backgroundColor: colors.cardHover, borderColor: colors.cardBorder },
+                  currentShareMode === mode && { backgroundColor: colors.goldDim, borderColor: colors.gold },
+                ]}
                 onPress={() => handleShareModeChange(mode)}
               >
-                <Text style={[styles.shareModeText, currentShareMode === mode && styles.shareModeTextActive]}>
+                <Text style={[styles.shareModeText, { color: colors.textMuted }, currentShareMode === mode && { color: colors.gold, fontWeight: '700' }]}>
                   {mode === 'only_me' ? t('settings.onlyMe') : mode === 'whitelist' ? t('settings.whitelist') : t('settings.anyone')}
                 </Text>
               </TouchableOpacity>
@@ -523,24 +599,30 @@ export default function SettingsScreen({ navigation }) {
 
           {currentShareMode === 'whitelist' && (
             <>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
               <View style={styles.recipientHeader}>
-                <Text style={styles.subLabel}>{t('settings.allowedRecipients')}</Text>
+                <Text style={[styles.subLabel, { color: colors.textSecondary }]}>{t('settings.allowedRecipients')}</Text>
                 <TouchableOpacity onPress={() => setSearchModalVisible(true)}>
-                  <Text style={styles.addBtn}>{t('settings.addRecipient')}</Text>
+                  <Text style={[styles.addBtn, { color: colors.gold }]}>{t('settings.addRecipient')}</Text>
                 </TouchableOpacity>
               </View>
 
               {loadingRestrictions ? (
-                <ActivityIndicator color="#6391ff" />
+                <View style={{ paddingVertical: 10, paddingHorizontal: 4 }}>
+                  <SkeletonItem width="75%" height={16} borderRadius={4} style={{ marginBottom: 8 }} />
+                  <SkeletonItem width="55%" height={16} borderRadius={4} />
+                </View>
               ) : restrictions.length === 0 ? (
-                <Text style={styles.emptyText}>{t('settings.noRecipients')}</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>{t('settings.noRecipients')}</Text>
               ) : (
                 restrictions.map((r, idx) => (
-                  <View key={r.id || idx} style={[styles.recipientItem, idx !== restrictions.length - 1 && styles.borderBottom]}>
-                    <Text style={styles.recipientName}>👤 {r.recipient_username || r.username}</Text>
+                  <View key={r.id || idx} style={[styles.recipientItem, idx !== restrictions.length - 1 && styles.borderBottom, { borderBottomColor: colors.borderSubtle }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <AppIcon name="user" size={13} color={colors.gold} />
+                      <Text style={[styles.recipientName, { color: colors.text }]}>{r.recipient_username || r.username}</Text>
+                    </View>
                     <TouchableOpacity onPress={() => handleRemoveRestriction(r.recipient_username || r.username)}>
-                      <Text style={styles.removeText}>{t('delete')}</Text>
+                      <Text style={[styles.removeText, { color: colors.red }]}>{t('delete')}</Text>
                     </TouchableOpacity>
                   </View>
                 ))
@@ -550,95 +632,226 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* Data & Sharing Mode */}
-        <Text style={styles.sectionHeader}>{t('settings.dataSection')}</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.dataSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('ShareImport', { mode: 'import' })}>
-            <Text style={styles.dataItemText}>{t('settings.importDevice')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="share" size={15} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.importDevice')}</Text>
+            </View>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('ShareImport', { mode: 'export' })}>
-            <Text style={styles.dataItemText}>{t('settings.exportDevice')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="share" size={15} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.exportDevice')}</Text>
+            </View>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
           <TouchableOpacity style={styles.dataItem} onPress={() => navigation.navigate('ShareImport', { mode: 'share' })}>
-            <Text style={styles.dataItemText}>{t('settings.shareLogins')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="user" size={15} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.shareLogins')}</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
         {/* Legal & Privacy Section */}
-        <Text style={styles.sectionHeader}>{t('settings.legalSection')}</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.legalSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <TouchableOpacity
             style={styles.dataItem}
             onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/legal')}
           >
-            <Text style={styles.dataItemText}>{t('settings.privacyPolicy')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="shield" size={15} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.privacyPolicy')}</Text>
+            </View>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
           <TouchableOpacity
             style={styles.dataItem}
             onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/imprint')}
           >
-            <Text style={styles.dataItemText}>{t('settings.imprint')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="logs" size={15} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.imprint')}</Text>
+            </View>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
           <TouchableOpacity
             style={styles.dataItem}
             onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/terms')}
           >
-            <Text style={styles.dataItemText}>{t('settings.termsOfService')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="logs" size={15} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.termsOfService')}</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
         {/* Danger Zone */}
-        <Text style={[styles.sectionHeader, { color: '#ff4d4f' }]}>{t('settings.dangerSection')}</Text>
-        <View style={[styles.card, styles.dangerCard]}>
-          <TouchableOpacity style={styles.dangerBtn} onPress={handleDeleteAccount}>
-            <Text style={styles.dangerText}>{t('settings.deleteAccount')}</Text>
-          </TouchableOpacity>
+        <Text style={[styles.sectionHeader, { color: colors.red }]}>{t('settings.dangerSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.redDim, borderColor: colors.redBorder }]}>
+          <TapFeedback style={styles.dangerBtn} onPress={handleDeleteAccount}>
+            <Text style={[styles.dangerText, { color: colors.red }]}>{t('settings.deleteAccount')}</Text>
+          </TapFeedback>
+        </View>
+
+        {/* System & Security Information */}
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.aboutSection')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          {/* App Header / Brand */}
+          <View style={styles.aboutHeader}>
+            <View style={[styles.aboutLogoContainer, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}>
+              <AppIcon name="logo" size={26} color={colors.gold} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.aboutTitle, { color: colors.text }]}>FlakeSecure</Text>
+              <Text style={[styles.aboutSubtitle, { color: colors.textMuted }]}>{t('settings.tagline')}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
+
+          {/* App Version */}
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={styles.infoLabelContainer}>
+              <AppIcon name="lock" size={14} color={colors.gold} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.appVersion')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
+              v{Constants?.expoConfig?.version || '2.0.1'}
+            </Text>
+          </View>
+
+          {/* Platform / Architecture */}
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={styles.infoLabelContainer}>
+              <AppIcon name="logs" size={14} color={colors.gold} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.buildArchitecture')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
+              {Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Universal'} • Hermes
+            </Text>
+          </View>
+
+          {/* Encryption Standard */}
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={styles.infoLabelContainer}>
+              <AppIcon name="shield" size={14} color={colors.gold} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.encryptionStandard')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.gold, fontWeight: '700' }]}>AES-256-CTR</Text>
+          </View>
+
+          {/* Key Derivation */}
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={styles.infoLabelContainer}>
+              <AppIcon name="key" size={14} color={colors.gold} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.keyDerivation')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.text }]}>Argon2id + PBKDF</Text>
+          </View>
+
+          {/* Security Architecture */}
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={styles.infoLabelContainer}>
+              <AppIcon name="shield" size={14} color={colors.gold} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.securityArchitecture')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.green, fontWeight: '700' }]}>
+              {t('settings.securityModelZeroKnowledge')}
+            </Text>
+          </View>
+
+          {/* Biometrics & Hardware */}
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={styles.infoLabelContainer}>
+              <AppIcon name="user" size={14} color={colors.gold} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.biometricEnclave')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.text }]}>{t('settings.hardwareBacked')}</Text>
+          </View>
+
+          {/* Relay Protocol */}
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderSubtle }]}>
+            <View style={styles.infoLabelContainer}>
+              <AppIcon name="share" size={14} color={colors.gold} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.networkSecurity')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.text }]}>WSS / TLS 1.3</Text>
+          </View>
+
+          {/* Connected Server */}
+          <View style={[styles.infoRow, { borderBottomWidth: 0, paddingBottom: 2 }]}>
+            <View style={styles.infoLabelContainer}>
+              <AppIcon name="globe" size={14} color={colors.gold} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.serverOrigin')}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.textMuted }]} numberOfLines={1}>
+              flakesecure.snowystudio.dev
+            </Text>
+          </View>
+        </View>
+
+        {/* Footer Brand watermark */}
+        <View style={styles.footerBrand}>
+          <Text style={[styles.footerBrandText, { color: colors.textMuted }]}>
+            FlakeSecure • Schneeherz Studio • 2026
+          </Text>
         </View>
       </ScrollView>
 
       {/* User Search Modal */}
       <Modal visible={searchModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modalOverlay }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.modalCard, borderColor: colors.cardBorder }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('settings.addRecipient')}</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{t('settings.addRecipient')}</Text>
               <TouchableOpacity onPress={() => setSearchModalVisible(false)}>
-                <Text style={styles.modalClose}>✕</Text>
+                <AppIcon name="close" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBox}>
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
                 placeholder="Username eingeben..."
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholderTextColor={colors.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 autoCapitalize="none"
               />
-              <TouchableOpacity style={styles.searchBtn} onPress={handleSearchUsers}>
-                <Text style={styles.searchBtnText}>🔍</Text>
+              <TouchableOpacity
+                style={[styles.searchBtn, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}
+                onPress={handleSearchUsers}
+              >
+                <AppIcon name="scan" size={16} color={colors.gold} />
               </TouchableOpacity>
             </View>
 
             {searching ? (
-              <ActivityIndicator color="#6391ff" style={{ marginTop: 20 }} />
+              <ActivityIndicator color={colors.gold} style={{ marginTop: 20 }} />
             ) : (
               <FlatList
                 data={searchResults}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.searchResultItem} onPress={() => handleAddRestriction(item.username)}>
-                    <Text style={styles.searchResultText}>👤 {item.username}</Text>
-                    <Text style={styles.searchResultAdd}>+ Hinzufügen</Text>
+                  <TouchableOpacity
+                    style={[styles.searchResultItem, { borderBottomColor: colors.borderSubtle }]}
+                    onPress={() => handleAddRestriction(item.username)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <AppIcon name="user" size={14} color={colors.gold} />
+                      <Text style={[styles.searchResultText, { color: colors.text }]}>{item.username}</Text>
+                    </View>
+                    <Text style={[styles.searchResultAdd, { color: colors.gold }]}>+ Hinzufügen</Text>
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
                   searchQuery.length > 0 && !searching ? (
-                    <Text style={styles.emptyText}>Keine Benutzer gefunden</Text>
+                    <Text style={[styles.emptyText, { color: colors.textMuted }]}>Keine Benutzer gefunden</Text>
                   ) : null
                 }
               />
@@ -653,7 +866,6 @@ export default function SettingsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090b14',
   },
   header: {
     flexDirection: 'row',
@@ -666,14 +878,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   backButtonText: {
-    color: '#6391ff',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '600',
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#fff',
     letterSpacing: -0.5,
   },
   scrollContent: {
@@ -686,66 +896,55 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 11,
     fontWeight: '800',
-    color: 'rgba(255,255,255,0.4)',
     letterSpacing: 1,
-    marginTop: 24,
+    marginTop: 22,
     marginBottom: 8,
-  },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.4)',
-    marginBottom: 4,
     textTransform: 'uppercase',
   },
+  card: {
+    borderRadius: 8,
+    padding: 14,
+    borderWidth: 1,
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   subLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '700',
     marginBottom: 8,
   },
   value: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginVertical: 12,
+    marginVertical: 10,
   },
   syncVaultBtn: {
-    marginTop: 12,
-    backgroundColor: 'rgba(99, 145, 255, 0.12)',
-    borderColor: 'rgba(99, 145, 255, 0.3)',
+    marginTop: 10,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingVertical: 9,
     alignItems: 'center',
   },
   syncVaultText: {
-    color: '#6391ff',
     fontSize: 13,
     fontWeight: '700',
   },
   restoreVaultBtn: {
     marginTop: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingVertical: 9,
     alignItems: 'center',
   },
   restoreVaultText: {
-    color: '#fff',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -754,33 +953,33 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   logoutText: {
-    color: '#ff4d4f',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   langItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
+  },
+  langBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  langBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   langText: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
     fontWeight: '500',
   },
   langSelected: {
-    color: '#6391ff',
     fontWeight: '700',
-  },
-  checkMark: {
-    color: '#6391ff',
-    fontSize: 16,
-    fontWeight: '800',
   },
   borderBottom: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   sessionItem: {
     flexDirection: 'row',
@@ -798,110 +997,84 @@ const styles = StyleSheet.create({
   sessionDevice: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
   },
   currentDeviceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    borderColor: 'rgba(34, 197, 94, 0.35)',
     borderWidth: 1,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
     gap: 4,
   },
   greenPulseDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#22c55e',
   },
   currentDeviceText: {
-    color: '#22c55e',
     fontSize: 10,
     fontWeight: '700',
   },
   activeNowContainer: {
-    backgroundColor: 'rgba(99, 145, 255, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   activeNowText: {
-    color: '#6391ff',
     fontSize: 11,
     fontWeight: '700',
   },
   sessionIp: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.4)',
   },
   profileHint: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    lineHeight: 18,
-    marginBottom: 12,
+    lineHeight: 17,
+    marginBottom: 10,
   },
   inputLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.4)',
     textTransform: 'uppercase',
     marginTop: 8,
     marginBottom: 4,
+    letterSpacing: 0.5,
   },
   profileInput: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    color: '#fff',
     fontSize: 13,
   },
   saveProfileBtn: {
-    marginTop: 16,
-    backgroundColor: 'rgba(99, 145, 255, 0.15)',
-    borderColor: 'rgba(99, 145, 255, 0.35)',
+    marginTop: 14,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingVertical: 9,
     alignItems: 'center',
   },
   saveProfileBtnText: {
-    color: '#6391ff',
     fontSize: 13,
     fontWeight: '700',
   },
   shareModeContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginTop: 4,
     marginBottom: 4,
   },
   shareModeBtn: {
     flex: 1,
     paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
   },
-  shareModeBtnActive: {
-    backgroundColor: 'rgba(99, 145, 255, 0.15)',
-    borderColor: '#6391ff',
-  },
   shareModeText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: 11,
     fontWeight: '600',
-  },
-  shareModeTextActive: {
-    color: '#6391ff',
-    fontWeight: '700',
   },
   recipientHeader: {
     flexDirection: 'row',
@@ -911,12 +1084,10 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     fontSize: 12,
-    color: '#6391ff',
     fontWeight: '700',
   },
   emptyText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.3)',
+    fontSize: 12,
     fontStyle: 'italic',
     paddingVertical: 6,
   },
@@ -927,106 +1098,137 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   recipientName: {
-    fontSize: 14,
-    color: '#fff',
+    fontSize: 13,
+    fontWeight: '500',
   },
   removeText: {
     fontSize: 12,
-    color: '#ff4d4f',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   dataItem: {
     paddingVertical: 8,
   },
   dataItemText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  dangerCard: {
-    borderColor: 'rgba(255,77,79,0.3)',
-    backgroundColor: 'rgba(255,77,79,0.04)',
+    fontSize: 13,
+    fontWeight: '600',
   },
   dangerBtn: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   dangerText: {
-    color: '#ff4d4f',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#0f1220',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderBottomWidth: 0,
     maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#fff',
-  },
-  modalClose: {
-    fontSize: 18,
-    color: 'rgba(255,255,255,0.5)',
   },
   searchBox: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: '#fff',
-    fontSize: 14,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
   },
   searchBtn: {
-    backgroundColor: 'rgba(99, 145, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(99, 145, 255, 0.3)',
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 14,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  searchBtnText: {
-    fontSize: 16,
   },
   searchResultItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   searchResultText: {
-    fontSize: 14,
-    color: '#fff',
+    fontSize: 13,
     fontWeight: '500',
   },
   searchResultAdd: {
     fontSize: 12,
-    color: '#6391ff',
     fontWeight: '700',
+  },
+  aboutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 4,
+  },
+  aboutLogoContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aboutTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  aboutSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+  },
+  infoLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  infoValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  footerBrand: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  footerBrandText: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
 });

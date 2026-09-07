@@ -28,7 +28,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware, hashToken } = require('../middleware/auth');
 
-let serverVersion = '2.0.0';
+let serverVersion = '2.0.1';
 try {
     const pkg = require('../package.json');
     if (pkg && pkg.version) serverVersion = pkg.version;
@@ -97,7 +97,7 @@ router.get('/announcements', async (req, res) => {
             query = `SELECT a.id, a.message, a.type, a.display, a.priority, a.created_at
                      FROM announcements a
                      WHERE (a.expires_at IS NULL OR a.expires_at > NOW())
-                       AND a.id NOT IN (SELECT announcement_id FROM dismissed_announcements WHERE user_id = $1)
+                       AND (a.display = 'always' OR a.id NOT IN (SELECT announcement_id FROM dismissed_announcements WHERE user_id = $1))
                      ORDER BY a.priority DESC, a.created_at DESC`;
             params = [userId];
         } else {

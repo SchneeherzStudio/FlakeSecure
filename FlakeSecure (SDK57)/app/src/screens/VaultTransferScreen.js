@@ -3,20 +3,6 @@
  * FlakeSecure Mobile App - Cloud Vault Restore & Cross-Device Key Transfer
  * (VaultTransferScreen) v2.0
  * ============================================================================
- * 
- * FUNCTION OVERVIEW & SECURITY WORKFLOW:
- * 
- * 1. LOCAL KEY RESTORATION (Key on Device):
- *    - Checks if auth_credentials exists in SecureStore on the current device.
- *    - Requests user confirmation and biometric authentication (Face ID / Fingerprint).
- *    - Fetches the zero-knowledge encrypted vault from /api/vault/sync, derives the AES key locally, decrypts, and populates local SecureStore.
- * 
- * 2. CROSS-DEVICE ZERO-KNOWLEDGE KEY TRANSFER (No Key on Device):
- *    - Generates an ephemeral 256-bit AES session key and a 16-byte session ID (sid).
- *    - Displays an optical QR code (flakesecure://vault-transfer?sid=...&key=...).
- *    - The authorizing device scans the QR code, approves via biometrics, encrypts the vault key with the ephemeral AES key, and relays the ciphertext.
- *    - The receiving device consumes the payload once, decrypts the vault key, restores the cloud vault, saves authenticated credentials, and IMMEDIATELY WIPES the ephemeral transfer key from memory.
- * ============================================================================
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -28,7 +14,6 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,15 +23,17 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as ExpoCrypto from 'expo-crypto';
 
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { syncVaultFromServer, syncVaultToServer } from '../utils/vault';
+import { syncVaultFromServer } from '../utils/vault';
 import { decryptCredentials, bytesToHex } from '../utils/crypto';
-import { getAllCredentials, importFullVault } from '../utils/storage';
-
-const SERVER_URL = 'https://flakesecure.snowystudio.dev';
+import { importFullVault } from '../utils/storage';
+import { getServerUrl } from '../utils/api';
+import { AppIcon } from '../components/CategoryIcons';
 
 export function VaultTransferScreen({ route, navigation }) {
   const { t } = useLanguage();
+  const { colors, isDark } = useTheme();
   const { user, login } = useAuth();
   const initialMode = route.params?.mode || 'check_or_receive';
 
@@ -98,282 +85,237 @@ export function VaultTransferScreen({ route, navigation }) {
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: t('vaultTransfer.biometricPrompt') || 'Authenticate to restore cloud vault',
-        fallbackLabel: 'PIN verwenden',
+        fallbackLabel: 'PIN',
         disableDeviceFallback: false,
       });
 
       if (!result.success) {
+        Alert.alert(t('error'), t('vaultTransfer.biometricRequired') || 'Biometric authentication required.');
         return;
       }
 
-      setCheckingLocal(true);
-      setTransferStatus(t('vaultTransfer.downloading') || 'Downloading cloud vault…');
+      setIsTransferring(true);
+      setTransferStatus(t('vaultTransfer.restoringVault') || 'Restoring cloud vault…');
 
-      const success = await syncVaultFromServer(
-        localCreds.password,
-        localCreds.identifier,
-        localCreds.email || user?.email
-      );
+      const syncResult = await syncVaultFromServer(localCreds.password);
 
-      if (success) {
-        const all = await getAllCredentials();
+      if (syncResult && syncResult.success) {
         Alert.alert(
           t('success'),
-          t('vaultTransfer.restoreSuccess', { count: all.length }) ||
-            `Vault successfully restored (${all.length} logins).`,
+          t('vaultTransfer.restoreSuccess') || 'Vault restored successfully from cloud!',
           [{ text: t('ok'), onPress: () => navigation.navigate('Home') }]
         );
       } else {
-        Alert.alert(
-          t('error'),
-          t('vaultTransfer.restoreFailed') ||
-            'Could not restore vault. No cloud backup found or key mismatch.',
-          [
-            { text: t('cancel'), style: 'cancel' },
-            {
-              text: t('vaultTransfer.tryDeviceTransfer') || 'Transfer from another device',
-              onPress: () => startQrReceiveSession(),
-            },
-          ]
-        );
+        throw new Error(syncResult?.error || 'Could not decrypt remote cloud vault.');
       }
     } catch (err) {
       Alert.alert(t('error'), err.message || 'Restoration failed.');
     } finally {
-      if (isMountedRef.current) setCheckingLocal(false);
+      setIsTransferring(false);
     }
   };
 
   const startQrReceiveSession = async () => {
     try {
       setIsTransferring(true);
-      setTransferStatus(t('vaultTransfer.generatingSession') || 'Generating secure transfer session…');
+      setTransferStatus(t('vaultTransfer.generatingSession') || 'Starting transfer session…');
 
-      const sidBytes = await ExpoCrypto.getRandomBytesAsync(16);
-      const sid = bytesToHex(sidBytes);
-      const keyBytes = await ExpoCrypto.getRandomBytesAsync(32);
-      const keyHex = bytesToHex(keyBytes);
+      const randomKey = await ExpoCrypto.getRandomBytesAsync(32);
+      const keyHex = bytesToHex(randomKey);
 
-      setActiveSid(sid);
+      const randomSid = await ExpoCrypto.getRandomBytesAsync(16);
+      const sid = bytesToHex(randomSid);
+
       setTransferKeyHex(keyHex);
+      setActiveSid(sid);
 
-      const qrString = `flakesecure://vault-transfer?sid=${sid}&key=${keyHex}&u=${encodeURIComponent(
-        user?.username || ''
-      )}&action=vault_key_transfer`;
+      const qrPayload = `flakesecure://vault-transfer?sid=${sid}&key=${keyHex}&action=vault_key_transfer`;
+      setQrData(qrPayload);
+      setIsTransferring(false);
 
-      setQrData(qrString);
-      setTransferStatus(t('vaultTransfer.waitingForScan') || 'Waiting for authorized device to scan…');
-    } catch (err) {
-      Alert.alert(t('error'), 'Failed to generate transfer QR session');
+      startPollLoop(sid, keyHex);
+    } catch (e) {
+      Alert.alert(t('error'), 'Could not start receiver session');
       setIsTransferring(false);
     }
   };
 
-  // Poll for transfer consumption
-  useEffect(() => {
-    if (!activeSid || !transferKeyHex) return;
+  const startPollLoop = (sid, keyHex) => {
+    let attempts = 0;
+    const maxAttempts = 120; // 3 minutes at 1.5s interval
 
-    let timer = null;
-    let isCancelled = false;
+    const timer = setInterval(async () => {
+      if (!isMountedRef.current) {
+        clearInterval(timer);
+        return;
+      }
 
-    const pollSession = async () => {
-      if (isCancelled || !isMountedRef.current) return;
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(timer);
+        setQrData(null);
+        setActiveSid(null);
+        Alert.alert(t('error'), t('vaultTransfer.timeoutMsg') || 'Session expired. Please try again.');
+        return;
+      }
+
       try {
-        const res = await fetch(`${SERVER_URL}/api/share/consume/${activeSid}`);
-        if (!res.ok) return;
-
-        const data = await res.json();
-        if (data && data.payload) {
-          isCancelled = true;
-          clearInterval(timer);
-          await processReceivedKeyPayload(data.payload, transferKeyHex);
+        const serverUrl = await getServerUrl();
+        const res = await fetch(`${serverUrl}/api/share/consume/${sid}`);
+        if (!res.ok) {
+          return;
         }
-      } catch (e) {}
-    };
 
-    timer = setInterval(pollSession, 1200);
+        clearInterval(timer);
+        setTransferStatus(t('vaultTransfer.receivingData') || 'Authorizing & restoring vault…');
+        setIsTransferring(true);
 
-    return () => {
-      isCancelled = true;
-      clearInterval(timer);
-    };
-  }, [activeSid, transferKeyHex]);
+        const responseJson = await res.json();
+        let payloadRaw = responseJson.payload;
+        if (typeof payloadRaw === 'string') {
+          try {
+            payloadRaw = JSON.parse(payloadRaw);
+          } catch (e) {}
+        }
 
-  const processReceivedKeyPayload = async (rawPayload, sessionKeyHex) => {
-    try {
-      setTransferStatus(t('vaultTransfer.decrypting') || 'Decrypting vault key…');
+        const decryptedJson = await decryptCredentials(payloadRaw, keyHex);
+        const packet = JSON.parse(decryptedJson);
 
-      let payloadToDecrypt = rawPayload;
-      if (typeof payloadToDecrypt === 'string') {
+        if (!packet || !packet.password) {
+          throw new Error('Corrupted or invalid vault transfer packet.');
+        }
+
+        const restoredCreds = {
+          identifier: packet.identifier || user?.email || user?.username,
+          email: packet.email || user?.email,
+          username: packet.username || user?.username,
+          password: packet.password,
+        };
+
+        await SecureStore.setItemAsync('auth_credentials', JSON.stringify(restoredCreds));
+
+        if (packet.vaultData) {
+          await importFullVault(packet.vaultData);
+        }
+
         try {
-          payloadToDecrypt = JSON.parse(payloadToDecrypt);
-        } catch (e) {}
+          await syncVaultFromServer(packet.password);
+        } catch (syncErr) {}
+
+        Alert.alert(
+          t('success'),
+          t('vaultTransfer.deviceAuthorizedSuccess') || 'Device successfully authorized and cloud vault restored!',
+          [{ text: t('ok'), onPress: () => navigation.navigate('Home') }]
+        );
+      } catch (err) {
+        Alert.alert(t('error'), err.message || 'Key reception failed.');
+      } finally {
+        setIsTransferring(false);
       }
-      if (typeof payloadToDecrypt === 'string') {
-        try {
-          payloadToDecrypt = JSON.parse(payloadToDecrypt);
-        } catch (e) {}
-      }
-
-      const decryptedJson = await decryptCredentials(payloadToDecrypt, sessionKeyHex);
-      if (!decryptedJson) {
-        throw new Error('HMAC verification failed on transferred payload.');
-      }
-
-      let keyData = typeof decryptedJson === 'string' ? JSON.parse(decryptedJson) : decryptedJson;
-      if (typeof keyData === 'string') {
-        keyData = JSON.parse(keyData);
-      }
-      const { password, identifier, email, username } = keyData;
-
-      if (!password) {
-        throw new Error('No valid password key found in transfer packet.');
-      }
-
-      // 1. Direct P2P import from authorizing device
-      let directImported = false;
-      if (
-        keyData.vaultData &&
-        ((keyData.vaultData.credentials && keyData.vaultData.credentials.length > 0) ||
-          (keyData.vaultData.totpItems && keyData.vaultData.totpItems.length > 0))
-      ) {
-        console.log('[VaultTransfer] Direct importing vaultData from authorizing device...');
-        await importFullVault(keyData.vaultData);
-        directImported = true;
-      }
-
-      // 2. Save credentials into local SecureStore
-      await SecureStore.setItemAsync(
-        'auth_credentials',
-        JSON.stringify({
-          identifier: identifier || email || username,
-          email: email || identifier,
-          username: username || identifier,
-          password: password,
-        })
-      );
-
-      // 3. Fallback to server sync or heal server vault
-      if (!directImported) {
-        setTransferStatus(t('vaultTransfer.downloading') || 'Restoring cloud vault with transferred key…');
-        await syncVaultFromServer(password, identifier, email);
-      } else {
-        syncVaultToServer(password, identifier, email).catch(() => {});
-      }
-
-      // WIPE EPHEMERAL TRANSFER KEYS FROM MEMORY
-      setTransferKeyHex(null);
-      setActiveSid(null);
-      setQrData(null);
-
-      const all = await getAllCredentials();
-      Alert.alert(
-        t('success'),
-        t('vaultTransfer.transferSuccess', { count: all.length }) ||
-          `Vault key transferred! ${all.length} logins restored on this device.`,
-        [{ text: t('ok'), onPress: () => navigation.navigate('Home') }]
-      );
-    } catch (err) {
-      console.log('[VaultTransfer] Process error:', err.message);
-      Alert.alert(t('error'), err.message || 'Key transfer decryption failed.');
-      startQrReceiveSession();
-    }
+    }, 1500);
   };
 
   const handleCancel = async () => {
     if (activeSid) {
-      fetch(`${SERVER_URL}/api/share/cancel/${activeSid}`, { method: 'DELETE' }).catch(() => {});
+      try {
+        const serverUrl = await getServerUrl();
+        await fetch(`${serverUrl}/api/share/cancel/${activeSid}`, { method: 'DELETE' });
+      } catch (e) {}
     }
-    setTransferKeyHex(null);
-    setActiveSid(null);
-    setQrData(null);
     navigation.goBack();
   };
 
   if (checkingLocal) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#6391ff" />
-          <Text style={styles.loadingText}>{transferStatus || t('loading')}</Text>
+          <ActivityIndicator size="large" color={colors.gold} />
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>{t('loading')}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={handleCancel} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>‹ {t('common.back')}</Text>
+          <Text style={[styles.backBtnText, { color: colors.gold }]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('vaultTransfer.title') || 'Cloud Vault Restore'}</Text>
+        <Text style={[styles.title, { color: colors.textMain }]}>{t('vaultTransfer.title') || 'Cloud Vault Restore'}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {hasLocalKey && !qrData ? (
-          <View style={styles.card}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.iconEmoji}>🔐</Text>
+          <View style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+              <AppIcon name="lock" size={32} color={colors.gold} />
             </View>
-            <Text style={styles.cardTitle}>{t('vaultTransfer.localKeyFoundTitle') || 'Key Present on Device'}</Text>
-            <Text style={styles.cardDesc}>
+            <Text style={[styles.cardTitle, { color: colors.textMain }]}>{t('vaultTransfer.localKeyFoundTitle') || 'Key Present on Device'}</Text>
+            <Text style={[styles.cardDesc, { color: colors.textSub }]}>
               {t('vaultTransfer.localKeyFoundDesc') ||
                 'Your master credentials are saved on this device. You can directly decrypt and restore your cloud vault.'}
             </Text>
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleLocalRestore}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleLocalRestore} disabled={isTransferring}>
               <LinearGradient
-                colors={['#6391ff', '#7c6aff']}
+                colors={colors.goldGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientBtn}
               >
-                <Text style={styles.primaryBtnText}>
-                  ☁️ {t('vaultTransfer.restoreNowBtn') || 'Restore Cloud Vault'}
-                </Text>
+                {isTransferring ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>
+                    {t('vaultTransfer.restoreNowBtn') || 'Restore Cloud Vault'}
+                  </Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
 
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-            <TouchableOpacity style={styles.secondaryBtn} onPress={startQrReceiveSession}>
-              <Text style={styles.secondaryBtnText}>
-                📲 {t('vaultTransfer.transferFromOtherDevice') || 'Transfer from Another Device instead'}
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+              onPress={startQrReceiveSession}
+            >
+              <Text style={[styles.secondaryBtnText, { color: colors.gold }]}>
+                {t('vaultTransfer.transferFromOtherDevice') || 'Transfer from Another Device instead'}
               </Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.card}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.iconEmoji}>📲</Text>
+          <View style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+              <AppIcon name="scan" size={32} color={colors.gold} />
             </View>
-            <Text style={styles.cardTitle}>
+            <Text style={[styles.cardTitle, { color: colors.textMain }]}>
               {t('vaultTransfer.scanFromOtherDeviceTitle') || 'Authorize via Other Device'}
             </Text>
-            <Text style={styles.cardDesc}>
+            <Text style={[styles.cardDesc, { color: colors.textSub }]}>
               {t('vaultTransfer.scanFromOtherDeviceDesc') ||
                 'Scan this QR code with your other device where FlakeSecure is already unlocked. The encryption key will be sent end-to-end encrypted.'}
             </Text>
 
             {qrData ? (
               <View style={styles.qrWrapper}>
-                <View style={styles.qrCard}>
-                  <QRCode value={qrData} size={220} backgroundColor="transparent" color="#fff" />
+                <View style={[styles.qrCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                  <QRCode value={qrData} size={220} backgroundColor="transparent" color={isDark ? '#fff' : '#07090e'} />
                 </View>
-                <Text style={styles.qrStatusText}>
+                <Text style={[styles.qrStatusText, { color: colors.textSub }]}>
                   {transferStatus || t('vaultTransfer.waitingForScan') || 'Waiting for scan…'}
                 </Text>
-                <ActivityIndicator size="small" color="#6391ff" style={{ marginTop: 8 }} />
+                <ActivityIndicator size="small" color={colors.gold} style={{ marginTop: 8 }} />
               </View>
             ) : (
-              <ActivityIndicator size="large" color="#6391ff" style={{ marginVertical: 30 }} />
+              <ActivityIndicator size="large" color={colors.gold} style={{ marginVertical: 30 }} />
             )}
 
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             <TouchableOpacity style={styles.cancelLink} onPress={handleCancel}>
-              <Text style={styles.cancelLinkText}>{t('cancel')}</Text>
+              <Text style={[styles.cancelLinkText, { color: colors.textMuted }]}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -385,7 +327,6 @@ export function VaultTransferScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090b14',
   },
   header: {
     flexDirection: 'row',
@@ -393,7 +334,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   backBtn: {
     paddingVertical: 6,
@@ -401,12 +341,10 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   backBtnText: {
-    color: '#6391ff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
   },
   title: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: '700',
   },
@@ -421,49 +359,41 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: {
-    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 14,
     marginTop: 14,
     textAlign: 'center',
   },
   card: {
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 10,
+    padding: 22,
     alignItems: 'center',
   },
   iconCircle: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(99, 145, 255, 0.15)',
+    borderRadius: 12,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
-  iconEmoji: {
-    fontSize: 32,
-  },
   cardTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     marginBottom: 8,
     textAlign: 'center',
   },
   cardDesc: {
-    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 18,
     textAlign: 'center',
     marginBottom: 20,
   },
   primaryBtn: {
     width: '100%',
-    borderRadius: 14,
+    borderRadius: 8,
     overflow: 'hidden',
     marginTop: 8,
   },
@@ -473,27 +403,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryBtnText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   secondaryBtn: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
     width: '100%',
   },
   secondaryBtnText: {
-    color: '#6391ff',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   divider: {
     height: 1,
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     marginVertical: 18,
   },
   qrWrapper: {
@@ -502,13 +430,10 @@ const styles = StyleSheet.create({
   },
   qrCard: {
     padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   qrStatusText: {
-    color: 'rgba(255, 255, 255, 0.65)',
     fontSize: 13,
     marginTop: 14,
     textAlign: 'center',
@@ -517,7 +442,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   cancelLinkText: {
-    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 14,
     fontWeight: '600',
   },

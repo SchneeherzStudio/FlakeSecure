@@ -116,7 +116,7 @@
 
   // FlakeSecure Client SDK
   const FlakeSecure = {
-    version: '2.0.0',
+    version: '2.0.1',
     serverUrl: defaultServerUrl,
     activeInstances: [],
 
@@ -192,15 +192,15 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #6391ff, #7c6aff);
-        color: #ffffff;
-        border: none;
-        border-radius: 12px;
+        background: #E8B020;
+        color: #07090e;
+        border: 1px solid #C9930A;
+        border-radius: 8px;
         padding: 10px 20px;
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 700;
         cursor: pointer;
-        box-shadow: 0 4px 14px rgba(99, 145, 255, 0.35);
+        box-shadow: 0 4px 14px rgba(232, 176, 32, 0.35);
         transition: transform 0.15s, box-shadow 0.15s;
         font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       `;
@@ -343,13 +343,19 @@
     if (event.data.type === 'FLAKESECURE_LOGIN_DATA') {
       const payload = event.data;
 
-      // Find matched instance options if any
+      // Verify message originates from a registered FlakeSecure iframe
+      let isKnownIframe = false;
       let matchingOptions = {};
       for (const inst of FlakeSecure.activeInstances) {
         if (inst.iframe && inst.iframe.contentWindow === event.source) {
           matchingOptions = inst.options || {};
+          isKnownIframe = true;
           break;
         }
+      }
+
+      if (FlakeSecure.activeInstances.length > 0 && !isKnownIframe) {
+        return;
       }
 
       FlakeSecure.handleCredentials(payload, matchingOptions);

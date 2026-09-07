@@ -1,5 +1,5 @@
 -- ============================================================================
--- FlakeSecure Server - PostgreSQL Database Schema v2.0.0
+-- FlakeSecure Server - PostgreSQL Database Schema v2.0.1
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -92,8 +92,12 @@ CREATE TABLE IF NOT EXISTS announcements (
     active BOOLEAN DEFAULT true,
     priority INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     expires_at TIMESTAMPTZ
 );
+
+ALTER TABLE announcements ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS idx_announcements_active_expires ON announcements(active, expires_at);
 
 CREATE TABLE IF NOT EXISTS maintenance (
     id SERIAL PRIMARY KEY,
@@ -117,6 +121,20 @@ CREATE TABLE IF NOT EXISTS otp_codes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_codes(email);
+CREATE INDEX IF NOT EXISTS idx_otp_email_purpose ON otp_codes(email, purpose, expires_at);
+
+CREATE TABLE IF NOT EXISTS password_resets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ DEFAULT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets(token_hash);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_resets_expires ON password_resets(expires_at) WHERE used_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS vault (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -131,9 +149,11 @@ CREATE TABLE IF NOT EXISTS push_tokens (
     expo_token VARCHAR(255) NOT NULL,
     device_info TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(user_id, expo_token)
 );
 
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id);
 
 CREATE TABLE IF NOT EXISTS dismissed_announcements (
@@ -142,3 +162,10 @@ CREATE TABLE IF NOT EXISTS dismissed_announcements (
     dismissed_at TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (user_id, announcement_id)
 );
+
+-- Optimization indexes for core queries
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_expires ON sessions(user_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_login_logs_user_created ON login_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_shared_payloads_created ON shared_payloads(created_at);
