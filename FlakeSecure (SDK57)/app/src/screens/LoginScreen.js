@@ -43,6 +43,7 @@ export default function LoginScreen({ navigation }) {
   const [otpCode, setOtpCode] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedAge, setAcceptedAge] = useState(false);
 
   const handleLogin = async () => {
     const cleanIdentifier = identifier.trim().toLowerCase();
@@ -119,7 +120,7 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
-    if (!acceptedTerms) {
+    if (!acceptedTerms || !acceptedAge) {
       Alert.alert(t('error'), t('login.acceptTermsRequired'));
       return;
     }
@@ -246,6 +247,23 @@ export default function LoginScreen({ navigation }) {
                   </View>
                   <Text style={[styles.termsLabel, { color: colors.textSub }]}>
                     {t('login.acceptTermsCheckbox')}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.termsRow}
+                  onPress={() => setAcceptedAge(!acceptedAge)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    { borderColor: colors.border, backgroundColor: colors.inputBg },
+                    acceptedAge && { backgroundColor: colors.gold, borderColor: colors.gold }
+                  ]}>
+                    {acceptedAge && <AppIcon name="check" size={12} color="#ffffff" />}
+                  </View>
+                  <Text style={[styles.termsLabel, { color: colors.textSub }]}>
+                    {t('login.acceptAgeCheckbox')}
                   </Text>
                 </TouchableOpacity>
 

@@ -48,7 +48,7 @@ const EMOJI_TO_ICON_KEY = {
   '\u{1F34E}': 'tag',
   '\u{1F3AC}': 'star',
   '\u{1F426}': 'message',
-};
+ };
 
 export function CategoryIcon({ name, size = 18, color = '#E8B020', style }) {
   const iconKey = EMOJI_TO_ICON_KEY[name] || name || 'tag';

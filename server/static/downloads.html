@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlakeSecure Downloads &amp; Version Hub: Android, iOS, Chrome, Firefox</title>
+  <meta name="description" content="Download official FlakeSecure client binaries, browser extensions for Chrome and Firefox, and review version compatibility logs." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#07090e" />
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/images/splash-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style/index.css?v=2.0.4" />
+  <script src="/js/theme.js?v=2.0.4"></script>
+  <script src="/js/i18n.js?v=2.0.4"></script>
+</head>
+<body>
+
+  <!-- Subtle corner accents -->
+  <div class="corner corner--tl"></div>
+  <div class="corner corner--tr"></div>
+  <div class="corner corner--bl"></div>
+  <div class="corner corner--br"></div>
+
+  <div class="container">
+    <!-- Navbar -->
+    <header class="navbar">
+      <a href="/" class="nav-brand">
+        <svg class="nav-logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="navLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#E8B020"/>
+              <stop offset="100%" stop-color="#A07010"/>
+            </linearGradient>
+          </defs>
+          <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#navLockGrad)" stroke-width="9" stroke-linecap="round"/>
+          <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#navLockGrad)"/>
+        </svg>
+        <div class="nav-wordmark">Flake<span>Secure</span> <span class="nav-version-badge">v2.0.3</span></div>
+      </a>
+
+      <div class="nav-right">
+        <nav class="nav-links-clean">
+          <a href="/" data-i18n="nav.home">Home</a>
+          <a href="/features" data-i18n="nav.features">Features</a>
+          <a href="/downloads" class="active" data-i18n="nav.downloads">Downloads</a>
+          <a href="/embed/demo" class="nav-embed-link" data-i18n="nav.embed">For Websites</a>
+          <a href="/account" class="nav-portal-btn">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <span data-i18n="nav.account">Account Portal</span>
+          </a>
+        </nav>
+
+        <div class="nav-controls">
+          <button class="theme-toggle-btn" aria-label="Toggle light/dark mode" title="Toggle light/dark mode">
+            <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg class="theme-icon-moon" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
+
+          <select class="fs-lang-select" aria-label="Language">
+            <option value="en">EN</option>
+            <option value="de">DE</option>
+            <option value="fr">FR</option>
+            <option value="es">ES</option>
+          </select>
+
+          <div class="nav-status-badge" title="Server Status">
+            <div class="pulse-dot"></div>
+            <span id="nav-status-text" data-i18n="nav.statusOnline">Online</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Title Header -->
+    <section class="section" style="padding: 3rem 0 1.5rem;">
+      <div class="section-header">
+        <span class="section-badge">Official Release Hub</span>
+        <h1 class="section-title">Download FlakeSecure Clients</h1>
+        <p class="section-subtitle">
+          Cryptographically signed applications and browser extensions. Select your platform below.
+        </p>
+      </div>
+
+      <!-- Downloads Grid -->
+      <div class="downloads-grid-clean">
+        <!-- Android APK -->
+        <div class="download-card">
+          <div class="download-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          </div>
+          <h3 class="download-title">FlakeSecure for Android</h3>
+          <p class="download-meta">Android 10+ (SDK 29+) &bull; Build v2.0.3</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Biometric master vault, camera QR scanner, and encrypted P2P vault transfer.
+          </p>
+          <div class="download-btn-group">
+            <a href="/download/android" download="FlakeSecure_android-v2.0.3.apk" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Download (.apk)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- iOS App -->
+        <div class="download-card">
+          <div class="download-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06z"></path><path d="M10 2c1 .5 2 2 2 5"></path></svg>
+          </div>
+          <h3 class="download-title">FlakeSecure for iOS</h3>
+          <p class="download-meta">iOS 15.0+ &bull; Face ID / Touch ID &bull; v2.0.3</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Native Apple Secure Enclave integration and biometric credential relay.
+          </p>
+          <div class="download-btn-group">
+            <a href="https://flakesecure.snowystudio.dev" class="btn btn-secondary">
+              <span>Expo Go / TestFlight</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Chrome / Edge / Brave / Chromium -->
+        <div class="download-card">
+          <div class="download-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          </div>
+          <h3 class="download-title">Chrome / Chromium</h3>
+          <p class="download-meta">Manifest V3 &bull; Chrome, Edge, Brave, Opera &bull; v2.0.3</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Instant biometric QR overlay projection, zero-knowledge auto-fill, and live 2FA streaming.
+          </p>
+          <div class="download-btn-group">
+            <a href="/download/chrome" download="FlakeSecure_chrome-v2.0.3.zip" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Download (.zip)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Firefox -->
+        <div class="download-card">
+          <div class="download-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"></path></svg>
+          </div>
+          <h3 class="download-title">Mozilla Firefox</h3>
+          <p class="download-meta">Firefox MV3 &bull; Firefox 115+ ESR &bull; v2.0.3</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Background port-bridge architecture with real-time biometric relay synchronization.
+          </p>
+          <div class="download-btn-group">
+            <a href="/download/firefox" download="FlakeSecure_firefox-v2.0.3.zip" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Download (.zip)</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Compatibility Matrix -->
+    <section class="section">
+      <div class="section-header">
+        <span class="section-badge">Technical Verification</span>
+        <h2 class="section-title">Ecosystem Compatibility Matrix</h2>
+        <p class="section-subtitle">
+          Verified interoperability between mobile applications, browser extensions, and server relays.
+        </p>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="fs-table">
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Current Version</th>
+              <th>Compatible Server</th>
+              <th>Encryption &amp; Protocol</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Mobile App (Android)</strong></td>
+              <td><code>v2.0.3</code></td>
+              <td><code>v2.0.0 &ndash; v2.1.x</code></td>
+              <td>AES-256-CTR &bull; Argon2id &bull; WSS</td>
+              <td><span class="table-tag table-tag--green">Supported &bull; Active</span></td>
+            </tr>
+            <tr>
+              <td><strong>Mobile App (iOS)</strong></td>
+              <td><code>v2.0.3</code></td>
+              <td><code>v2.0.0 &ndash; v2.1.x</code></td>
+              <td>AES-256-CTR &bull; Secure Enclave &bull; WSS</td>
+              <td><span class="table-tag table-tag--green">Supported &bull; Active</span></td>
+            </tr>
+            <tr>
+              <td><strong>Chrome / Edge / Brave Extension</strong></td>
+              <td><code>v2.0.3</code></td>
+              <td><code>v2.0.0 &ndash; v2.1.x</code></td>
+              <td>Web Crypto API &bull; Socket.IO v4</td>
+              <td><span class="table-tag table-tag--green">Supported &bull; Active</span></td>
+            </tr>
+            <tr>
+              <td><strong>Firefox Browser Extension</strong></td>
+              <td><code>v2.0.3</code></td>
+              <td><code>v2.0.0 &ndash; v2.1.x</code></td>
+              <td>MV3 Port Bridge &bull; Socket.IO v4</td>
+              <td><span class="table-tag table-tag--green">Supported &bull; Active</span></td>
+            </tr>
+            <tr>
+              <td><strong>Web Embed &amp; JavaScript SDK</strong></td>
+              <td><code>v2.0.3</code></td>
+              <td><code>v2.0.0 &ndash; v2.1.x</code></td>
+              <td>Cross-Origin Iframe &bull; PostMessage</td>
+              <td><span class="table-tag table-tag--gold">Drop-In SDK</span></td>
+            </tr>
+            <tr>
+              <td><strong>Relay &amp; Identity Server</strong></td>
+              <td><code>v2.0.3</code></td>
+              <td><code>All Clients v2.x</code></td>
+              <td>TLS 1.3 &bull; Ephemeral Memory Pools</td>
+              <td><span class="table-tag table-tag--green">Zero-Knowledge</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Changelog / Update History -->
+    <section class="section">
+      <div class="section-header">
+        <span class="section-badge">Release Logs</span>
+        <h2 class="section-title">Changelog &amp; Update History</h2>
+        <p class="section-subtitle">
+          Transparent development audit trail and architecture revisions.
+        </p>
+      </div>
+
+      <div class="changelog-timeline">
+        <!-- v2.0.3 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="changelog-version">
+              <span>FlakeSecure v2.0.3</span>
+              <span class="table-tag table-tag--green">Latest Release</span>
+            </div>
+            <div class="changelog-date">September 2026</div>
+          </div>
+          <ul class="changelog-list">
+            <li><strong>Admin Monitoring &amp; Telemetry Suite:</strong> Integrated full-featured administration console with live memory/uptime gauges, database connection pool statistics, and encrypted disaster-recovery backup manager.</li>
+            <li><strong>Theme Adaptive Form Controls:</strong> Unified CSS custom property token mappings and dynamic color-scheme switching across all admin dashboard controls, modals, and autofill fields.</li>
+            <li><strong>Universal Navigation Integration:</strong> Embedded persistent high-contrast headers, mobile-responsive navigation bars, and GDPR-compliant legal footers into the administration platform.</li>
+            <li><strong>Cross-Platform Parity Synchronization:</strong> Synchronized core libraries, version endpoints, and crypto manifests seamlessly across Android, iOS, Chrome, Firefox, and server runtimes.</li>
+          </ul>
+        </div>
+
+        <!-- v2.0.2 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="changelog-version">
+              <span>FlakeSecure v2.0.2</span>
+              <span class="table-tag table-tag--gold">Milestone</span>
+            </div>
+            <div class="changelog-date">September 2026</div>
+          </div>
+          <ul class="changelog-list">
+            <li><strong>Instant WebSocket Scan Feedback:</strong> Implemented <code>POST /qr-scanned</code> relay mechanism that immediately updates the browser extension overlay upon smartphone camera detection.</li>
+            <li><strong>Age Verification Declaration:</strong> Integrated client-side age confirmation gate (16+ years) pursuant to GDPR Art. 8 without storing date-of-birth data.</li>
+            <li><strong>Dedicated Multi-Page Architecture:</strong> Divided the web portal into independent, focused pages: Home, Features, and Downloads.</li>
+            <li><strong>Extension Overlay Spacing Re-alignment:</strong> Calibrated vertical hierarchy between brand logo, site domain capsule, and QR canvas container.</li>
+            <li><strong>Security Audit IP Forwarding:</strong> Enabled reverse-proxy trust headers in Express for accurate security telemetry logging.</li>
+            <li><strong>EU Dispute Redress Compliance:</strong> Replaced deprecated ODR platform references with the official European Consumer Redress portal across 4 languages.</li>
+          </ul>
+        </div>
+
+        <!-- v2.0.1 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="changelog-version">
+              <span>FlakeSecure v2.0.1</span>
+              <span class="table-tag table-tag--gold">Milestone</span>
+            </div>
+            <div class="changelog-date">August 2026</div>
+          </div>
+          <ul class="changelog-list">
+            <li><strong>Complete Emoji Eradication:</strong> Replaced all emojis across mobile app, browser extensions, and admin console with high-precision SVG security vectors.</li>
+            <li><strong>Dark Mode Contrast Hardening:</strong> Unified ThemeContext design tokens and resolved text legibility issues in dark appearance.</li>
+            <li><strong>RFC 6238 TOTP 2FA Engine:</strong> Integrated two-factor authentication generator with live 30s timers and direct desktop stream relay.</li>
+            <li><strong>Multi-Language Parity:</strong> Synchronized 360+ localization keys across English, German, French, and Spanish.</li>
+          </ul>
+        </div>
+
+        <!-- v2.0.0 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="changelog-version">
+              <span>FlakeSecure v2.0.0</span>
+              <span class="table-tag table-tag--gold">Initial v2</span>
+            </div>
+            <div class="changelog-date">July 2026</div>
+          </div>
+          <ul class="changelog-list">
+            <li><strong>Zero-Knowledge Architecture:</strong> Client-side AES-256-CTR authenticated encryption derived via Argon2id.</li>
+            <li><strong>1-Tap Biometric Relay:</strong> Ephemeral WebSocket room bridge for real-time QR code credential projection.</li>
+            <li><strong>P2P Secret Sharing:</strong> Secure credential sharing with auto-delete timers (1h to 30d) and hidden password modes.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Manual Extension Installation Guide -->
+    <section class="section" style="padding-bottom: 3rem;">
+      <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 2rem;">
+        <h3 style="font-family: 'Syne', sans-serif; font-size: 1.3rem; margin-bottom: 1rem; color: var(--text-primary);">
+          Browser Extension Installation Guide (Developer Mode)
+        </h3>
+        <ol style="margin-left: 1.25rem; color: var(--text-secondary); line-height: 1.8; font-size: 0.92rem;">
+          <li>Download the <code>.zip</code> package for your browser above and unzip the archive to a local folder.</li>
+          <li>In <strong>Chrome / Edge / Brave</strong>: Open <code>chrome://extensions</code>, activate <strong>Developer mode</strong> in the top-right corner, and click <strong>Load unpacked</strong>. Select the unzipped folder.</li>
+          <li>In <strong>Firefox</strong>: Open <code>about:debugging#/runtime/this-firefox</code>, click <strong>Load Temporary Add-on</strong>, and select the <code>manifest.json</code> file inside the unzipped folder.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-nav">
+        <a href="/" data-i18n="footer.home">Home</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/features" data-i18n="footer.features">Features</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/downloads" class="active" data-i18n="footer.downloads">Downloads</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/embed/demo" data-i18n="footer.embed">Website Integration (SDK)</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/account" data-i18n="footer.account">Account Portal</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/imprint" data-i18n="footer.imprint">Impressum / Imprint</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/legal" data-i18n="footer.legal">Privacy &amp; Legal</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/terms" data-i18n="footer.terms">Terms of Service</a>
+      </div>
+      <p class="footer-copy">
+        &copy; 2026 FlakeSecure by SchneeherzStudio. All rights reserved. Zero-Knowledge Biometric Security.
+      </p>
+    </footer>
+  </div>
+
+</body>
+</html>

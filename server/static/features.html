@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlakeSecure Features: Zero-Knowledge Architecture &amp; Biometrics</title>
+  <meta name="description" content="Explore FlakeSecure features: Client-side AES-256-CTR vault, 1-tap biometric QR relay, built-in 2FA authenticator, and secure P2P sharing." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#07090e" />
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/images/splash-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style/index.css?v=2.0.4" />
+  <script src="/js/theme.js?v=2.0.4"></script>
+  <script src="/js/i18n.js?v=2.0.4"></script>
+</head>
+<body>
+
+  <!-- Subtle corner accents -->
+  <div class="corner corner--tl"></div>
+  <div class="corner corner--tr"></div>
+  <div class="corner corner--bl"></div>
+  <div class="corner corner--br"></div>
+
+  <div class="container">
+    <!-- Navbar -->
+    <header class="navbar">
+      <a href="/" class="nav-brand">
+        <svg class="nav-logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="navLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#E8B020"/>
+              <stop offset="100%" stop-color="#A07010"/>
+            </linearGradient>
+          </defs>
+          <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#navLockGrad)" stroke-width="9" stroke-linecap="round"/>
+          <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#navLockGrad)"/>
+        </svg>
+        <div class="nav-wordmark">Flake<span>Secure</span> <span class="nav-version-badge">v2.0.3</span></div>
+      </a>
+
+      <div class="nav-right">
+        <nav class="nav-links-clean">
+          <a href="/" data-i18n="nav.home">Home</a>
+          <a href="/features" class="active" data-i18n="nav.features">Features</a>
+          <a href="/downloads" data-i18n="nav.downloads">Downloads</a>
+          <a href="/embed/demo" class="nav-embed-link" data-i18n="nav.embed">For Websites</a>
+          <a href="/account" class="nav-portal-btn">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <span data-i18n="nav.account">Account Portal</span>
+          </a>
+        </nav>
+
+        <div class="nav-controls">
+          <button class="theme-toggle-btn" aria-label="Toggle light/dark mode" title="Toggle light/dark mode">
+            <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg class="theme-icon-moon" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
+
+          <select class="fs-lang-select" aria-label="Language">
+            <option value="en">EN</option>
+            <option value="de">DE</option>
+            <option value="fr">FR</option>
+            <option value="es">ES</option>
+          </select>
+
+          <div class="nav-status-badge" title="Server Status">
+            <div class="pulse-dot"></div>
+            <span id="nav-status-text" data-i18n="nav.statusOnline">Online</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Header -->
+    <section class="section" style="padding: 3rem 0 2rem;">
+      <div class="section-header">
+        <span class="section-badge">Architecture &amp; Features</span>
+        <h1 class="section-title">Engineered for Absolute Security</h1>
+        <p class="section-subtitle">
+          Zero-Knowledge cryptography meets friction-free hardware biometrics. Explore the complete FlakeSecure security suite.
+        </p>
+      </div>
+
+      <!-- Feature 1: Biometric Master Vault -->
+      <div class="feature-detail-row">
+        <div class="feature-text-box">
+          <span class="feature-tech-badge">AES-256-CTR &bull; Argon2id &bull; Secure Enclave</span>
+          <h3>Client-Side Encrypted Vault</h3>
+          <p>
+            Your master passwords, credentials, notes, and 2FA secrets reside exclusively on your physical smartphone, encrypted using 256-bit AES in Counter mode with HMAC-SHA256 authentication.
+          </p>
+          <p>
+            Keys are derived locally with Argon2id using memory-hard parameters. The central server stores only ciphertext blobs and mathematically cannot inspect, decrypt, or log your credentials.
+          </p>
+          <ul style="list-style: none; margin-top: 1rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.92rem;">
+            <li>&bull; Instant hardware unlock via Apple Face ID, Touch ID, or Android BiometricPrompt</li>
+            <li>&bull; Category management with official SVG security iconography</li>
+            <li>&bull; Complete zero-knowledge cloud backup synchronization</li>
+          </ul>
+        </div>
+        <div class="feature-img-box">
+          <img src="/images/app_home.jpg" alt="FlakeSecure Biometric Master Vault Screen" loading="lazy" />
+        </div>
+      </div>
+
+      <!-- Feature 2: Instant Biometric Login Relay -->
+      <div class="feature-detail-row reverse">
+        <div class="feature-text-box">
+          <span class="feature-tech-badge">Ephemeral WebSockets &bull; WSS / TLS 1.3</span>
+          <h3>1-Tap Biometric QR Relay</h3>
+          <p>
+            When logging into a website on your desktop PC, the browser extension projects an encrypted QR code. Scan it with your phone to authenticate without typing passwords on your keyboard.
+          </p>
+          <p>
+            As soon as your camera decodes the QR, the browser displays intermediate visual feedback. Confirming with your fingerprint or face immediately transmits the one-time encrypted payload over an ephemeral WebSocket channel.
+          </p>
+          <ul style="list-style: none; margin-top: 1rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.92rem;">
+            <li>&bull; Immune to desktop hardware and software keyloggers</li>
+            <li>&bull; Ephemeral rooms self-destruct after consumption or 5-minute timeout</li>
+            <li>&bull; Auto-fill and optional automatic form submission</li>
+          </ul>
+        </div>
+        <div class="feature-img-box">
+          <img src="/images/app_confirm.jpg" alt="FlakeSecure Biometric Confirmation Screen" loading="lazy" />
+        </div>
+      </div>
+
+      <!-- Feature 3: Secure P2P Secret Sharing -->
+      <div class="feature-detail-row">
+        <div class="feature-text-box">
+          <span class="feature-tech-badge">E2EE P2P Transfer &bull; Auto-Purge Timers</span>
+          <h3>Encrypted Credential Sharing</h3>
+          <p>
+            Share sensitive logins securely with verified family members, team colleagues, or trusted contacts without sending plaintext passwords via email or chat apps.
+          </p>
+          <p>
+            Configure auto-delete expiration timers ranging from 1 hour to 30 days. FlakeSecure also supports a proprietary <em>Hidden View Mode</em>, allowing the recipient to autofill logins on their browser without ever seeing the plaintext password in their vault.
+          </p>
+          <ul style="list-style: none; margin-top: 1rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.92rem;">
+            <li>&bull; One-time AES ephemeral transfer encryption</li>
+            <li>&bull; Auto-purge timers (1h, 1d, 7d, 30d, or one-time use)</li>
+            <li>&bull; Hidden view mode protection prevents password copying</li>
+          </ul>
+        </div>
+        <div class="feature-img-box">
+          <img src="/images/app_share.jpg" alt="FlakeSecure Secure P2P Sharing Screen" loading="lazy" />
+        </div>
+      </div>
+
+      <!-- Feature 4 & 5 Grid: TOTP 2FA & Fleet Management -->
+      <div class="features-grid" style="margin-bottom: 4rem;">
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2L11.4 11.6"></path><path d="M15.5 7.5L18.5 10.5"></path><path d="M18.5 4.5L21.5 7.5"></path></svg>
+          </div>
+          <span class="feature-tech-badge">RFC 6238 TOTP Engine</span>
+          <h3 class="feature-title">Built-in 2FA Authenticator</h3>
+          <p class="feature-desc">
+            Full replacement for separate authenticator apps. Store your 2FA seeds alongside your credentials with live 30-second countdown rings. During desktop login, stream your verification codes straight to your browser with a single tap.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          </div>
+          <span class="feature-tech-badge">Fleet Telemetry &bull; Remote Revocation</span>
+          <h3 class="feature-title">Connected Fleet Management</h3>
+          <p class="feature-desc">
+            Monitor and audit all active devices connected to your master identity from the web console. Inspect device fingerprints, geolocation, and last access times. Terminate or remotely revoke lost devices instantly.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+          </div>
+          <span class="feature-tech-badge">Web Embed &bull; Drop-In SDK</span>
+          <h3 class="feature-title">For Website Providers</h3>
+          <p class="feature-desc">
+            Web developers can integrate FlakeSecure biometric QR logins directly into existing web pages using a lightweight 1-line script tag or customizable iframe widget. Works seamlessly with React, Vue, Angular, and Svelte.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <span class="feature-tech-badge">30-Day Compliance Retention</span>
+          <h3 class="feature-title">Protected Account Retention</h3>
+          <p class="feature-desc">
+            If account deactivation is requested, active sessions are revoked instantly and data is moved into a 30-day protected soft-delete retention grace period before cryptographic permanent purge, preventing accidental data loss.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom CTA Banner -->
+    <section class="section" style="padding-bottom: 3rem;">
+      <div style="background: var(--bg-card); border: 1px solid var(--accent-gold-border); border-radius: 8px; padding: 3rem; text-align: center; box-shadow: var(--shadow-md);">
+        <h2 style="font-family: 'Syne', sans-serif; font-size: 2rem; color: var(--text-primary); margin-bottom: 0.75rem;">
+          Take Control of Your Digital Identity
+        </h2>
+        <p style="color: var(--text-secondary); max-width: 580px; margin: 0 auto 1.75rem; font-size: 1rem;">
+          Download FlakeSecure for your mobile phone and browser extensions, or manage your account in the security console.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+          <a href="/downloads" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Apps &amp; Erweiterungen herunterladen</span>
+          </a>
+          <a href="/account" class="btn btn-secondary">
+            <span>Zum Account Portal &rarr;</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-nav">
+        <a href="/" data-i18n="footer.home">Home</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/features" class="active" data-i18n="footer.features">Features</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/downloads" data-i18n="footer.downloads">Downloads</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/embed/demo" data-i18n="footer.embed">Website Integration (SDK)</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/account" data-i18n="footer.account">Account Portal</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/imprint" data-i18n="footer.imprint">Impressum / Imprint</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/legal" data-i18n="footer.legal">Privacy &amp; Legal</a>
+        <span class="footer-sep">&bull;</span>
+        <a href="/terms" data-i18n="footer.terms">Terms of Service</a>
+      </div>
+      <p class="footer-copy">
+        &copy; 2026 FlakeSecure by SchneeherzStudio. All rights reserved. Zero-Knowledge Biometric Security.
+      </p>
+    </footer>
+  </div>
+
+</body>
+</html>

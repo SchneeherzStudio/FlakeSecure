@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Browser Extension Popup Script (Chrome / Chromium) v2.0.1
+ * FlakeSecure - Browser Extension Popup Script (Chrome / Chromium) v2.0.3
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & WORKFLOW:

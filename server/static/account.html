@@ -519,6 +519,12 @@
       color: var(--text-muted);
       margin-top: 0.25rem;
     }
+
+    #forgotPasswordBtn.active {
+      background: var(--accent-gold-dim);
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+    }
   </style>
 </head>
 <body class="console-page">
@@ -615,6 +621,23 @@
           <button type="button" id="forgotPasswordBtn" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" data-i18n="accountPortal.btnForgotPass">Forgot Password?</button>
         </div>
 
+        <div id="forgot-password-section" style="display: none; padding: 1.25rem 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+            <span style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); font-family: 'Syne', sans-serif;" data-i18n="accountPortal.btnForgotPass">Forgot Password?</span>
+            <span style="font-size: 0.72rem; color: var(--accent-gold); font-family: 'DM Mono', monospace; font-weight: 700;">RECOVERY</span>
+          </div>
+          <p style="font-size: 0.85rem; margin-bottom: 1rem; color: var(--text-secondary); line-height: 1.5;" data-i18n="accountPortal.forgotDesc">Enter your registered email address:</p>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label class="form-label" data-i18n="accountPortal.labelEmail">Email Address</label>
+            <input type="email" id="forgotEmailInput" class="form-input" placeholder="alice@domain.com" data-i18n-placeholder="accountPortal.placeholderEmail" />
+          </div>
+          <div style="display: flex; gap: 0.75rem;">
+            <button type="button" id="forgotSubmitBtn" class="btn btn-primary" style="flex: 1;" data-i18n="accountPortal.btnSendResetLink">Send Reset Link</button>
+            <button type="button" id="forgotCancelBtn" class="btn btn-secondary" style="flex: 1;" data-i18n="accountPortal.btnCancel">Cancel</button>
+          </div>
+          <div id="forgotStatusMessage" style="margin-top: 1rem; font-size: 0.85rem; display: none;"></div>
+        </div>
+
         <div id="unauthAlert" class="alert-box" style="display: none;"></div>
 
         <!-- Login Form -->
@@ -664,6 +687,13 @@
             <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;">
               <input type="checkbox" id="regTermsCheckbox" required style="margin-top: 3px;" />
               <span><span data-i18n="accountPortal.termsAgreementPrefix">I accept the</span> <a href="/terms" target="_blank" style="color: var(--accent-gold);" data-i18n="accountPortal.termsLink">Terms of Service</a> <span data-i18n="accountPortal.andText">and</span> <a href="/legal" target="_blank" style="color: var(--accent-gold);" data-i18n="accountPortal.privacyLink">Privacy Policy</a>.</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;">
+              <input type="checkbox" id="regAgeCheckbox" required style="margin-top: 3px;" />
+              <span data-i18n="accountPortal.ageConfirmCheckbox">I confirm I am at least 16 years old</span>
             </label>
           </div>
 
@@ -867,8 +897,20 @@
   <script>
     let currentToken = localStorage.getItem('fs_auth_token') || null;
     let currentUser = null;
+    let currentAuthMode = 'login';
+    let previousAuthMode = 'login';
+    let isForgotPasswordOpen = false;
 
     function setAuthMode(mode) {
+      currentAuthMode = mode;
+      isForgotPasswordOpen = false;
+
+      const forgotSection = document.getElementById('forgot-password-section');
+      if (forgotSection) forgotSection.style.display = 'none';
+
+      const forgotBtn = document.getElementById('forgotPasswordBtn');
+      if (forgotBtn) forgotBtn.classList.remove('active');
+
       const isLogin = mode === 'login';
       document.getElementById('tabBtnLogin').classList.toggle('active', isLogin);
       document.getElementById('tabBtnRegister').classList.toggle('active', !isLogin);
@@ -1286,19 +1328,75 @@
       }
     }
 
-    async function handleForgotPasswordPrompt() {
-      const email = prompt('Enter your registered email address:');
-      if (!email || !email.trim()) return;
+    function toggleForgotPassword() {
+      const section = document.getElementById('forgot-password-section');
+      const formLogin = document.getElementById('formLogin');
+      const formRegister = document.getElementById('formRegister');
+      const forgotBtn = document.getElementById('forgotPasswordBtn');
+      const tabLogin = document.getElementById('tabBtnLogin');
+      const tabRegister = document.getElementById('tabBtnRegister');
+
+      isForgotPasswordOpen = !isForgotPasswordOpen;
+
+      if (isForgotPasswordOpen) {
+        // Remember previous mode (login or register)
+        previousAuthMode = currentAuthMode;
+
+        // Hide both forms depending on which user was previously on
+        formLogin.style.display = 'none';
+        formRegister.style.display = 'none';
+
+        // Unset active styling from the tabs while in forgot-password mode
+        tabLogin.classList.remove('active');
+        tabRegister.classList.remove('active');
+
+        // Show forgot-password form
+        section.style.display = 'block';
+        if (forgotBtn) forgotBtn.classList.add('active');
+
+        document.getElementById('forgotEmailInput').focus();
+        document.getElementById('forgotStatusMessage').style.display = 'none';
+        hideAlert();
+      } else {
+        // Return to the previous form (login or register)
+        section.style.display = 'none';
+        if (forgotBtn) forgotBtn.classList.remove('active');
+        setAuthMode(previousAuthMode || 'login');
+      }
+    }
+
+    async function handleForgotPasswordSubmit() {
+      const emailInput = document.getElementById('forgotEmailInput');
+      const statusMsg = document.getElementById('forgotStatusMessage');
+      const email = emailInput.value.trim().toLowerCase();
+      
+      if (!email) {
+        statusMsg.style.display = 'block';
+        statusMsg.style.color = 'var(--accent-red)';
+        statusMsg.textContent = window.fsI18n ? window.fsI18n.t('accountPortal.msgForgotError') || 'Email required' : 'Email required';
+        return;
+      }
+      
       try {
         const res = await fetch('/api/auth/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim().toLowerCase() })
+          body: JSON.stringify({ email })
         });
-        const data = await res.json();
-        showAlert(data.message || 'If registered, a password reset link has been dispatched.', true);
+        
+        statusMsg.style.display = 'block';
+        if (res.ok) {
+          statusMsg.style.color = 'var(--accent-green)';
+          statusMsg.textContent = window.fsI18n ? window.fsI18n.t('accountPortal.msgForgotSuccess') : 'If an account exists with this email, a reset link has been sent.';
+          emailInput.value = '';
+        } else {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to send reset link');
+        }
       } catch (err) {
-        showAlert(err.message, false);
+        statusMsg.style.display = 'block';
+        statusMsg.style.color = 'var(--accent-red)';
+        statusMsg.textContent = err.message || (window.fsI18n ? window.fsI18n.t('accountPortal.msgForgotError') : 'Error occurred');
       }
     }
 
@@ -1331,7 +1429,13 @@
       if (tabRegister) tabRegister.addEventListener('click', () => setAuthMode('register'));
 
       const forgotBtn = document.getElementById('forgotPasswordBtn');
-      if (forgotBtn) forgotBtn.addEventListener('click', handleForgotPasswordPrompt);
+      if (forgotBtn) forgotBtn.addEventListener('click', toggleForgotPassword);
+
+      const forgotCancelBtn = document.getElementById('forgotCancelBtn');
+      if (forgotCancelBtn) forgotCancelBtn.addEventListener('click', toggleForgotPassword);
+
+      const forgotSubmitBtn = document.getElementById('forgotSubmitBtn');
+      if (forgotSubmitBtn) forgotSubmitBtn.addEventListener('click', handleForgotPasswordSubmit);
 
       // OTP buttons
       const regOtpBtn = document.getElementById('regOtpBtn');

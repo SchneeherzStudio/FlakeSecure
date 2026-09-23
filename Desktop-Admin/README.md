@@ -49,8 +49,8 @@ npm run build
 npm run build:win
 ```
 Die fertigen Binärdateien befinden sich im Ordner `Desktop-Admin/dist/`:
-- `FlakeSecure Admin 2.0.2.exe` (Standalone Portable – sofort startbar)
-- `FlakeSecure Admin Setup 2.0.2.exe` (NSIS Setup-Installer)
+- `FlakeSecure Admin 2.0.3.exe` (Standalone Portable – sofort startbar)
+- `FlakeSecure Admin Setup 2.0.3.exe` (NSIS Setup-Installer)
 
  Für Linux bauen (.AppImage & .deb):
 ```bash

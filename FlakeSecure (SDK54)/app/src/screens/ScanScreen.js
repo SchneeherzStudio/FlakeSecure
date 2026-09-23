@@ -12,19 +12,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { AppIcon } from '../components/CategoryIcons';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { encryptCredentials, decryptCredentials } from '../utils/crypto';
-import { saveCredentials, getFullVaultExport } from '../utils/storage';
-import { getServerUrl } from '../utils/api';
+import { saveCredentials, getFullVaultExport, findCredentialsForDomain } from '../utils/storage';
+import { getServerUrl, notifyQrScanned } from '../utils/api';
 
 const FRAME_SIZE = 250;
 
 export default function ScanScreen() {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { t } = useLanguage();
   const { colors } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
@@ -177,6 +179,7 @@ export default function ScanScreen() {
         );
         return;
       } else if (isRegister && domain) {
+        notifyQrScanned(sid, user?.username || '').catch(() => {});
         let fields = [];
         if (fieldsParam) {
           const decoded = decodeURIComponent(fieldsParam).trim();
@@ -249,7 +252,16 @@ export default function ScanScreen() {
           [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
         );
       } else {
-        navigation.replace('Confirm', { sid, key, domain: decodeURIComponent(domain) });
+        const cleanDomain = decodeURIComponent(domain);
+        findCredentialsForDomain(cleanDomain)
+          .then((cred) => {
+            const u = cred?.username || user?.username || '';
+            notifyQrScanned(sid, u);
+          })
+          .catch(() => {
+            notifyQrScanned(sid, user?.username || '');
+          });
+        navigation.replace('Confirm', { sid, key, domain: cleanDomain });
       }
     } catch (err) {
       setScanned(false);

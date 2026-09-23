@@ -317,6 +317,7 @@
     "otpLabel": "Código de verificación de 6 dígitos por email",
     "acceptTermsRequired": "Por favor, acepta los Términos de servicio y la Política de privacidad para continuar.",
     "acceptTermsCheckbox": "Acepto los Términos de servicio y la Política de privacidad",
+    "acceptAgeCheckbox": "Confirmo que tengo al menos 16 años",
     "termsLink": "Términos",
     "privacyLink": "Privacidad",
     "imprintLink": "Aviso legal",

@@ -176,6 +176,21 @@ function createRelayService(options = {}) {
     res.json({ success: true, message: 'TOTP payload relayed successfully' });
   });
 
+  // POST /qr-scanned
+  router.post('/qr-scanned', (req, res) => {
+    const { sid, username } = req.body;
+    if (!isValidSid(sid)) return res.status(400).json({ error: 'Invalid session ID' });
+    const session = activeSessions.get(sid);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (io) {
+      const cleanUsername = (typeof username === 'string' && username.trim() && username.trim().toLowerCase() !== 'user') 
+        ? username.trim() 
+        : null;
+      io.to(sid).emit('qr-scanned', { username: cleanUsername });
+    }
+    res.json({ success: true });
+  });
+
   // GET /session-status/:sid
   router.get('/session-status/:sid', (req, res) => {
     const { sid } = req.params;

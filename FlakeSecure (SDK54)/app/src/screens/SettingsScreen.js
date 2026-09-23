@@ -721,7 +721,7 @@ export default function SettingsScreen({ navigation }) {
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('settings.appVersion')}</Text>
             </View>
             <Text style={[styles.infoValue, { color: colors.text }]}>
-              v{Constants?.expoConfig?.version || '2.0.1'}
+              v{Constants?.expoConfig?.version || '2.0.3'}
             </Text>
           </View>
 

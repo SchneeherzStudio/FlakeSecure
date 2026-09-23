@@ -47,6 +47,7 @@ const STATIC_DIR = path.join(__dirname, 'static');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const app = express();
+app.set('trust proxy', true);
 const server = http.createServer(app);
 
 // ─── 1. Security Headers & Protection (Helmet) ──────────────────────────────
@@ -151,6 +152,8 @@ const sendStaticPage = (res, filename) => {
 
 // Static Web Pages
 app.get('/', (req, res) => sendStaticPage(res, 'index.html'));
+app.get('/downloads', (req, res) => sendStaticPage(res, 'downloads.html'));
+app.get('/features', (req, res) => sendStaticPage(res, 'features.html'));
 app.get('/account', (req, res) => sendStaticPage(res, 'account.html'));
 app.get('/admin', (req, res) => sendStaticPage(res, 'admin.html'));
 app.get('/reset-password', (req, res) => sendStaticPage(res, 'reset-password.html'));
@@ -158,7 +161,34 @@ app.get('/imprint', (req, res) => sendStaticPage(res, 'imprint.html'));
 app.get('/legal', (req, res) => sendStaticPage(res, 'legal.html'));
 app.get('/terms', (req, res) => sendStaticPage(res, 'terms.html'));
 
+// Named download endpoints
+app.get('/download/chrome', (req, res) => {
+  const file = fs.existsSync(path.join(PUBLIC_DIR, 'FlakeSecure_chrome-v2.0.3.zip'))
+    ? 'FlakeSecure_chrome-v2.0.3.zip'
+    : 'browser-extension.zip';
+  res.download(path.join(PUBLIC_DIR, file), 'FlakeSecure_chrome-v2.0.3.zip');
+});
+app.get('/download/firefox', (req, res) => {
+  const file = fs.existsSync(path.join(PUBLIC_DIR, 'FlakeSecure_firefox-v2.0.3.zip'))
+    ? 'FlakeSecure_firefox-v2.0.3.zip'
+    : 'browser-extension-firefox.zip';
+  res.download(path.join(PUBLIC_DIR, file), 'FlakeSecure_firefox-v2.0.3.zip');
+});
+app.get('/download/android', (req, res) => {
+  const apkPath = path.join(PUBLIC_DIR, 'FlakeSecure_android-v2.0.3.apk');
+  const legacyApkPath = path.join(PUBLIC_DIR, 'FlakeSecure_v2-0-2.apk');
+  if (fs.existsSync(apkPath)) {
+    res.download(apkPath, 'FlakeSecure_android-v2.0.3.apk');
+  } else if (fs.existsSync(legacyApkPath)) {
+    res.download(legacyApkPath, 'FlakeSecure_android-v2.0.3.apk');
+  } else {
+    res.status(404).send('Android APK build package currently being prepared.');
+  }
+});
+
 // Clean redirects
+app.get(['/download', '/downloads.html'], (req, res) => res.redirect(301, '/downloads'));
+app.get('/features.html', (req, res) => res.redirect(301, '/features'));
 app.get(['/impressum', '/imprint.html'], (req, res) => res.redirect(301, '/imprint'));
 app.get(['/privacy', '/datenschutz', '/legal.html', '/privacy.html'], (req, res) => res.redirect(301, '/legal'));
 app.get(['/agb', '/tos', '/terms.html'], (req, res) => res.redirect(301, '/terms'));
@@ -175,7 +205,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'FlakeSecure Unified Server',
-    version: '2.0.1',
+    version: '2.0.3',
     uptime: Math.floor(process.uptime()),
     activeSessions: relayService.activeSessions.size,
     timestamp: new Date().toISOString()

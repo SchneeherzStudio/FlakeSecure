@@ -28,7 +28,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware, hashToken } = require('../middleware/auth');
 
-let serverVersion = '2.0.1';
+let serverVersion = '2.0.3';
 try {
     const pkg = require('../package.json');
     if (pkg && pkg.version) serverVersion = pkg.version;

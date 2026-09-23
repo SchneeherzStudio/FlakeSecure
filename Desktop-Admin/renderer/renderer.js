@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Desktop Admin - Renderer Application Logic v2.0
+ * FlakeSecure Desktop Admin - Renderer Application Logic v2.0.3
  * ============================================================================
  * 
  * Provides interactive dashboard operations for message.md functions:
@@ -535,8 +535,8 @@ async function loadSystemStatus() {
       }
 
       // Update Health Tab versions
-      document.getElementById('metric-version').textContent = `v${data.version || '2.0.1'}`;
-      document.getElementById('metric-min-app').textContent = `Mindest-App: v${data.minAppVersion || '2.0.1'}`;
+      document.getElementById('metric-version').textContent = `v${data.version || '2.0.3'}`;
+      document.getElementById('metric-min-app').textContent = `Mindest-App: v${data.minAppVersion || '2.0.3'}`;
     }
   } catch (err) {
     console.error('Error loading system status:', err);

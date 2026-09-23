@@ -11,7 +11,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const db = require('../db');
-const { adminLoginLimiter } = require('../middleware/rateLimit');
+const { adminLoginLimiter, getClientIp } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
@@ -68,8 +68,21 @@ function requireAdminAuth(req, res, next) {
     } catch (_) {}
   }
 
+  // 3. Check query parameter token (e.g. backup download links)
+  const queryToken = req.query?.token;
+  if (queryToken) {
+    try {
+      const decoded = jwt.verify(queryToken, process.env.JWT_SECRET);
+      if (decoded && decoded.role === 'admin') {
+        req.admin = decoded;
+        req.adminUser = decoded;
+        return next();
+      }
+    } catch (e) { /* fall through to 403 */ }
+  }
+
   logServerEvent('security', 'UNAUTHORIZED_ADMIN_ACCESS', 'Unauthorized attempt to access admin endpoint', {
-    ip: req.ip,
+    ip: getClientIp(req),
     path: req.originalUrl
   });
 
@@ -94,7 +107,7 @@ router.post('/login', adminLoginLimiter, async (req, res) => {
   const passwordMatch = safeCompare(password, configuredPassword);
 
   if (!emailMatch || !passwordMatch) {
-    logServerEvent('security', 'FAILED_ADMIN_LOGIN', `Failed admin login attempt for ${email}`, { ip: req.ip });
+    logServerEvent('security', 'FAILED_ADMIN_LOGIN', `Failed admin login attempt for ${email}`, { ip: getClientIp(req) });
     return res.status(401).json({ error: 'Invalid admin credentials' });
   }
 
@@ -104,7 +117,7 @@ router.post('/login', adminLoginLimiter, async (req, res) => {
     { expiresIn: '12h' }
   );
 
-  logServerEvent('info', 'ADMIN_LOGIN_SUCCESS', `Admin logged in successfully: ${configuredEmail}`, { ip: req.ip });
+  logServerEvent('info', 'ADMIN_LOGIN_SUCCESS', `Admin logged in successfully: ${configuredEmail}`, { ip: getClientIp(req) });
   res.json({ success: true, token, email: configuredEmail });
 });
 
@@ -203,7 +216,7 @@ router.post('/backup', requireAdminAuth, async (req, res) => {
     const pushTokens = (await db.query('SELECT * FROM push_tokens')).rows;
 
     const backupData = {
-      version: '2.0.1',
+      version: '2.0.3',
       createdAt: new Date().toISOString(),
       counts: {
         users: users.length,

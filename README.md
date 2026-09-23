@@ -1,6 +1,6 @@
  FlakeSecure
 
-[![Version](https://img.shields.io/badge/version-2.0.2-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.0.3-blue.svg)](package.json)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Chrome%20%7C%20Firefox%20%7C%20Desktop-success.svg)](#-platform-support)
 [![Security](https://img.shields.io/badge/encryption-AES--256--CTR%20%2B%20HMAC--SHA256-orange.svg)](#-security-architecture--protocols)
 [![Architecture](https://img.shields.io/badge/architecture-Zero--Knowledge%20Decoupled-purple.svg)](ARCHITECTURE.md)
@@ -33,9 +33,26 @@
 
 ---
 
+ What's New in Version 2.0.3 (Admin Telemetry & Cross-Platform Parity)
+
+The **v2.0.3** update introduces the integrated real-time Admin Monitoring Console, dynamic dark/light mode form control adaptation, universal shared navigation headers and footers across web endpoints, and synchronized cross-platform release artifacts:
+
+ Highlights & New Features in v2.0.3:
+
+1.  **Admin Telemetry & Monitoring Dashboard (`/admin`)**:
+    - Real-time Node.js heap and RSS memory meters, system uptime counters, active user & vault totals, live JWT sessions, and PostgreSQL pool telemetry.
+    - Automated and on-demand encrypted database disaster recovery backup creation and download manager.
+    - Full adaptive dark/light appearance system with dedicated toggle controls and resilient input contrast styling.
+2.  **Shared Header & Footer Integration**:
+    - Embedded unified navigation bar and GDPR-compliant legal footers across all administrative and portal endpoints.
+3.  **Cross-Platform Client Parity (v2.0.3)**:
+    - Updated packages, manifest tokens, and fallback configurations across React Native (SDK 54 & 57), Chrome Extension, Firefox Extension, and Desktop Admin.
+
+---
+
  What's New in Version 2.0.2 (Enterprise, Legal & Security Overhaul)
 
-The **v2.0.2** update introduces an enterprise-grade architectural restructuring, complete GDPR/TDDDG compliance, active session hardware detection, multilingual legal portals, SEO optimization, and production telemetry:
+The **v2.0.2** update introduced an enterprise-grade architectural restructuring, complete GDPR/TDDDG compliance, active session hardware detection, multilingual legal portals, SEO optimization, and production telemetry:
 
  Highlights & New Features in v2.0.2:
 

@@ -1,6 +1,6 @@
 {
   "name": "flakesecure-server",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "FlakeSecure relay server – bridges encrypted credentials between mobile app and browser",
   "main": "server.js",
   "scripts": {

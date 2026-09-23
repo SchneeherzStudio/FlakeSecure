@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Browser Extension Popup Script (Firefox MV3) v2.0.1
+ * FlakeSecure - Browser Extension Popup Script (Firefox MV3) v2.0.3
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & WORKFLOW:

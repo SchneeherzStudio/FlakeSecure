@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Server - Centralized Email Utility & Templates v2.0.1
+ * FlakeSecure Server - Centralized Email Utility & Templates v2.0.3
  * ============================================================================
  * 
  * Clean, technical email templates with Logo Gold branding,

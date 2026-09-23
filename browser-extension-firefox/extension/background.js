@@ -98,6 +98,10 @@ function initSocket(sessionId, token, domain) {
     broadcastToPorts({ type: 'SESSION_EXPIRED' });
   });
 
+  socket.on('qr-scanned', (data) => {
+    broadcastToPorts({ type: 'QR_SCANNED', username: data?.username });
+  });
+
   socket.on('disconnect', () => {
     console.log('[FlakeSecure Background] Disconnected from relay server');
     broadcastToPorts({ type: 'SOCKET_DISCONNECTED' });

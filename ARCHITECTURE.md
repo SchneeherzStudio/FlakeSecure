@@ -1,5 +1,5 @@
  FlakeSecure — System Architecture & Security Blueprint
-**Version:** 2.0.0-Enterprise  
+**Version:** 2.0.3-Enterprise  
 **Classification:** Core System Specification  
 **Status:** Active / Production-Hardened  
 
@@ -62,16 +62,16 @@ graph TD
 | Client Component | Technology | Primary Responsibilities | Key Security Properties |
 | :--- | :--- | :--- | :--- |
 | **Mobile App (SDK57 & SDK54)** | React Native, Expo, Hermes | Primary biometric credential repository, QR camera scanner/generator, TOTP authenticator, cloud vault sync. | OS Keychain / Keystore via `expo-secure-store`, biometric prompt before credential reveal, clipboard 45s auto-clear, spring tap feedback, pulse skeleton loading (zero spinners). |
-| **Browser Extension (Chrome MV3)** | JavaScript, Manifest V3, WebCrypto | Web page form field detection, QR session pairing, real-time autofill injection. | Ephemeral in-memory key generation (`crypto.getRandomValues`), no plaintext persistence of passwords. |
+| **Browser Extension (Chrome MV3)** | JavaScript, Manifest V3, WebCrypto | Web page form field detection, QR session pairing, real-time autofill injection, instant camera scan darkening. | Ephemeral in-memory key generation (`crypto.getRandomValues`), no plaintext persistence of passwords. |
 | **Browser Extension (Firefox MV2/3)** | JavaScript, WebExtension API | Cross-browser compatibility for Firefox with background script relay proxying. | Isolated background bridge preventing DOM script tampering. |
 | **Desktop Admin** | Electron, Node.js | Cross-platform administrative terminal (Windows exe, Linux AppImage). | Sandboxed renderer, isolated context bridge, remote management authenticated via admin tokens. |
-| **Web Portal & Embed** | HTML5, CSS3, Vanilla JS | Account recovery (`/reset-password`), administrative monitoring dashboard (`/admin`), custom error pages (404, 500, 403, 429), embeddable auth widget. | Strict CSP, Stored XSS elimination with `escapeHtml()`, zero third-party tracking scripts. |
+| **Web Portal & Embed** | HTML5, CSS3, Vanilla JS | Dedicated portal pages (`/`, `/features`, `/downloads`), administrative monitoring dashboard (`/admin`), account recovery (`/reset-password`), embeddable auth widget. | Strict CSP, Stored XSS elimination with `escapeHtml()`, zero third-party tracking scripts, adaptive dark/light appearance. |
 
  2.2 APIs & Endpoints
 
 | API Group | Endpoints | Authentication / Security |
 | :--- | :--- | :--- |
-| **Relay API** | `POST /send-login`<br/>`POST /send-totp`<br/>`GET /session-status/:sid`<br/>Socket.IO: `join-session`, `login-data`, `totp-data` | Ephemeral `sid` and `keyHex`. Rate-limited via `relayLimiter`. Ciphertext only. |
+| **Relay API** | `POST /send-login`<br/>`POST /send-totp`<br/>`POST /qr-scanned`<br/>`GET /session-status/:sid`<br/>Socket.IO: `join-session`, `qr-scanned`, `login-data`, `totp-data` | Ephemeral `sid` and `keyHex`. Rate-limited via `relayLimiter`. Ciphertext only. |
 | **Auth API** | `POST /api/auth/register`<br/>`POST /api/auth/login`<br/>`POST /api/auth/logout`<br/>`GET /api/auth/me`<br/>`POST /api/auth/forgot-password`<br/>`POST /api/auth/reset-password` | Argon2id password hashing, 24h JWT with SHA-256 token hash validation against DB sessions table, 30-min cryptographically random reset tokens, `authLimiter`. |
 | **OTP API** | `POST /api/otp/send`<br/>`POST /api/otp/verify` | 6-digit numeric codes, 10-minute expiry, single-use token issuance, `otpLimiter`. Mandatory for registration and account deletion. |
 | **Vault API** | `GET /api/vault`<br/>`POST /api/vault/sync`<br/>`DELETE /api/vault/purge` | Zero-Knowledge encrypted blob storage (`cloud_vaults`). Version tracking for conflict resolution. Strict `WHERE user_id = $1`. |

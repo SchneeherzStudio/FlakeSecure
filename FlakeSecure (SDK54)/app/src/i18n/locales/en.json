@@ -317,6 +317,7 @@
     "otpLabel": "6-Digit Email Verification Code",
     "acceptTermsRequired": "Please accept the Terms of Service & Privacy Policy to proceed.",
     "acceptTermsCheckbox": "I accept the Terms of Service & Privacy Policy",
+    "acceptAgeCheckbox": "I confirm I am at least 16 years old",
     "termsLink": "Terms",
     "privacyLink": "Privacy",
     "imprintLink": "Imprint",

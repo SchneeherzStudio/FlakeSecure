@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Browser Extension Content Script (Chrome / Chromium) v2.0.1
+ * FlakeSecure - Browser Extension Content Script (Chrome / Chromium) v2.0.3
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & ARCHITECTURE:
@@ -39,6 +39,7 @@
   let userCancelled = false;
   let socket = null;
   let currentSessionId = null;
+  let currentOverlayLang = 'de';
   let isAutoFilling = false;
   let watcherTimer = null;
   let watcherEndTime = 0;
@@ -623,6 +624,72 @@
       removeOverlay();
     });
 
+    socket.on('qr-scanned', (data) => {
+      const step1 = document.getElementById('fs-step-1');
+      const step2 = document.getElementById('fs-step-2');
+      if (step1) step1.classList.add('active');
+      if (step2) step2.classList.add('active');
+      
+      const qrContainer = document.getElementById('flakesecure-qrcode');
+      if (qrContainer) {
+        const parent = qrContainer.parentElement;
+        if (parent) {
+          parent.classList.add('is-scanned');
+          parent.style.setProperty('background', '#080a12', 'important');
+          
+          if (!document.getElementById('fs-scanned-overlay')) {
+            const rawUser = (data && data.username && String(data.username).trim().toLowerCase() !== 'user') 
+              ? String(data.username).trim() 
+              : '';
+            const t = (typeof OVERLAY_I18N !== 'undefined' && currentOverlayLang && OVERLAY_I18N[currentOverlayLang])
+              ? OVERLAY_I18N[currentOverlayLang]
+              : (OVERLAY_I18N?.de || OVERLAY_I18N?.en);
+
+            const isDe = !currentOverlayLang || currentOverlayLang === 'de';
+            const scanTitleText = rawUser
+              ? (t.scannedBy ? t.scannedBy.replace('{user}', rawUser) : (isDe ? `Gescannt von ${rawUser}` : `Scanned by ${rawUser}`))
+              : (t.scanned || (isDe ? 'Gescannt' : 'Scanned'));
+            const scanSubText = t.confirmOnPhone || (isDe ? 'Auf Smartphone bestätigen…' : 'Confirm on phone…');
+
+            const overlay = document.createElement('div');
+            overlay.id = 'fs-scanned-overlay';
+            overlay.innerHTML = `
+              <svg viewBox="0 0 100 100" width="58" height="58" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 10px auto;filter:drop-shadow(0 4px 14px rgba(232,176,32,0.35));">
+                <defs>
+                  <linearGradient id="fsScannedLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#FCD34D"/>
+                    <stop offset="50%" stop-color="#E8B020"/>
+                    <stop offset="100%" stop-color="#B45309"/>
+                  </linearGradient>
+                </defs>
+                <path d="M35 46 V32 A15 15 0 0 1 65 32 V46" fill="none" stroke="url(#fsScannedLockGrad)" stroke-width="9" stroke-linecap="round"/>
+                <rect x="22" y="44" width="56" height="44" rx="9" fill="url(#fsScannedLockGrad)"/>
+                <path d="M36 66 L45 75 L64 54" fill="none" stroke="#080A12" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <div id="fs-scanned-title" style="color:#ffffff;font-size:14px;font-weight:700;font-family:system-ui,-apple-system,sans-serif;letter-spacing:0.2px;margin-bottom:4px;text-align:center;"></div>
+              <div id="fs-scanned-sub" style="color:#94a3b8;font-size:11.5px;font-weight:500;font-family:system-ui,-apple-system,sans-serif;text-align:center;"></div>
+            `;
+            
+            parent.appendChild(overlay);
+            
+            const titleEl = overlay.querySelector('#fs-scanned-title');
+            if (titleEl) titleEl.textContent = scanTitleText;
+            const subEl = overlay.querySelector('#fs-scanned-sub');
+            if (subEl) subEl.textContent = scanSubText;
+          }
+        }
+      }
+      
+      const t = OVERLAY_I18N[currentOverlayLang] || OVERLAY_I18N.de;
+      const rawUser = (data && data.username && String(data.username).trim().toLowerCase() !== 'user') 
+        ? String(data.username).trim() 
+        : '';
+      const statusMsg = rawUser
+        ? (t.userConfirming ? t.userConfirming.replace('{user}', rawUser) : `${rawUser} bestätigt…`)
+        : (t.confirmOnPhone || 'Auf Smartphone bestätigen…');
+      updateOverlayStatus('waiting', statusMsg);
+    });
+
     socket.on('disconnect', () => {});
     socket.on('connect_error', () => {
       updateOverlayStatus('error', 'Server nicht erreichbar');
@@ -671,7 +738,11 @@
       step3Login: 'Logged in',
       waiting: 'Waiting for scan…',
       fallback: 'App installed?',
-      openDirectly: 'Open directly'
+      openDirectly: 'Open directly',
+      scannedBy: 'Scanned by {user}',
+      scanned: 'Scanned',
+      confirmOnPhone: 'Confirm on phone…',
+      userConfirming: '{user} confirming…'
     },
     de: {
       regSubtitle: 'Account sicher erstellen',
@@ -685,7 +756,11 @@
       step3Login: 'Eingeloggt',
       waiting: 'Warte auf Scan…',
       fallback: 'App installiert?',
-      openDirectly: 'Direkt öffnen'
+      openDirectly: 'Direkt öffnen',
+      scannedBy: 'Gescannt von {user}',
+      scanned: 'Gescannt',
+      confirmOnPhone: 'Auf Smartphone bestätigen…',
+      userConfirming: '{user} bestätigt…'
     },
     fr: {
       regSubtitle: 'Création sécurisée de compte',
@@ -699,7 +774,11 @@
       step3Login: 'Connecté',
       waiting: 'En attente du scan…',
       fallback: 'App installée ?',
-      openDirectly: 'Ouvrir directement'
+      openDirectly: 'Ouvrir directement',
+      scannedBy: 'Scanné par {user}',
+      scanned: 'Scanné',
+      confirmOnPhone: 'Confirmez sur le smartphone…',
+      userConfirming: '{user} confirme…'
     },
     es: {
       regSubtitle: 'Creación segura de cuenta',
@@ -713,14 +792,19 @@
       step3Login: 'Conectado',
       waiting: 'Esperando escaneo…',
       fallback: '¿App instalada?',
-      openDirectly: 'Abrir directamente'
+      openDirectly: 'Abrir directamente',
+      scannedBy: 'Escaneado por {user}',
+      scanned: 'Escaneado',
+      confirmOnPhone: 'Confirmar en el móvil…',
+      userConfirming: '{user} confirmando…'
     }
   };
 
   function createOverlay(sessionId, deepLink, domain, isRegister = false, lang = 'en') {
     if (document.getElementById('flakesecure-overlay')) return;
 
-    const t = OVERLAY_I18N[lang] || OVERLAY_I18N.en;
+    currentOverlayLang = lang || 'de';
+    const t = OVERLAY_I18N[currentOverlayLang] || OVERLAY_I18N.en;
     const overlay = document.createElement('div');
     overlay.id = 'flakesecure-overlay';
 

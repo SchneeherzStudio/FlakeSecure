@@ -1,6 +1,6 @@
  FlakeSecure
 
-[![Version](https://img.shields.io/badge/version-2.0.2-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.0.3-blue.svg)](package.json)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Chrome%20%7C%20Firefox-success.svg)](#-platform-support)
 [![Security](https://img.shields.io/badge/encryption-AES--256--CTR%20%2B%20HMAC--SHA256-orange.svg)](#-security-architecture--protocols)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](#)
@@ -12,6 +12,7 @@
 
  Table of Contents
 
+- [ What's New in Version 2.0.3 (Changelog)](#-whats-new-in-version-203-changelog)
 - [ What's New in Version 2.0.2 (Changelog)](#-whats-new-in-version-202-changelog)
 - [ Core Features](#-core-features)
 - [ Embeddable Iframe & Drop-In SDK (For Website Providers)](#-embeddable-iframe--drop-in-sdk-for-website-providers)
@@ -25,6 +26,26 @@
 - [ Scalability & Multi-Region Clustering](#-scalability--multi-region-clustering)
 - [ Dependencies & Tech Stack](#-dependencies--tech-stack)
 - [ License](#-license)
+
+---
+
+ What's New in Version 2.0.3 (Changelog)
+
+With the **v2.0.3** release, FlakeSecure updates the mobile client to full parity across Expo SDK 54 and SDK 57 runtimes, enhances authenticator usability, resolves log skeleton display issues, and integrates system status verification:
+
+ Key Changes & New Features in v2.0.3:
+
+1.  **Dual SDK Parity (Expo SDK 54 & SDK 57)**:
+    - 100% synchronized screen, component, and utility codebase across both React Native engines.
+    - Updated version constants to `2.0.3` and minimum compatibility check to `2.0.3`.
+2.  **Authenticator UI Refinement**:
+    - Streamlined add action button with single clean `+ Add` label.
+    - High-opacity modal overlay backdrop for maximum contrast and legibility when entering manual Base32 2FA secret keys.
+    - Upgraded Key SVG security iconography for authenticator accounts.
+3.  **Logs & Telemetry Skeleton Fix**:
+    - Graceful skeleton loading dismissal when audit log queries return empty or filtered categories have no records.
+4.  **Settings & Diagnostic Information**:
+    - Embedded comprehensive system information at the footer of Settings: application version, cryptographic protocols, zero-knowledge verification, and data retention disclosures.
 
 ---
 

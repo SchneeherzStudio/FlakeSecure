@@ -263,7 +263,7 @@
     .fs-expired-overlay {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(7, 9, 14, 0.94);
+      background: var(--fs-bg);
       border-radius: 8px;
       display: flex;
       flex-direction: column;
@@ -526,6 +526,7 @@
       document.getElementById('fs-refresh-btn').textContent = t.refreshBtn;
       document.getElementById('fs-success-title').textContent = t.successTitle;
       document.getElementById('fs-success-desc').textContent = t.successDesc;
+      document.querySelector('.fs-footer-text span').textContent = t.zkFooter;
 
       // 3. Cryptography Utilities (Web Crypto API - Zero-Knowledge)
       function generateSessionId() {
@@ -640,8 +641,21 @@
 
         // Mobile scanned and connected
         socket.on('session-ready', () => {
-          document.getElementById('fs-pill-2').classList.add('active');
-          document.getElementById('fs-status-text').textContent = t.confirming;
+          console.log('[FlakeSecure Embed] Session ready');
+        });
+
+        socket.on('qr-scanned', (data) => {
+          const pill2 = document.getElementById('fs-pill-2');
+          if (pill2) pill2.classList.add('active');
+          document.getElementById('fs-status-text').textContent = data?.username ? data.username + ': ' + t.confirming : t.confirming;
+          
+          // Darken QR in widget
+          const qrContainer = document.getElementById('fs-qrcode');
+          if (qrContainer) {
+            qrContainer.style.opacity = '0.15';
+            qrContainer.style.filter = 'blur(3px)';
+            qrContainer.style.transition = 'all 0.4s ease';
+          }
         });
 
         // Login data received (encrypted)
@@ -711,6 +725,17 @@
       }
 
       document.getElementById('fs-refresh-btn').addEventListener('click', initSession);
+
+      // Listen for theme changes from parent page
+      window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'FLAKESECURE_SET_THEME') {
+          if (event.data.theme === 'light') {
+            document.body.classList.add('fs-light');
+          } else {
+            document.body.classList.remove('fs-light');
+          }
+        }
+      });
 
       // Initialize on load
       initSession();

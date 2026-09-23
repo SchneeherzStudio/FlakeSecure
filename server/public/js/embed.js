@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Embeddable Iframe & Drop-In SDK v2.0
+ * FlakeSecure - Embeddable Iframe & Drop-In SDK v2.0.3
  * ============================================================================
  * 
  * Allows website providers to embed Zero-Knowledge biometric QR login directly

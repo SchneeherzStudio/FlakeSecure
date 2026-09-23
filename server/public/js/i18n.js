@@ -6,12 +6,19 @@
   const TRANSLATIONS = {
     en: {
       nav: {
+        home: "Home",
         downloads: "Downloads",
         features: "Features",
         embed: "For Websites",
         account: "Account Portal",
         legal: "Privacy & Legal",
         statusOnline: "Online"
+      },
+      donation: {
+        badge: "100% Free & Open Security",
+        title: "Support Independent Privacy",
+        desc: "FlakeSecure is completely free to use. No subscriptions, no ads, no trackers, and no paywalls. Your master passwords and 2FA tokens remain entirely under your control on your devices. We self-fund high-availability servers, encrypted WebSocket relays, and zero-knowledge storage. If FlakeSecure secures your digital life, a small coffee donation helps keep the relays fast and servers online.",
+        btnBmac: "Support on Buy Me a Coffee"
       },
       hero: {
         badge: "Zero-Knowledge Architecture | Hardware Biometrics",
@@ -70,6 +77,10 @@
         tabLogin: "Sign In",
         tabRegister: "Create Account",
         btnForgotPass: "Forgot Password?",
+        forgotDesc: "Enter your registered email address:",
+        btnSendResetLink: "Send Reset Link",
+        btnCancel: "Cancel",
+        msgForgotSuccess: "If an account exists with this email, a reset link has been sent.",
         labelEmailOrUser: "Username or Email",
         placeholderEmailOrUser: "alice or alice@domain.com",
         labelPassword: "Password",
@@ -137,7 +148,8 @@
         labelDelOtp: "6-Digit Verification Code",
         labelDelPassword: "Master Password Confirmation",
         placeholderDelPassword: "Enter password to confirm",
-        btnDeactivateAccount: "Deactivate & Request Deletion"
+        btnDeactivateAccount: "Deactivate & Request Deletion",
+        ageConfirmCheckbox: "I confirm I am at least 16 years old"
       },
       embedSection: {
         badge: "For Website Providers & Developers",
@@ -162,12 +174,19 @@
     },
     de: {
       nav: {
+        home: "Home",
         downloads: "Downloads",
         features: "Funktionen",
         embed: "Für Websites",
         account: "Account Portal",
         legal: "Datenschutz & Rechtliches",
         statusOnline: "Online"
+      },
+      donation: {
+        badge: "100% Kostenlose & Unabhängige Sicherheit",
+        title: "Unterstütze unabhängige Zero-Knowledge-Sicherheit",
+        desc: "FlakeSecure ist komplett kostenlos nutzbar. Keine Abos, keine Werbung, keine Tracker und keine Paywalls. Deine Master-Passwörter und 2FA-Tokens verbleiben vollständig unter deiner Kontrolle auf deinen Endgeräten. Wir finanzieren die gesamte Infrastruktur eigenständig. Wenn dir FlakeSecure gefällt, hilft eine kleine Kaffee-Spende, die Relays schnell und die Server online zu halten.",
+        btnBmac: "Unterstütze uns auf Buy Me a Coffee"
       },
       hero: {
         badge: "Zero-Knowledge Architektur | Hardware-Biometrie",
@@ -226,6 +245,10 @@
         tabLogin: "Anmelden",
         tabRegister: "Account erstellen",
         btnForgotPass: "Passwort vergessen?",
+        forgotDesc: "Geben Sie Ihre registrierte E-Mail-Adresse ein:",
+        btnSendResetLink: "Reset-Link senden",
+        btnCancel: "Abbrechen",
+        msgForgotSuccess: "Wenn ein Konto mit dieser E-Mail existiert, wurde ein Reset-Link gesendet.",
         labelEmailOrUser: "Benutzername oder E-Mail",
         placeholderEmailOrUser: "alice oder alice@domain.com",
         labelPassword: "Passwort",
@@ -293,7 +316,8 @@
         labelDelOtp: "6-stelliger Bestätigungscode",
         labelDelPassword: "Master-Passwort Bestätigung",
         placeholderDelPassword: "Passwort zur Bestätigung eingeben",
-        btnDeactivateAccount: "Konto deaktivieren & löschen"
+        btnDeactivateAccount: "Konto deaktivieren & löschen",
+        ageConfirmCheckbox: "Ich bestätige, dass ich mindestens 16 Jahre alt bin"
       },
       embedSection: {
         badge: "Für Website-Betreiber & Entwickler",
@@ -318,12 +342,19 @@
     },
     fr: {
       nav: {
+        home: "Accueil",
         downloads: "Téléchargements",
         features: "Fonctionnalités",
         embed: "Pour Sites Web",
         account: "Portail Compte",
         legal: "Confidentialité & Mentions",
         statusOnline: "En ligne"
+      },
+      donation: {
+        badge: "Sécurité 100% Gratuite & Indépendante",
+        title: "Soutenez la sécurité Zero-Knowledge indépendante",
+        desc: "FlakeSecure est entièrement gratuit. Sans abonnement, sans publicité, sans traceur et sans paywall. Vos mots de passe et jetons 2FA restent sous votre contrôle exclusif sur vos appareils. Nous finançons l'infrastructure de manière indépendante. Si FlakeSecure sécurise votre quotidien, un don de café aide à maintenir les serveurs en ligne.",
+        btnBmac: "Soutenir sur Buy Me a Coffee"
       },
       hero: {
         badge: "Architecture Zero-Knowledge | Biométrie Matérielle",
@@ -382,6 +413,10 @@
         tabLogin: "Connexion",
         tabRegister: "Créer un compte",
         btnForgotPass: "Mot de passe oublié ?",
+        forgotDesc: "Entrez votre adresse e-mail enregistrée :",
+        btnSendResetLink: "Envoyer le lien",
+        btnCancel: "Annuler",
+        msgForgotSuccess: "Si un compte existe avec cet e-mail, un lien a été envoyé.",
         labelEmailOrUser: "Identifiant ou E-mail",
         placeholderEmailOrUser: "alice ou alice@domaine.com",
         labelPassword: "Mot de passe",
@@ -449,7 +484,8 @@
         labelDelOtp: "Code de vérification à 6 chiffres",
         labelDelPassword: "Confirmation du mot de passe maître",
         placeholderDelPassword: "Entrez le mot de passe pour confirmer",
-        btnDeactivateAccount: "Désactiver & Demander la suppression"
+        btnDeactivateAccount: "Désactiver & Demander la suppression",
+        ageConfirmCheckbox: "Je confirme avoir au moins 16 ans"
       },
       embedSection: {
         badge: "Pour Propriétaires de Sites & Développeurs",
@@ -474,12 +510,19 @@
     },
     es: {
       nav: {
+        home: "Inicio",
         downloads: "Descargas",
         features: "Funciones",
         embed: "Para Sitios Web",
         account: "Portal de Cuenta",
         legal: "Privacidad y Legal",
         statusOnline: "En línea"
+      },
+      donation: {
+        badge: "Seguridad 100% Gratuita e Independiente",
+        title: "Apoya la seguridad Zero-Knowledge independiente",
+        desc: "FlakeSecure es completamente gratuito. Sin suscripciones, sin publicidad, sin rastreadores y sin muros de pago. Tus contraseñas y tokens 2FA permanecen bajo tu exclusivo control en tus dispositivos. Financiamos la infraestructura de forma independiente. Si FlakeSecure protege tu vida digital, una pequeña donación de café ayuda a mantener los servidores en línea.",
+        btnBmac: "Apóyanos en Buy Me a Coffee"
       },
       hero: {
         badge: "Arquitectura Zero-Knowledge | Biometría",
@@ -538,6 +581,10 @@
         tabLogin: "Iniciar Sesión",
         tabRegister: "Crear Cuenta",
         btnForgotPass: "¿Olvidó su contraseña?",
+        forgotDesc: "Ingrese su correo electrónico registrado:",
+        btnSendResetLink: "Enviar enlace",
+        btnCancel: "Cancelar",
+        msgForgotSuccess: "Si existe una cuenta con este correo, se ha enviado un enlace.",
         labelEmailOrUser: "Usuario o Correo",
         placeholderEmailOrUser: "alice o alice@dominio.com",
         labelPassword: "Contraseña",
@@ -605,7 +652,8 @@
         labelDelOtp: "Código de Verificación de 6 Dígitos",
         labelDelPassword: "Confirmación de Contraseña Maestra",
         placeholderDelPassword: "Ingrese contraseña para confirmar",
-        btnDeactivateAccount: "Desactivar y Solicitar Eliminación"
+        btnDeactivateAccount: "Desactivar y Solicitar Eliminación",
+        ageConfirmCheckbox: "Confirmo que tengo al menos 16 años"
       },
       embedSection: {
         badge: "Para Propietarios de Sitios Web & Desarrolladores",

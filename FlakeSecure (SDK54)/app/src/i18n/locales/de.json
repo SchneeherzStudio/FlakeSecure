@@ -317,6 +317,7 @@
     "otpLabel": "6-stelliger E-Mail Bestätigungscode",
     "acceptTermsRequired": "Bitte akzeptiere die AGB und Datenschutzerklärung, um fortzufahren.",
     "acceptTermsCheckbox": "Ich akzeptiere die AGB & Datenschutzbestimmungen",
+    "acceptAgeCheckbox": "Ich bestätige, dass ich mindestens 16 Jahre alt bin",
     "termsLink": "AGB",
     "privacyLink": "Datenschutz",
     "imprintLink": "Impressum",

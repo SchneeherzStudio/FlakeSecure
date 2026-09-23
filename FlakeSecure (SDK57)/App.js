@@ -55,7 +55,7 @@ import MaintenanceScreen from './app/src/screens/MaintenanceScreen';
 import AuthenticatorScreen from './app/src/screens/AuthenticatorScreen';
 import { VaultTransferScreen } from './app/src/screens/VaultTransferScreen';
 
-const APP_VERSION = '2.0.2';
+const APP_VERSION = '2.0.3';
 
 const prefix = Linking.createURL('/');
 const linking = {
@@ -104,7 +104,7 @@ function AppContent() {
     maintenanceMessage: '',
     maintenanceUntil: null,
     isOutdated: false,
-    minVersion: '2.0.1',
+    minVersion: '2.0.3',
     isOffline: false,
   });
 

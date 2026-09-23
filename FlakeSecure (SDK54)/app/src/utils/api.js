@@ -252,6 +252,19 @@ export async function sendTotp(sid, payload) {
   return await response.json();
 }
 
+export const notifyQrScanned = async (sid, username) => {
+  const serverUrl = await getServerUrl();
+  try {
+    await fetch(`${serverUrl}/qr-scanned`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sid, username }),
+    });
+  } catch (e) {
+    // Fire-and-forget, don't block scan flow
+  }
+};
+
 export async function getLogs(page = 1, limit = 20) {
   return apiRequest(`/api/logs?page=${page}&limit=${limit}`);
 }
