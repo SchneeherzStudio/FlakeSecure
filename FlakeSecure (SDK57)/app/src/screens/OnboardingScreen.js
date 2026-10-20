@@ -18,6 +18,8 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { AppIcon } from '../components/CategoryIcons';
+import PasswordChecklist, { usePasswordValidation } from '../components/PasswordChecklist';
+import { formatAuthServerError } from '../utils/passwordPolicy';
 import { sendOtp, verifyOtp } from '../utils/api';
 
 const { width } = Dimensions.get('window');
@@ -47,6 +49,22 @@ export default function OnboardingScreen({ onComplete }) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedAge, setAcceptedAge] = useState(false);
 
+  const { evaluation: pwEval, pwnedState, isPasswordReady } = usePasswordValidation(
+    password,
+    username,
+    email
+  );
+  const canCreateAccount =
+    !registering &&
+    isPasswordReady &&
+    password === confirmPassword &&
+    email.trim().includes('@') &&
+    username.trim().length > 0 &&
+    otpSent &&
+    otpCode.trim().length === 6 &&
+    acceptedTerms &&
+    acceptedAge;
+
   const totalSteps = 6;
 
   const changeLanguage = (code) => {
@@ -69,7 +87,7 @@ export default function OnboardingScreen({ onComplete }) {
   const handleSendOtp = async () => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
-      Alert.alert(t('error'), 'Bitte gib eine gültige E-Mail-Adresse ein.');
+      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
 
@@ -77,9 +95,9 @@ export default function OnboardingScreen({ onComplete }) {
     try {
       await sendOtp(cleanEmail, 'register');
       setOtpSent(true);
-      Alert.alert('Code gesendet', `Wir haben einen 6-stelligen Bestätigungscode an ${cleanEmail} gesendet.`);
+      Alert.alert(t('success'), t('login.otpSentAlert', { email: cleanEmail }));
     } catch (e) {
-      Alert.alert('Fehler', e.message || 'Konnte Verifizierungscode nicht senden.');
+      Alert.alert(t('error'), e.message || t('login.otpSendFailed'));
     } finally {
       setSendingOtp(false);
     }
@@ -88,10 +106,9 @@ export default function OnboardingScreen({ onComplete }) {
   const handleCreateAccount = async () => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim().toLowerCase();
-    const cleanPassword = password.trim();
     const cleanOtp = otpCode.trim();
 
-    if (!cleanEmail || !cleanUsername || !cleanPassword) {
+    if (!cleanEmail || !cleanUsername || !password) {
       Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
@@ -99,12 +116,12 @@ export default function OnboardingScreen({ onComplete }) {
       Alert.alert(t('error'), t('onboarding.account.usernameRules'));
       return;
     }
-    if (/\s/.test(password)) {
-      Alert.alert(t('error'), t('onboarding.account.passwordNoSpaces'));
+    if (!pwEval.isValid) {
+      Alert.alert(t('error'), t('passwordPolicy.errWeakPassword'));
       return;
     }
-    if (cleanPassword.length < 8) {
-      Alert.alert(t('error'), t('onboarding.account.passwordMinLength'));
+    if (pwnedState.pwned) {
+      Alert.alert(t('error'), t('passwordPolicy.pwnedWarning', { count: pwnedState.count }));
       return;
     }
     if (password !== confirmPassword) {
@@ -113,12 +130,12 @@ export default function OnboardingScreen({ onComplete }) {
     }
 
     if (!otpSent) {
-      Alert.alert('E-Mail-Verifizierung', 'Bitte fordere zuerst einen Verifizierungscode für deine E-Mail an.');
+      Alert.alert(t('error'), t('onboarding.account.otpLabel'));
       return;
     }
 
     if (!cleanOtp || cleanOtp.length !== 6) {
-      Alert.alert('Code erforderlich', 'Bitte gib den 6-stelligen Verifizierungscode aus deiner E-Mail ein.');
+      Alert.alert(t('error'), t('onboarding.account.otpLabel'));
       return;
     }
 
@@ -131,10 +148,10 @@ export default function OnboardingScreen({ onComplete }) {
     try {
       const verifyRes = await verifyOtp(cleanEmail, cleanOtp, 'register');
       const otpToken = verifyRes.token;
-      await register(cleanEmail, cleanUsername, cleanPassword, otpToken);
+      await register(cleanEmail, cleanUsername, password, otpToken);
       handleNext();
     } catch (err) {
-      Alert.alert(t('error'), err.message);
+      Alert.alert(t('error'), formatAuthServerError(err, t));
     } finally {
       setRegistering(false);
     }
@@ -144,20 +161,6 @@ export default function OnboardingScreen({ onComplete }) {
     await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
     await AsyncStorage.setItem('app_language', selectedLanguage);
     if (onComplete) onComplete();
-  };
-
-  const getPasswordStrength = () => {
-    if (password.length === 0) return { level: 0, label: '', color: colors.border };
-    if (password.length < 6) return { level: 1, label: t('onboarding.account.weak'), color: colors.danger };
-    if (password.length < 8) return { level: 2, label: t('onboarding.account.fair'), color: '#f59e0b' };
-    const hasUpper = /[A-Z]/.test(password);
-    const hasLower = /[a-z]/.test(password);
-    const hasNum = /[0-9]/.test(password);
-    const hasSpecial = /[^A-Za-z0-9]/.test(password);
-    const score = [hasUpper, hasLower, hasNum, hasSpecial].filter(Boolean).length;
-    if (score >= 3 && password.length >= 10) return { level: 4, label: t('onboarding.account.strong'), color: colors.success };
-    if (score >= 2) return { level: 3, label: t('onboarding.account.good'), color: colors.gold };
-    return { level: 2, label: t('onboarding.account.fair'), color: '#f59e0b' };
   };
 
   const renderStep = () => {
@@ -277,7 +280,6 @@ export default function OnboardingScreen({ onComplete }) {
         );
 
       case 4:
-        const strength = getPasswordStrength();
         return (
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -309,7 +311,7 @@ export default function OnboardingScreen({ onComplete }) {
                         <ActivityIndicator color={colors.gold} size="small" />
                       ) : (
                         <Text style={[styles.sendOtpText, { color: colors.gold }]}>
-                          {otpSent ? 'Erneut' : 'Code'}
+                          {otpSent ? t('onboarding.account.resendCode') : t('onboarding.account.sendCode')}
                         </Text>
                       )}
                     </TouchableOpacity>
@@ -318,7 +320,7 @@ export default function OnboardingScreen({ onComplete }) {
 
                 {otpSent && (
                   <View style={styles.fieldGroup}>
-                    <Text style={[styles.label, { color: colors.textMuted }]}>E-Mail Bestätigungscode (6-stellig)</Text>
+                    <Text style={[styles.label, { color: colors.textMuted }]}>{t('onboarding.account.otpLabel')}</Text>
                     <TextInput
                       style={[
                         styles.input,
@@ -331,6 +333,12 @@ export default function OnboardingScreen({ onComplete }) {
                       keyboardType="number-pad"
                       maxLength={6}
                     />
+                    <View style={[styles.otpHintRow, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+                      <AppIcon name="info" size={14} color={colors.gold} />
+                      <Text style={[styles.otpHintText, { color: colors.textSub }]}>
+                        {t('login.otpNoticeHint')}
+                      </Text>
+                    </View>
                   </View>
                 )}
                 <View style={styles.fieldGroup}>
@@ -365,25 +373,7 @@ export default function OnboardingScreen({ onComplete }) {
                       <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
                     </TouchableOpacity>
                   </View>
-                  <Text style={[styles.inputHint, { color: colors.textMuted }]}>{t('onboarding.account.passwordRuleHint')}</Text>
-                  {password.length > 0 && (
-                    <View style={styles.strengthBar}>
-                      <View style={styles.strengthTrack}>
-                        {[1, 2, 3, 4].map((level) => (
-                          <View
-                            key={level}
-                            style={[
-                              styles.strengthSegment,
-                              { backgroundColor: level <= strength.level ? strength.color : colors.border }
-                            ]}
-                          />
-                        ))}
-                      </View>
-                      <Text style={[styles.strengthLabel, { color: strength.color }]}>
-                        {strength.label}
-                      </Text>
-                    </View>
-                  )}
+                  <PasswordChecklist password={password} evaluation={pwEval} pwnedState={pwnedState} />
                 </View>
                 <View style={styles.fieldGroup}>
                   <Text style={[styles.label, { color: colors.textMuted }]}>{t('onboarding.account.confirmPassword')}</Text>
@@ -407,7 +397,7 @@ export default function OnboardingScreen({ onComplete }) {
               >
                 <View style={[
                   styles.checkbox,
-                  { borderColor: colors.border, backgroundColor: colors.inputBg },
+                  { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
                   acceptedTerms && { backgroundColor: colors.gold, borderColor: colors.gold }
                 ]}>
                   {acceptedTerms && <AppIcon name="check" size={12} color="#ffffff" />}
@@ -424,7 +414,7 @@ export default function OnboardingScreen({ onComplete }) {
               >
                 <View style={[
                   styles.checkbox,
-                  { borderColor: colors.border, backgroundColor: colors.inputBg },
+                  { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
                   acceptedAge && { backgroundColor: colors.gold, borderColor: colors.gold }
                 ]}>
                   {acceptedAge && <AppIcon name="check" size={12} color="#ffffff" />}
@@ -435,9 +425,9 @@ export default function OnboardingScreen({ onComplete }) {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.createAccountBtn}
+                style={[styles.createAccountBtn, !canCreateAccount && { opacity: 0.5 }]}
                 onPress={handleCreateAccount}
-                disabled={registering}
+                disabled={!canCreateAccount}
                 activeOpacity={0.85}
               >
                 <LinearGradient
@@ -674,6 +664,21 @@ const styles = StyleSheet.create({
   sendOtpText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  otpHintRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  otpHintText: {
+    fontSize: 11,
+    lineHeight: 16,
+    flex: 1,
   },
   strengthBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4

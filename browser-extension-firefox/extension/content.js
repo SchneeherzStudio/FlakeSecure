@@ -43,6 +43,74 @@
   let watcherEndTime = 0;
   let activePort = null;
   let portHeartbeat = null;
+  let embedDetected = false;
+  let scheduleCheckTimeout = null;
+
+  const EMBED_SELECTOR = [
+    'html[data-flakesecure-embed]',
+    'meta[name="flakesecure-embed"]',
+    'script[src*="/embed.js"]',
+    'iframe[src*="/embed/widget.html"]',
+    '.flakesecure-login-button',
+    '#flakesecure-modal-backdrop',
+    '.flakesecure-auto-container'
+  ].join(',');
+
+  function silenceForEmbed() {
+    if (scheduleCheckTimeout) {
+      clearTimeout(scheduleCheckTimeout);
+      scheduleCheckTimeout = null;
+    }
+    if (watcherTimer) {
+      clearInterval(watcherTimer);
+      watcherTimer = null;
+    }
+    const btn = document.getElementById('fs-login-btn');
+    if (btn) btn.remove();
+
+    const overlay = document.getElementById('flakesecure-overlay');
+    const hadSession = !!(overlay || activePort || currentSessionId);
+    if (overlay) overlay.remove();
+
+    if (portHeartbeat) {
+      clearInterval(portHeartbeat);
+      portHeartbeat = null;
+    }
+    if (activePort) {
+      try {
+        activePort.postMessage({ type: 'DISCONNECT' });
+        activePort.disconnect();
+      } catch (e) {}
+      activePort = null;
+    }
+    if (hadSession && typeof browser !== 'undefined' && browser.runtime) {
+      browser.runtime.sendMessage({ type: 'DISCONNECT' }).catch(() => {});
+    }
+    uiInjected = false;
+    currentSessionId = null;
+  }
+
+  function isEmbedPresent() {
+    if (embedDetected) return true;
+    try {
+      if ((window.location.pathname || '').includes('/embed/widget.html')) {
+        embedDetected = true;
+        silenceForEmbed();
+        return true;
+      }
+      if (document.documentElement && document.documentElement.hasAttribute('data-flakesecure-embed')) {
+        embedDetected = true;
+        silenceForEmbed();
+        return true;
+      }
+      if (document.querySelector(EMBED_SELECTOR)) {
+        embedDetected = true;
+        silenceForEmbed();
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
 
   const SOCIAL_OR_NEGATIVE_KEYWORDS = [
     'facebook', 'google', 'apple', 'xbox', 'playstation', 'psn', 'nintendo',
@@ -478,6 +546,7 @@
   }
 
   async function checkAndAutoFillCachedCredentials() {
+    if (isEmbedPresent()) return;
     if (isAutoFilling) return;
     const cached = await getCachedCredentials();
     if (!cached || !cached.password) return;
@@ -537,11 +606,12 @@
   }
 
   function startPersistentStepWatcher() {
+    if (isEmbedPresent()) return;
     if (watcherTimer) clearInterval(watcherTimer);
     watcherEndTime = Date.now() + 20000; // Watch for 20 seconds during multi-step navigation
 
     watcherTimer = setInterval(() => {
-      if (Date.now() > watcherEndTime) {
+      if (isEmbedPresent() || Date.now() > watcherEndTime) {
         clearInterval(watcherTimer);
         watcherTimer = null;
         return;
@@ -918,6 +988,7 @@
   }
 
   function injectLoginButton(targetField) {
+    if (isEmbedPresent()) return;
     if (document.getElementById('fs-login-btn') || !targetField || !targetField.parentNode) return;
 
     const btn = document.createElement('button');
@@ -976,9 +1047,11 @@
   }
 
   async function handlePasswordField(field, settings) {
+    if (isEmbedPresent()) return;
     if (uiInjected || userCancelled) return;
 
     const s = settings || await getSettings();
+    if (isEmbedPresent()) return;
     if (s.displayMode === 'button') {
       injectLoginButton(field);
     } else {
@@ -987,6 +1060,7 @@
   }
 
   async function showOverlay(field) {
+    if (isEmbedPresent()) return;
     if (uiInjected) return;
     uiInjected = true;
 
@@ -1056,9 +1130,8 @@
     });
   }
 
-  let scheduleCheckTimeout = null;
-
   function scheduleCheck(forceUserTrigger = false) {
+    if (isEmbedPresent()) return;
     if (scheduleCheckTimeout) clearTimeout(scheduleCheckTimeout);
     scheduleCheckTimeout = setTimeout(() => {
       runSmartDetection(forceUserTrigger);
@@ -1066,10 +1139,12 @@
   }
 
   async function runSmartDetection(forceUserTrigger = false) {
+    if (isEmbedPresent()) return;
+
     // 1. Auto-fill from cache if credentials already exist
     await checkAndAutoFillCachedCredentials();
 
-    if (userCancelled || uiInjected) return;
+    if (isEmbedPresent() || userCancelled || uiInjected) return;
 
     const settings = await getSettings();
 
@@ -1106,8 +1181,23 @@
 
   // --- EVENT LISTENERS ---
 
+  window.addEventListener('flakesecure:embed-ready', () => {
+    embedDetected = true;
+    silenceForEmbed();
+  });
+
+  const runtimeAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser.runtime : (typeof chrome !== 'undefined' ? chrome.runtime : null);
+  if (runtimeAPI && runtimeAPI.onMessage) {
+    runtimeAPI.onMessage.addListener((msg, _sender, sendResponse) => {
+      if (msg && msg.type === 'FS_CHECK_EMBED') {
+        sendResponse({ embedPresent: isEmbedPresent() });
+      }
+    });
+  }
+
   // 1. Focused input listener: only trigger on genuine auth inputs
   document.addEventListener('focusin', (e) => {
+    if (isEmbedPresent()) return;
     const target = e.target;
     if (!target || target.tagName !== 'INPUT') return;
     if (isNonAuthField(target)) return;
@@ -1122,25 +1212,30 @@
   }, { passive: true });
 
   // 2. Initial load & multi-step check
-  checkAndAutoFillCachedCredentials();
-  startPersistentStepWatcher();
+  if (!isEmbedPresent()) {
+    checkAndAutoFillCachedCredentials();
+    startPersistentStepWatcher();
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      if (isEmbedPresent()) return;
       scheduleCheck(false);
       startPersistentStepWatcher();
     });
-  } else {
+  } else if (!isEmbedPresent()) {
     scheduleCheck(false);
     startPersistentStepWatcher();
   }
 
   window.addEventListener('load', () => {
+    if (isEmbedPresent()) return;
     checkAndAutoFillCachedCredentials();
   });
 
-  // 3. Mutation Observer: monitors DOM for dynamic password fields
+  // 3. Mutation Observer: monitors DOM for dynamic password fields & late-mounted embeds
   const observer = new MutationObserver(() => {
+    if (isEmbedPresent()) return;
     checkAndAutoFillCachedCredentials();
   });
 
@@ -1148,7 +1243,7 @@
     childList: true, 
     subtree: true,
     attributes: true,
-    attributeFilter: ['class', 'style', 'type', 'hidden']
+    attributeFilter: ['class', 'style', 'type', 'hidden', 'data-flakesecure-embed', 'src']
   });
 
 })();

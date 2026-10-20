@@ -30,7 +30,9 @@ const EXT_I18N = {
     logoutBtn: "Log Out",
     statusLabel: "Status",
     statusReady: "Ready",
+    statusPaused: "Paused (Direct site integration)",
     statusSaved: "Saved [OK]",
+    embedNotice: "This site uses FlakeSecure directly – extension paused",
     displayModeLabel: "Display Mode",
     modePopup: "Open Popup directly",
     modeButton: 'Show "FlakeSecure" Button',
@@ -50,7 +52,9 @@ const EXT_I18N = {
     logoutBtn: "Abmelden",
     statusLabel: "Status",
     statusReady: "Bereit",
+    statusPaused: "Pausiert (Direktintegration)",
     statusSaved: "Gespeichert [OK]",
+    embedNotice: "Diese Website nutzt FlakeSecure direkt – Erweiterung pausiert",
     displayModeLabel: "Anzeige-Modus",
     modePopup: "Direkt Popup öffnen",
     modeButton: '"FlakeSecure" Button anzeigen',
@@ -70,7 +74,9 @@ const EXT_I18N = {
     logoutBtn: "Déconnexion",
     statusLabel: "Statut",
     statusReady: "Prêt",
+    statusPaused: "En pause (Intégration directe)",
     statusSaved: "Enregistré [OK]",
+    embedNotice: "Ce site utilise FlakeSecure directement – extension en pause",
     displayModeLabel: "Mode d'affichage",
     modePopup: "Ouvrir directement le popup",
     modeButton: 'Afficher le bouton "FlakeSecure"',
@@ -90,7 +96,9 @@ const EXT_I18N = {
     logoutBtn: "Cerrar sesión",
     statusLabel: "Estado",
     statusReady: "Listo",
+    statusPaused: "En pausa (Integración directa)",
     statusSaved: "Guardado [OK]",
+    embedNotice: "Este sitio usa FlakeSecure directamente – extensión en pausa",
     displayModeLabel: "Modo de visualización",
     modePopup: "Abrir ventana emergente directamente",
     modeButton: 'Mostrar botón "FlakeSecure"',
@@ -104,6 +112,7 @@ const EXT_I18N = {
 };
 
 let currentLang = 'en';
+let isSiteUsingEmbed = false;
 
 function applyTranslations(lang) {
   currentLang = ['en', 'de', 'fr', 'es'].includes(lang) ? lang : 'en';
@@ -131,7 +140,12 @@ function applyTranslations(lang) {
   if (elStatusLabel) elStatusLabel.textContent = t.statusLabel;
 
   const elStatusMsg = document.getElementById('status-msg');
-  if (elStatusMsg && elStatusMsg.textContent !== t.statusSaved) elStatusMsg.textContent = t.statusReady;
+  if (elStatusMsg && elStatusMsg.textContent !== t.statusSaved) {
+    elStatusMsg.textContent = isSiteUsingEmbed ? t.statusPaused : t.statusReady;
+  }
+
+  const elEmbedNotice = document.getElementById('t-embed-notice');
+  if (elEmbedNotice) elEmbedNotice.textContent = t.embedNotice;
 
   const elDisplayModeLabel = document.getElementById('t-display-mode-label');
   if (elDisplayModeLabel) elDisplayModeLabel.textContent = t.displayModeLabel;
@@ -217,7 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
       chrome.storage.sync.set({ app_language: newLang }, () => {
         applyTranslations(newLang);
         statusMsg.textContent = EXT_I18N[newLang].statusSaved;
-        setTimeout(() => { statusMsg.textContent = EXT_I18N[newLang].statusReady; }, 1800);
+        setTimeout(() => {
+          statusMsg.textContent = isSiteUsingEmbed ? EXT_I18N[newLang].statusPaused : EXT_I18N[newLang].statusReady;
+        }, 1800);
       });
     });
   }
@@ -229,10 +245,58 @@ document.addEventListener('DOMContentLoaded', () => {
       }, () => {
         const t = EXT_I18N[currentLang] || EXT_I18N.en;
         statusMsg.textContent = t.statusSaved;
-        setTimeout(() => { statusMsg.textContent = t.statusReady; }, 1800);
+        setTimeout(() => {
+          statusMsg.textContent = isSiteUsingEmbed ? t.statusPaused : t.statusReady;
+        }, 1800);
       });
     });
   });
+
+  function showEmbedPausedUI() {
+    isSiteUsingEmbed = true;
+    const noticeEl = document.getElementById('embed-paused-notice');
+    if (noticeEl) noticeEl.style.display = 'flex';
+    const dotEl = document.getElementById('status-dot');
+    if (dotEl) dotEl.classList.add('paused');
+    const t = EXT_I18N[currentLang] || EXT_I18N.en;
+    if (statusMsg) statusMsg.textContent = t.statusPaused;
+    const elEmbedNotice = document.getElementById('t-embed-notice');
+    if (elEmbedNotice) elEmbedNotice.textContent = t.embedNotice;
+  }
+
+  if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs && tabs[0];
+      if (!tab || !tab.id) return;
+
+      chrome.tabs.sendMessage(tab.id, { type: 'FS_CHECK_EMBED' }, (resp) => {
+        if (!chrome.runtime.lastError && resp && resp.embedPresent) {
+          showEmbedPausedUI();
+          return;
+        }
+        if (chrome.scripting && chrome.scripting.executeScript) {
+          chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+              try {
+                if ((window.location.pathname || '').includes('/embed/widget.html')) return true;
+                if (document.documentElement && document.documentElement.hasAttribute('data-flakesecure-embed')) return true;
+                return !!document.querySelector(
+                  'html[data-flakesecure-embed], meta[name="flakesecure-embed"], script[src*="/embed.js"], iframe[src*="/embed/widget.html"], .flakesecure-login-button, #flakesecure-modal-backdrop, .flakesecure-auto-container'
+                );
+              } catch (e) {
+                return false;
+              }
+            }
+          }, (results) => {
+            if (!chrome.runtime.lastError && results && results[0] && results[0].result) {
+              showEmbedPausedUI();
+            }
+          });
+        }
+      });
+    });
+  }
 
   [autoLoginToggle, autoOverlayToggle].forEach(toggle => {
     toggle.addEventListener('change', () => {

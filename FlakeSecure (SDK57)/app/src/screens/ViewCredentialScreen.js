@@ -17,17 +17,26 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   TextInput, Alert, KeyboardAvoidingView,
   Platform, ScrollView, Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Clipboard from 'expo-clipboard';
-import { getCredentialsForDomain, saveCredentials, getCategories, saveCategory } from '../utils/storage';
+import {
+  getCredentialsForDomain,
+  saveCredentials,
+  getCategories,
+  saveCategory,
+  getNote,
+  getTotpItems,
+} from '../utils/storage';
+import { generateTOTP, getRemainingSeconds } from '../utils/totp';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { AppIcon, CategoryIcon, AVAILABLE_CATEGORY_ICONS } from '../components/CategoryIcons';
@@ -39,9 +48,13 @@ export default function ViewCredentialScreen({ route, navigation }) {
   const { t } = useLanguage();
   const { colors } = useTheme();
   const { domain } = route.params;
-  
+  const initialId = route.params?.id || null;
+
+  const [activeId, setActiveId] = useState(initialId);
+  const [accountName, setAccountName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [notes, setNotes] = useState('');
   
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -49,6 +62,9 @@ export default function ViewCredentialScreen({ route, navigation }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isHidden, setIsHidden] = useState(false);
+
+  const [linkedTotp, setLinkedTotp] = useState(null);
+  const [totpTick, setTotpTick] = useState(0);
 
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -59,6 +75,32 @@ export default function ViewCredentialScreen({ route, navigation }) {
   useEffect(() => {
     authenticateAndLoad();
   }, []);
+
+  const refreshLinkedTotp = useCallback(async (credIdToMatch) => {
+    const idTarget = credIdToMatch || activeId;
+    if (!idTarget) return;
+    try {
+      const items = await getTotpItems();
+      const found = items.find((it) => it.credId === idTarget) || null;
+      setLinkedTotp(found);
+    } catch {}
+  }, [activeId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && activeId) {
+        refreshLinkedTotp(activeId);
+      }
+    }, [isAuthenticated, activeId, refreshLinkedTotp])
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated || !linkedTotp) return;
+    const timer = setInterval(() => {
+      setTotpTick((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isAuthenticated, linkedTotp]);
 
   const authenticateAndLoad = async () => {
     setLoading(true);
@@ -76,16 +118,24 @@ export default function ViewCredentialScreen({ route, navigation }) {
         return;
       }
 
-      const creds = await getCredentialsForDomain(domain);
+      const accounts = await getCredentialsForDomain(domain);
+      const creds = activeId ? accounts.find(a => a.id === activeId) : (accounts[0] || null);
+
       if (creds) {
+        setActiveId(creds.id);
+        setAccountName(creds.name || '');
         setSelectedCategory(creds.category || null);
+        const loadedNote = await getNote(creds.id);
+        setNotes(loadedNote || '');
+        await refreshLinkedTotp(creds.id);
         if (creds.hidden) {
           setIsHidden(true);
-          setUsername(creds.username);
+          setUsername(creds.username || '');
           setPassword('');
         } else {
-          setUsername(creds.username);
-          setPassword(creds.password);
+          setIsHidden(false);
+          setUsername(creds.username || '');
+          setPassword(creds.password || '');
         }
       } else {
         setAuthError(t('viewCredential.noCredFound'));
@@ -127,7 +177,7 @@ export default function ViewCredentialScreen({ route, navigation }) {
   };
 
   const handleSave = async () => {
-    if (!username.trim() || (!isHidden && !password.trim())) {
+    if (!isHidden && (!username.trim() || !password.trim())) {
       Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
@@ -135,7 +185,11 @@ export default function ViewCredentialScreen({ route, navigation }) {
     setSaving(true);
     try {
       await saveCredentials(domain, username.trim(), password, {
-        category: selectedCategory
+        id: activeId,
+        name: accountName.trim(),
+        category: selectedCategory,
+        hidden: isHidden,
+        ...(isHidden ? {} : { notes: notes.slice(0, 1000) }),
       });
       Alert.alert(
         t('viewCredential.savedTitle'),
@@ -225,15 +279,60 @@ export default function ViewCredentialScreen({ route, navigation }) {
 
           <View style={styles.form}>
             {isHidden ? (
-              <View style={[styles.hiddenCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-                <AppIcon name="lock" size={40} color={colors.gold} />
-                <Text style={[styles.hiddenTitle, { color: colors.text }]}>Restricted Credential</Text>
-                <Text style={[styles.hiddenText, { color: colors.textSecondary }]}>
-                  This credential is restricted and cannot be viewed or edited. It will still work for auto-fill.
-                </Text>
-              </View>
+              <>
+                <View style={[styles.hiddenCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                  <AppIcon name="lock" size={40} color={colors.gold} />
+                  <Text style={[styles.hiddenTitle, { color: colors.text }]}>{t('viewCredential.restrictedTitle')}</Text>
+                  <Text style={[styles.hiddenText, { color: colors.textSecondary }]}>
+                    {t('viewCredential.restrictedDesc')}
+                  </Text>
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>{t('viewCredential.accountNameLabel')}</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                    placeholder={t('viewCredential.accountNamePlaceholder')}
+                    placeholderTextColor={colors.textMuted}
+                    value={accountName}
+                    onChangeText={setAccountName}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+                </View>
+
+                {notes ? (
+                  <View style={styles.fieldGroup}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>{t('viewCredential.notesLabel')}</Text>
+                    <View style={styles.notesRow}>
+                      <View style={[styles.input, styles.notesReadonlyBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                        <Text style={[styles.notesReadonlyText, { color: colors.text }]} selectable>{notes}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+                        onPress={() => copyToClipboard(notes, t('viewCredential.notesLabel'))}
+                      >
+                        <AppIcon name="copy" size={18} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+              </>
             ) : (
               <>
+                <View style={styles.fieldGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>{t('viewCredential.accountNameLabel')}</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                    placeholder={t('viewCredential.accountNamePlaceholder')}
+                    placeholderTextColor={colors.textMuted}
+                    value={accountName}
+                    onChangeText={setAccountName}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+                </View>
+
                 <View style={styles.fieldGroup}>
                   <Text style={[styles.label, { color: colors.textSecondary }]}>{t('viewCredential.usernameLabel')}</Text>
                   <View style={styles.inputRow}>
@@ -285,85 +384,167 @@ export default function ViewCredentialScreen({ route, navigation }) {
                 </View>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>{t('credentials.categoryLabel')}</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-                    <TouchableOpacity
-                      style={[
-                        styles.categoryChip,
-                        { backgroundColor: colors.cardBg, borderColor: colors.border },
-                        !selectedCategory && { backgroundColor: colors.goldBg, borderColor: colors.gold }
-                      ]}
-                      onPress={() => setSelectedCategory(null)}
-                      activeOpacity={0.7}
-                    >
-                      <AppIcon name="close" size={13} color={!selectedCategory ? colors.gold : colors.textMuted} />
-                      <Text style={[
-                        styles.categoryChipText,
-                        { color: colors.textSecondary },
-                        !selectedCategory && { color: colors.text, fontWeight: '700' }
-                      ]}>
-                        {t('credentials.categoryNone')}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {categories.map((cat) => {
-                      const isSelected = selectedCategory === cat.id;
-                      const displayName = cat.isDefault ? (t(`categories.${cat.id}`) || cat.name) : cat.name;
-                      return (
-                        <TouchableOpacity
-                          key={cat.id}
-                          style={[
-                            styles.categoryChip,
-                            { backgroundColor: colors.cardBg, borderColor: colors.border },
-                            isSelected && { backgroundColor: colors.goldBg, borderColor: colors.gold }
-                          ]}
-                          onPress={() => setSelectedCategory(cat.id)}
-                          activeOpacity={0.7}
-                        >
-                          <CategoryIcon name={cat.icon || 'tag'} size={14} color={isSelected ? colors.gold : colors.textSecondary} />
-                          <Text style={[
-                            styles.categoryChipText,
-                            { color: colors.textSecondary },
-                            isSelected && { color: colors.text, fontWeight: '700' }
-                          ]}>
-                            {displayName}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-
-                    <TouchableOpacity
-                      style={[styles.newCategoryChip, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
-                      onPress={() => setShowCategoryModal(true)}
-                      activeOpacity={0.7}
-                    >
-                      <AppIcon name="plus" size={13} color={colors.gold} />
-                      <Text style={[styles.newCategoryChipText, { color: colors.gold }]}>{t('credentials.addCategoryBtn')}</Text>
-                    </TouchableOpacity>
-                  </ScrollView>
+                  <View style={styles.notesHeaderRow}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>{t('viewCredential.notesLabel')}</Text>
+                    <Text style={[styles.charCounter, { color: notes.length >= 1000 ? colors.warning : colors.textMuted }]}>
+                      {notes.length}/1000
+                    </Text>
+                  </View>
+                  <View style={styles.notesRow}>
+                    <TextInput
+                      style={[styles.input, styles.notesInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                      placeholder={t('viewCredential.notesPlaceholder')}
+                      placeholderTextColor={colors.textMuted}
+                      value={notes}
+                      onChangeText={(val) => setNotes(val.slice(0, 1000))}
+                      multiline
+                      maxLength={1000}
+                      textAlignVertical="top"
+                    />
+                    {notes ? (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: colors.cardBg, borderColor: colors.border, alignSelf: 'flex-start' }]}
+                        onPress={() => copyToClipboard(notes, t('viewCredential.notesLabel'))}
+                      >
+                        <AppIcon name="copy" size={18} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 </View>
               </>
             )}
+
+            {/* Linked 2FA Section */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{t('viewCredential.linked2faTitle')}</Text>
+              {linkedTotp ? (() => {
+                const period = linkedTotp.period || 30;
+                const digits = linkedTotp.digits || 6;
+                const algorithm = linkedTotp.algorithm || 'SHA1';
+                const rawCode = generateTOTP(linkedTotp.secret, period, digits, algorithm);
+                const formattedCode = rawCode.length === 8
+                  ? `${rawCode.slice(0, 4)} ${rawCode.slice(4)}`
+                  : `${rawCode.slice(0, 3)} ${rawCode.slice(3)}`;
+                const remaining = getRemainingSeconds(period);
+                return (
+                  <View style={[styles.totpCard, { backgroundColor: colors.cardBg, borderColor: colors.goldBorder }]}>
+                    <View style={styles.totpCardLeft}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <AppIcon name="key" size={14} color={colors.gold} />
+                        <Text style={[styles.totpIssuer, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {linkedTotp.issuer || domain}
+                        </Text>
+                      </View>
+                      <Text style={[styles.totpCode, { color: colors.gold }]}>{formattedCode}</Text>
+                    </View>
+                    <View style={styles.totpCardRight}>
+                      <View style={[styles.totpTimerBadge, { backgroundColor: remaining <= 5 ? colors.dangerBg : colors.goldBg, borderColor: remaining <= 5 ? colors.dangerBorder : colors.goldBorder }]}>
+                        <Text style={[styles.totpTimerText, { color: remaining <= 5 ? colors.danger : colors.gold }]}>{remaining}s</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                        onPress={() => copyToClipboard(rawCode, t('viewCredential.linked2faTitle'))}
+                      >
+                        <AppIcon name="copy" size={18} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })() : (
+                <TouchableOpacity
+                  style={[styles.add2faBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
+                  onPress={() => navigation.navigate('Authenticator', {
+                    prefillAdd: {
+                      credId: activeId,
+                      domain,
+                      issuer: domain,
+                      accountName: username || accountName,
+                    }
+                  })}
+                  activeOpacity={0.7}
+                >
+                  <AppIcon name="key" size={16} color={colors.gold} />
+                  <Text style={[styles.add2faBtnText, { color: colors.gold }]}>{t('viewCredential.add2faBtn')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{t('credentials.categoryLabel')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+                <TouchableOpacity
+                  style={[
+                    styles.categoryChip,
+                    { backgroundColor: colors.cardBg, borderColor: colors.border },
+                    !selectedCategory && { backgroundColor: colors.goldBg, borderColor: colors.gold }
+                  ]}
+                  onPress={() => setSelectedCategory(null)}
+                  activeOpacity={0.7}
+                >
+                  <AppIcon name="close" size={13} color={!selectedCategory ? colors.gold : colors.textMuted} />
+                  <Text style={[
+                    styles.categoryChipText,
+                    { color: colors.textSecondary },
+                    !selectedCategory && { color: colors.text, fontWeight: '700' }
+                  ]}>
+                    {t('credentials.categoryNone')}
+                  </Text>
+                </TouchableOpacity>
+
+                {categories.map((cat) => {
+                  const isSelected = selectedCategory === cat.id;
+                  const displayName = cat.isDefault ? (t(`categories.${cat.id}`) || cat.name) : cat.name;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: colors.cardBg, borderColor: colors.border },
+                        isSelected && { backgroundColor: colors.goldBg, borderColor: colors.gold }
+                      ]}
+                      onPress={() => setSelectedCategory(cat.id)}
+                      activeOpacity={0.7}
+                    >
+                      <CategoryIcon name={cat.icon || 'tag'} size={14} color={isSelected ? colors.gold : colors.textSecondary} />
+                      <Text style={[
+                        styles.categoryChipText,
+                        { color: colors.textSecondary },
+                        isSelected && { color: colors.text, fontWeight: '700' }
+                      ]}>
+                        {displayName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TouchableOpacity
+                  style={[styles.newCategoryChip, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
+                  onPress={() => setShowCategoryModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <AppIcon name="plus" size={13} color={colors.gold} />
+                  <Text style={[styles.newCategoryChipText, { color: colors.gold }]}>{t('credentials.addCategoryBtn')}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
           </View>
 
-          {!isHidden && (
-            <TapFeedback
-              style={styles.saveButton}
-              onPress={handleSave}
-              disabled={saving}
+          <TapFeedback
+            style={styles.saveButton}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            <LinearGradient
+              colors={saving ? ['#333', '#444'] : colors.goldGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.saveGradient}
             >
-              <LinearGradient
-                colors={saving ? ['#333', '#444'] : colors.goldGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.saveGradient}
-              >
-                <Text style={[styles.saveBtnText, !saving && { color: '#ffffff' }]}>
-                  {saving ? t('viewCredential.saving') : t('viewCredential.saveChanges')}
-                </Text>
-              </LinearGradient>
-            </TapFeedback>
-          )}
+              <Text style={[styles.saveBtnText, !saving && { color: '#ffffff' }]}>
+                {saving ? t('viewCredential.saving') : t('viewCredential.saveChanges')}
+              </Text>
+            </LinearGradient>
+          </TapFeedback>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -466,6 +647,33 @@ const styles = StyleSheet.create({
   },
   passwordRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   passwordInput: { flex: 1 },
+  notesHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  charCounter: { fontSize: 11, fontWeight: '600' },
+  notesRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  notesInput: { flex: 1, minHeight: 88, paddingTop: 12 },
+  notesReadonlyBox: { flex: 1, minHeight: 60 },
+  notesReadonlyText: { fontSize: 14, lineHeight: 20 },
+  totpCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 14, borderRadius: 8, borderWidth: 1, gap: 12,
+  },
+  totpCardLeft: { flex: 1, gap: 4 },
+  totpIssuer: { fontSize: 12, fontWeight: '600' },
+  totpCode: {
+    fontSize: 24, fontWeight: '800', letterSpacing: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  totpCardRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  totpTimerBadge: {
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1,
+    minWidth: 44, alignItems: 'center',
+  },
+  totpTimerText: { fontSize: 12, fontWeight: '700' },
+  add2faBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 13, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1,
+  },
+  add2faBtnText: { fontSize: 14, fontWeight: '700' },
   actionBtn: {
     borderWidth: 1,
     borderRadius: 8, width: 48, height: 48,

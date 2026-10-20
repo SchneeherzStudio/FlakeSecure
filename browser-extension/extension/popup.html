@@ -311,6 +311,32 @@
       background: var(--accent-green);
       box-shadow: 0 0 6px var(--accent-green);
     }
+    .status-dot.paused {
+      background: var(--accent-gold);
+      box-shadow: 0 0 6px var(--accent-gold);
+    }
+
+    /* Embed Paused Notice */
+    .embed-notice {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .embed-notice svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--accent-gold);
+      flex-shrink: 0;
+    }
 
     /* Display Mode Options */
     .section-title {
@@ -451,11 +477,20 @@
     </div>
   </div>
 
+  <!-- Embed Direct Integration Notice -->
+  <div class="embed-notice" id="embed-paused-notice" role="status">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+      <path d="M9 12l2 2 4-4"></path>
+    </svg>
+    <span id="t-embed-notice">Diese Website nutzt FlakeSecure direkt – Erweiterung pausiert</span>
+  </div>
+
   <!-- Status Card -->
   <div class="status-card">
     <div class="status-label" id="t-status-label">Status</div>
     <div class="status-value" id="status-text">
-      <span class="status-dot"></span>
+      <span class="status-dot" id="status-dot"></span>
       <span id="status-msg">Bereit</span>
     </div>
   </div>

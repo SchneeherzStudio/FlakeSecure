@@ -15,6 +15,8 @@ const systemRoutes = require('../../routes/system');
 const { router: notificationRoutes } = require('../../routes/notifications');
 const shareRoutes = require('../../routes/share');
 const { router: adminRoutes } = require('../../routes/admin');
+const securityRoutes = require('../../routes/security');
+const faviconRoutes = require('../../routes/favicon');
 const { relayLimiter } = require('../../middleware/rateLimit');
 
 function createDataService() {
@@ -27,6 +29,8 @@ function createDataService() {
   router.use('/notifications', notificationRoutes);
   router.use('/share', relayLimiter, shareRoutes);
   router.use('/admin', adminRoutes);
+  router.use('/security', securityRoutes);
+  router.use('/favicon', faviconRoutes);
 
   return { router };
 }

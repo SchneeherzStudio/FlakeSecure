@@ -136,6 +136,19 @@ CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets(tok
 CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_resets_expires ON password_resets(expires_at) WHERE used_at IS NULL;
 
+CREATE TABLE IF NOT EXISTS account_restore_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ DEFAULT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_restore_tokens_hash ON account_restore_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_account_restore_tokens_user ON account_restore_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_account_restore_tokens_expires ON account_restore_tokens(expires_at) WHERE used_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS vault (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     encrypted_blob TEXT NOT NULL,

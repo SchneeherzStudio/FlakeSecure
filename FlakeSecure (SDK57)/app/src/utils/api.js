@@ -88,10 +88,28 @@ export async function apiRequest(endpoint, options = {}) {
   const data = await response.json().catch(() => ({}));
   
   if (!response.ok) {
-    throw new Error(data.error || `HTTP ${response.status}`);
+    const err = new Error(data.error || `HTTP ${response.status}`);
+    err.status = response.status;
+    if (data.code) err.code = data.code;
+    if (data.errors) err.errors = data.errors;
+    throw err;
   }
   
   return data;
+}
+
+export async function getPasswordPolicy() {
+  return apiRequest('/api/auth/password-policy');
+}
+
+export async function fetchPwnedRange(prefix) {
+  const serverUrl = await getServerUrl();
+  const cleanPrefix = String(prefix || '').trim().toUpperCase().slice(0, 5);
+  const response = await fetch(`${serverUrl}/api/security/pwned-range/${cleanPrefix}`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return await response.text();
 }
 
 export async function register(email, username, password, otpToken = null) {

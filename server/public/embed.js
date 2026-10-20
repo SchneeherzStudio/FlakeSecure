@@ -116,7 +116,7 @@
 
   // FlakeSecure Client SDK
   const FlakeSecure = {
-    version: '2.0.1',
+    version: '2.0.3',
     serverUrl: defaultServerUrl,
     activeInstances: [],
 
@@ -398,6 +398,29 @@
     }
   }
 
+  // Mark page so FlakeSecure browser extension stays completely silent
+  function markEmbedPresence() {
+    const ver = (FlakeSecure && FlakeSecure.version) ? FlakeSecure.version : '1';
+    try {
+      if (document.documentElement) {
+        document.documentElement.setAttribute('data-flakesecure-embed', ver);
+      }
+      const head = document.head || document.getElementsByTagName('head')[0] || document.documentElement;
+      if (head && !document.querySelector('meta[name="flakesecure-embed"]')) {
+        const meta = document.createElement('meta');
+        meta.name = 'flakesecure-embed';
+        meta.content = ver;
+        head.appendChild(meta);
+      }
+      window.dispatchEvent(new CustomEvent('flakesecure:embed-ready', { detail: { version: ver } }));
+    } catch (e) {}
+  }
+
+  markEmbedPresence();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', markEmbedPresence, { once: true });
+  }
+
   // Inject standard CSS keyframes for modal animation
   const style = document.createElement('style');
   style.textContent = `
@@ -406,7 +429,7 @@
       to { opacity: 1; transform: scale(1); }
     }
   `;
-  document.head.appendChild(style);
+  (document.head || document.documentElement).appendChild(style);
 
   window.FlakeSecure = FlakeSecure;
 })(window, document);

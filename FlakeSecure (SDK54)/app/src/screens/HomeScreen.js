@@ -23,7 +23,7 @@
  * ============================================================================
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -147,10 +147,10 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], onDis
     setRefreshing(false);
   };
 
-  const handleDelete = (domain) => {
+  const handleDeleteDomain = (domain) => {
     Alert.alert(
       t('home.deleteConfirmTitle'),
-      t('home.deleteConfirmMsg', { domain: domain }),
+      t('home.deleteDomainConfirm', { domain }),
       [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -164,6 +164,27 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], onDis
       ]
     );
   };
+
+  const handleDeleteAccount = (domain, account) => {
+    const displayName = account.name || (account.hidden ? t('credentials.sharedAccount') : account.username);
+    Alert.alert(
+      t('home.deleteConfirmTitle'),
+      t('home.deleteAccountConfirm', { name: displayName }),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await deleteCredentials(domain, account.id);
+            loadData();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDelete = handleDeleteDomain;
 
   const handleCreateCategory = async () => {
     const cleanName = newCategoryName.trim();
@@ -251,6 +272,20 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], onDis
     if (selectedFilter === 'all') return true;
     return item.category === selectedFilter;
   });
+
+  const groupedDomains = useMemo(() => {
+    const map = new Map();
+    for (const item of filteredCredentials) {
+      if (!map.has(item.domain)) {
+        map.set(item.domain, []);
+      }
+      map.get(item.domain).push(item);
+    }
+    return Array.from(map.entries()).map(([domain, accounts]) => ({
+      domain,
+      accounts,
+    }));
+  }, [filteredCredentials]);
 
   const getCategoryCount = (categoryId) => {
     if (categoryId === 'all') return credentials.length;
@@ -531,51 +566,139 @@ export default function HomeScreen({ navigation, bannerAnnouncements = [], onDis
         </View>
       ) : (
         <FlatList
-          data={filteredCredentials}
+          data={groupedDomains}
           keyExtractor={(item) => item.domain}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => {
-            const catInfo = getCategoryInfo(item.category);
+          renderItem={({ item: group }) => {
+            const accountCount = group.accounts.length;
+            const countText = accountCount === 1
+              ? t('home.accountSingle')
+              : t('home.accountsPlural', { count: accountCount });
+
             return (
-              <TapFeedback
-                style={[styles.credItem, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-                onPress={() => navigation.navigate('ViewCredential', { domain: item.domain })}
-              >
-                <FaviconImage
-                  domain={item.domain}
-                  size={40}
-                  borderRadius={8}
-                  fallbackIcon={catInfo?.icon || 'globe'}
-                  style={{ marginRight: 12 }}
-                />
-                <View style={styles.credInfo}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <Text style={[styles.credDomain, { color: colors.text }]}>{item.domain}</Text>
-                    {item.hidden && (
-                      <AppIcon name="lock" size={12} color={colors.textMuted} />
-                    )}
-                    {catInfo && (
-                      <View style={[styles.categoryBadge, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}>
-                        <CategoryIcon name={catInfo.icon} size={10} color={colors.gold} />
-                        <Text style={[styles.categoryBadgeText, { color: colors.gold }]}>{catInfo.displayName}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={[styles.credUsername, { color: colors.textSecondary }]}>{item.username}</Text>
-                  {item.expiresAt && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-                      <AppIcon name="clock" size={11} color={colors.red} />
-                      <Text style={{ fontSize: 11, color: colors.red }}>
-                        Ablauf: {new Date(item.expiresAt).toLocaleDateString()}
+              <View style={[styles.domainGroupCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                {/* Domain Group Header */}
+                <View style={[styles.domainGroupHeader, { borderBottomColor: colors.borderSubtle }]}>
+                  <View style={styles.domainGroupHeaderLeft}>
+                    <FaviconImage
+                      domain={group.domain}
+                      size={30}
+                      borderRadius={6}
+                      style={{ marginRight: 10 }}
+                    />
+                    <View style={styles.domainGroupTitleCol}>
+                      <Text style={[styles.domainGroupTitle, { color: colors.text }]} numberOfLines={1}>
+                        {group.domain}
+                      </Text>
+                      <Text style={[styles.domainGroupSubtitle, { color: colors.textMuted }]}>
+                        {countText}
                       </Text>
                     </View>
-                  )}
+                  </View>
+
+                  <View style={styles.domainGroupHeaderRight}>
+                    <TouchableOpacity
+                      style={[styles.groupActionBtn, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}
+                      onPress={() => navigation.navigate('Credentials', { prefillDomain: group.domain })}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel={t('home.addAccountForDomain')}
+                    >
+                      <AppIcon name="plus" size={13} color={colors.gold} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.groupActionBtn, { backgroundColor: colors.cardBg, borderColor: colors.borderSubtle }]}
+                      onPress={() => handleDeleteDomain(group.domain)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <AppIcon name="close" size={13} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <TouchableOpacity style={styles.credDelete} onPress={() => handleDelete(item.domain)}>
-                  <AppIcon name="close" size={14} color={colors.textMuted} />
-                </TouchableOpacity>
-              </TapFeedback>
+
+                {/* Accounts under this domain */}
+                <View style={styles.domainAccountsList}>
+                  {group.accounts.map((account, index) => {
+                    const isLast = index === group.accounts.length - 1;
+                    const catInfo = getCategoryInfo(account.category);
+                    const displayName = account.name
+                      ? account.name
+                      : (account.hidden ? t('credentials.sharedAccount') : account.username);
+                    const showUsernameSub = account.name && !account.hidden;
+
+                    return (
+                      <TapFeedback
+                        key={account.id || `${group.domain}_${index}`}
+                        style={[
+                          styles.accountItemRow,
+                          !isLast && [styles.accountItemBorder, { borderBottomColor: colors.borderSubtle }]
+                        ]}
+                        onPress={() => navigation.navigate('ViewCredential', { domain: group.domain, id: account.id })}
+                      >
+                        <View style={[styles.accountAvatarCircle, { backgroundColor: colors.goldDim }]}>
+                          <AppIcon
+                            name={account.hidden ? 'lock' : 'user'}
+                            size={14}
+                            color={account.hidden ? colors.gold : colors.textSecondary}
+                          />
+                        </View>
+
+                        <View style={styles.accountItemInfo}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={[styles.accountItemName, { color: colors.text }]} numberOfLines={1}>
+                              {displayName}
+                            </Text>
+                            {account.hasNote && (
+                              <View style={[styles.noteBadge, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}>
+                                <AppIcon name="note" size={10} color={colors.gold} />
+                              </View>
+                            )}
+                            {account.hidden && (
+                              <View style={[styles.hiddenBadge, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}>
+                                <AppIcon name="lock" size={9} color={colors.gold} />
+                                <Text style={[styles.hiddenBadgeText, { color: colors.gold }]}>
+                                  {t('viewCredential.hidden') || 'Geschützt'}
+                                </Text>
+                              </View>
+                            )}
+                            {catInfo && (
+                              <View style={[styles.categoryBadge, { backgroundColor: colors.goldDim, borderColor: colors.goldBorder }]}>
+                                <CategoryIcon name={catInfo.icon} size={10} color={colors.gold} />
+                                <Text style={[styles.categoryBadgeText, { color: colors.gold }]}>
+                                  {catInfo.displayName}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+
+                          {showUsernameSub && (
+                            <Text style={[styles.accountItemUsername, { color: colors.textSecondary }]} numberOfLines={1}>
+                              {account.username}
+                            </Text>
+                          )}
+
+                          {account.expiresAt && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                              <AppIcon name="clock" size={10} color={colors.red} />
+                              <Text style={{ fontSize: 10, color: colors.red }}>
+                                Ablauf: {new Date(account.expiresAt).toLocaleDateString()}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <TouchableOpacity
+                          style={styles.accountDeleteBtn}
+                          onPress={() => handleDeleteAccount(group.domain, account)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <AppIcon name="close" size={13} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </TapFeedback>
+                    );
+                  })}
+                </View>
+              </View>
             );
           }}
         />
@@ -903,6 +1026,108 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 20,
     paddingBottom: 30,
+  },
+  domainGroupCard: {
+    borderWidth: 1,
+    borderRadius: 10,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  domainGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  domainGroupHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  domainGroupTitleCol: {
+    flex: 1,
+  },
+  domainGroupTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  domainGroupSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  domainGroupHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  groupActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  domainAccountsList: {
+    paddingVertical: 2,
+  },
+  accountItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  accountItemBorder: {
+    borderBottomWidth: 1,
+  },
+  accountAvatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  accountItemInfo: {
+    flex: 1,
+  },
+  accountItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  accountItemUsername: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  accountDeleteBtn: {
+    padding: 6,
+    marginLeft: 6,
+  },
+  hiddenBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    gap: 3,
+  },
+  noteBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  hiddenBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   credItem: {
     flexDirection: 'row',

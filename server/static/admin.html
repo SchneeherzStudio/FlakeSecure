@@ -420,6 +420,23 @@
           </table>
         </div>
       </div>
+      
+      <!-- PM2 Process Logs -->
+      <div style="margin-top: 36px;">
+        <div class="section-title">
+          <span style="display:inline-flex;align-items:center;gap:8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            <span>PM2 Prozess-Logs (stdout)</span>
+          </span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary" onclick="fetchPm2Logs('out')" style="padding:7px 12px;font-size:12px;">stdout</button>
+            <button class="btn btn-danger" onclick="fetchPm2Logs('error')" style="padding:7px 12px;font-size:12px;">stderr</button>
+          </div>
+        </div>
+        <div class="card" style="padding: 0; overflow: hidden;">
+          <pre id="pm2LogsContent" style="padding: 16px 20px; margin: 0; max-height: 500px; overflow-y: auto; font-family: 'DM Mono', monospace; font-size: 12px; line-height: 1.6; color: var(--text); background: var(--card-bg); white-space: pre-wrap; word-break: break-all;">Lade PM2-Logs...</pre>
+        </div>
+      </div>
     </main>
 
     <!-- Shared Footer -->
@@ -458,11 +475,17 @@
         fetchMetrics();
         fetchLogs();
         fetchBackups();
+        fetchPm2Logs('out');
       }
     }
 
+    let isLoggingIn = false;
+
     async function handleAdminLogin(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
+      if (isLoggingIn) return;
+      isLoggingIn = true;
+
       const email = document.getElementById('adminEmail').value.trim();
       const password = document.getElementById('adminPassword').value;
       const btn = document.getElementById('adminLoginBtn');
@@ -488,12 +511,14 @@
         fetchMetrics();
         fetchLogs();
         fetchBackups();
+        fetchPm2Logs('out');
       } catch (err) {
         alertBox.textContent = err.message;
         alertBox.style.display = 'block';
       } finally {
         btn.disabled = false;
         btn.textContent = 'Anmelden';
+        isLoggingIn = false;
       }
     }
 
@@ -588,10 +613,14 @@
             </td>
             <td style="font-family: 'DM Mono', monospace; font-size: 12px;">${b.sizeKb} KB</td>
             <td style="color: var(--text-dim); font-size: 12px;">${date}</td>
-            <td>
+            <td style="display:flex;gap:8px;">
               <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;" onclick="downloadBackup('${b.filename}')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 <span>Herunterladen</span>
+              </button>
+              <button class="btn btn-danger" style="padding: 6px 12px; font-size: 11px;" onclick="deleteBackup('${b.filename}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <span>Löschen</span>
               </button>
             </td>
           `;
@@ -623,6 +652,46 @@
 
     function downloadBackup(filename) {
       window.open(`/api/admin/backup/download/${encodeURIComponent(filename)}?token=${encodeURIComponent(adminToken)}`, '_blank');
+    }
+
+    async function fetchPm2Logs(type) {
+      if (!adminToken) return;
+      const pre = document.getElementById('pm2LogsContent');
+      pre.textContent = 'Lade ' + (type === 'error' ? 'stderr' : 'stdout') + '-Logs...';
+      try {
+        const res = await fetch('/api/admin/pm2-logs?lines=200&type=' + type, {
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        if (data.error) {
+          pre.textContent = 'Fehler: ' + data.error;
+          return;
+        }
+        pre.textContent = (data.logs && data.logs.length > 0)
+          ? data.logs.join('\n')
+          : 'Keine Logs vorhanden.';
+        if (data.filename) {
+          pre.textContent = '// Datei: ' + data.filename + ' (' + (data.totalLines || '?') + ' Zeilen gesamt)\n\n' + pre.textContent;
+        }
+        pre.scrollTop = pre.scrollHeight;
+      } catch (e) {
+        pre.textContent = 'Fehler beim Laden der PM2-Logs: ' + e.message;
+      }
+    }
+
+    async function deleteBackup(filename) {
+      if (!confirm('Backup "' + filename + '" wirklich unwiderruflich löschen?')) return;
+      try {
+        const res = await fetch('/api/admin/backup/' + encodeURIComponent(filename), {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + adminToken }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        fetchBackups();
+      } catch (err) {
+        alert('Fehler beim Löschen: ' + err.message);
+      }
     }
 
     // Auto-refresh every 10 seconds

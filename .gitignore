@@ -20,3 +20,5 @@ browser-extension.zip
 dist/
 build/
 backups/
+
+server/cache/

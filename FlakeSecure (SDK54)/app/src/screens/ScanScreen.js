@@ -52,6 +52,13 @@ export default function ScanScreen() {
 
   const handleBarCodeScanned = async ({ data }) => {
     if (scanned || importing) return;
+
+    if (typeof data === 'string' && (data.startsWith('otpauth://') || data.startsWith('otpauth-migration://'))) {
+      setScanned(true);
+      Vibration.vibrate(100);
+      navigation.replace('Authenticator', { otpauthUri: data });
+      return;
+    }
     
     const hasSid = data.includes('sid=') || data.includes('s=');
     const hasKey = data.includes('key=') || data.includes('k=');
@@ -238,6 +245,8 @@ export default function ScanScreen() {
         for (const newCred of credsToImport) {
           if (newCred && newCred.domain && newCred.username) {
             await saveCredentials(newCred.domain, newCred.username, newCred.password || '', {
+              name: newCred.name || '',
+              ...(newCred.notes !== undefined ? { notes: newCred.notes } : {}),
               ...(hidden && { hidden: true }),
               ...(expiresInHours && { expiresAt: new Date(Date.now() + expiresInHours * 3600000).toISOString() }),
               sharedBy: 'shared'
@@ -255,7 +264,8 @@ export default function ScanScreen() {
         const cleanDomain = decodeURIComponent(domain);
         findCredentialsForDomain(cleanDomain)
           .then((cred) => {
-            const u = cred?.username || user?.username || '';
+            const primaryAcc = cred?.accounts?.[0] || cred;
+            const u = (primaryAcc && !primaryAcc.hidden) ? (primaryAcc.name || primaryAcc.username) : (user?.username || '');
             notifyQrScanned(sid, u);
           })
           .catch(() => {

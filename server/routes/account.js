@@ -37,6 +37,7 @@ const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { searchLimiter } = require('../middleware/rateLimit');
 const { sendDeletionNoticeEmail } = require('../utils/email');
 
 const router = express.Router();
@@ -199,18 +200,19 @@ router.delete('/restrictions/:recipientId', authMiddleware, async (req, res) => 
     }
 });
 
-router.get('/search', authMiddleware, async (req, res) => {
-    const { q } = req.query;
-    if (!q) {
-        return res.status(400).json({ error: 'Search query is required' });
+router.get('/search', authMiddleware, searchLimiter, async (req, res) => {
+    const rawQ = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (rawQ.length < 3) {
+        return res.json({ users: [] });
     }
 
     try {
         const { rows } = await db.query(
             `SELECT id, username FROM users
-             WHERE username ILIKE $1 AND id != $2
+             WHERE username ILIKE $1 AND id != $2 AND deleted_at IS NULL
+             ORDER BY (LOWER(username) = LOWER($3)) DESC, username ASC
              LIMIT 10`,
-            [`%${q}%`, req.user.id]
+            [`%${rawQ}%`, req.user.id, rawQ]
         );
         res.json({ users: rows });
     } catch (error) {

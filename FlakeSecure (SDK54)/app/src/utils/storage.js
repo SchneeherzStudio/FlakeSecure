@@ -42,6 +42,21 @@ const INDEX_KEY = 'flakesecure_index_v1';
 const CATEGORIES_KEY = 'flakesecure_categories_v1';
 const DEFAULT_PROFILE_KEY = 'flakesecure_default_profile_v1';
 const TOTP_ITEMS_KEY = 'flakesecure_totp_items_v1';
+const NOTE_KEY_PREFIX = 'flakesecure_note_';
+
+function getNoteStorageKey(credId) {
+  return `${NOTE_KEY_PREFIX}${String(credId || '').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+}
+
+export async function getNote(credId) {
+  if (!credId) return '';
+  try {
+    const val = await SecureStore.getItemAsync(getNoteStorageKey(credId));
+    return val || '';
+  } catch {
+    return '';
+  }
+}
 
 export const DEFAULT_CATEGORIES = [
   { id: 'personal', name: 'Personal', icon: 'user', isDefault: true },
@@ -121,34 +136,129 @@ async function saveDomainIndex(domains) {
   await SecureStore.setItemAsync(INDEX_KEY, JSON.stringify(domains));
 }
 
+function normalizeCredentialsArray(rawParsed, domain) {
+  if (!rawParsed) return [];
+  if (Array.isArray(rawParsed)) {
+    return rawParsed.map((item, idx) => ({
+      id: item.id || `cred_${domain.replace(/\./g, '_')}_${idx}_${Date.now()}`,
+      name: item.name || '',
+      username: item.username || '',
+      password: item.password || '',
+      updatedAt: item.updatedAt || new Date().toISOString(),
+      category: item.category || null,
+      hidden: item.hidden || false,
+      expiresAt: item.expiresAt || null,
+      sharedBy: item.sharedBy || null,
+      hasNote: !!item.hasNote,
+    }));
+  }
+  return [{
+    id: rawParsed.id || `cred_${domain.replace(/\./g, '_')}_legacy`,
+    name: rawParsed.name || '',
+    username: rawParsed.username || '',
+    password: rawParsed.password || '',
+    updatedAt: rawParsed.updatedAt || new Date().toISOString(),
+    category: rawParsed.category || null,
+    hidden: rawParsed.hidden || false,
+    expiresAt: rawParsed.expiresAt || null,
+    sharedBy: rawParsed.sharedBy || null,
+    hasNote: !!rawParsed.hasNote,
+  }];
+}
+
 export async function getCredentialsForDomain(domain) {
   try {
     const key = `${CREDENTIALS_KEY}_${domain.replace(/\./g, '_')}`;
     const raw = await SecureStore.getItemAsync(key);
-    if (!raw) return null;
-    const creds = JSON.parse(raw);
-    if (creds.expiresAt && new Date(creds.expiresAt) < new Date()) {
-      await deleteCredentials(domain);
-      return null;
+    if (!raw) return [];
+    const accounts = normalizeCredentialsArray(JSON.parse(raw), domain);
+    const now = new Date();
+    const valid = accounts.filter(a => !a.expiresAt || new Date(a.expiresAt) >= now);
+    if (valid.length !== accounts.length) {
+      for (const acc of accounts) {
+        if (!valid.some(v => v.id === acc.id)) {
+          await SecureStore.deleteItemAsync(getNoteStorageKey(acc.id)).catch(() => {});
+        }
+      }
+      if (valid.length === 0) {
+        await deleteCredentials(domain);
+        return [];
+      } else {
+        await SecureStore.setItemAsync(key, JSON.stringify(valid));
+      }
     }
-    return creds;
+    if (valid.length > 0) {
+      valid.username = valid[0].username;
+      valid.password = valid[0].password;
+      valid.name = valid[0].name;
+      valid.id = valid[0].id;
+      valid.category = valid[0].category;
+      valid.hidden = valid[0].hidden;
+      valid.expiresAt = valid[0].expiresAt;
+      valid.sharedBy = valid[0].sharedBy;
+      valid.hasNote = !!valid[0].hasNote;
+      valid.updatedAt = valid[0].updatedAt;
+    }
+    return valid;
   } catch {
-    return null;
+    return [];
   }
 }
 
 export async function saveCredentials(domain, username, password, options = {}) {
   const key = `${CREDENTIALS_KEY}_${domain.replace(/\./g, '_')}`;
-  const data = { 
-    username, 
-    password, 
-    updatedAt: new Date().toISOString(),
-    ...(options.category !== undefined && { category: options.category }),
-    ...(options.hidden && { hidden: true }),
-    ...(options.expiresAt && { expiresAt: options.expiresAt }),
-    ...(options.sharedBy && { sharedBy: options.sharedBy }),
+  const accounts = await getCredentialsForDomain(domain);
+  const now = new Date().toISOString();
+
+  const credId = options.id || null;
+  const name = options.name !== undefined ? (options.name || '').trim() : '';
+  const cleanUsername = (username || '').trim();
+
+  let foundIndex = -1;
+  if (credId) {
+    foundIndex = accounts.findIndex(a => a.id === credId);
+  } else if (cleanUsername) {
+    foundIndex = accounts.findIndex(a => a.username.toLowerCase() === cleanUsername.toLowerCase() && (a.name || '') === name);
+    if (foundIndex === -1 && !name) {
+      foundIndex = accounts.findIndex(a => a.username.toLowerCase() === cleanUsername.toLowerCase());
+    }
+  }
+
+  const existing = foundIndex >= 0 ? accounts[foundIndex] : null;
+  const id = credId || existing?.id || `cred_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+  let hasNote = !!existing?.hasNote;
+  if (options.notes !== undefined) {
+    const cleanNote = String(options.notes || '').slice(0, 1000);
+    if (cleanNote.trim().length > 0) {
+      await SecureStore.setItemAsync(getNoteStorageKey(id), cleanNote);
+      hasNote = true;
+    } else {
+      await SecureStore.deleteItemAsync(getNoteStorageKey(id)).catch(() => {});
+      hasNote = false;
+    }
+  }
+
+  const updatedItem = {
+    id,
+    name: options.name !== undefined ? name : (existing?.name || ''),
+    username: cleanUsername || existing?.username || '',
+    password: (options.hidden && !password && existing) ? existing.password : password,
+    updatedAt: now,
+    category: options.category !== undefined ? options.category : (existing?.category || null),
+    hidden: options.hidden !== undefined ? !!options.hidden : (existing?.hidden || false),
+    expiresAt: options.expiresAt !== undefined ? options.expiresAt : (existing?.expiresAt || null),
+    sharedBy: options.sharedBy !== undefined ? options.sharedBy : (existing?.sharedBy || null),
+    hasNote,
   };
-  await SecureStore.setItemAsync(key, JSON.stringify(data));
+
+  if (foundIndex >= 0) {
+    accounts[foundIndex] = updatedItem;
+  } else {
+    accounts.push(updatedItem);
+  }
+
+  await SecureStore.setItemAsync(key, JSON.stringify(accounts));
 
   const index = await getDomainIndex();
   if (!index.includes(domain)) {
@@ -156,12 +266,39 @@ export async function saveCredentials(domain, username, password, options = {}) 
     await saveDomainIndex(index);
   }
   triggerBackgroundVaultSync();
+  return updatedItem;
 }
 
-export async function deleteCredentials(domain) {
+export async function deleteCredentials(domain, credId = null) {
   const key = `${CREDENTIALS_KEY}_${domain.replace(/\./g, '_')}`;
-  await SecureStore.deleteItemAsync(key);
 
+  if (credId) {
+    await SecureStore.deleteItemAsync(getNoteStorageKey(credId)).catch(() => {});
+    const raw = await SecureStore.getItemAsync(key);
+    if (raw) {
+      let accounts = normalizeCredentialsArray(JSON.parse(raw), domain);
+      accounts = accounts.filter(a => a.id !== credId);
+      if (accounts.length > 0) {
+        await SecureStore.setItemAsync(key, JSON.stringify(accounts));
+        triggerBackgroundVaultSync();
+        return;
+      }
+    }
+  } else {
+    try {
+      const raw = await SecureStore.getItemAsync(key);
+      if (raw) {
+        const accounts = normalizeCredentialsArray(JSON.parse(raw), domain);
+        for (const acc of accounts) {
+          if (acc.id) {
+            await SecureStore.deleteItemAsync(getNoteStorageKey(acc.id)).catch(() => {});
+          }
+        }
+      }
+    } catch {}
+  }
+
+  await SecureStore.deleteItemAsync(key);
   const index = await getDomainIndex();
   const updated = index.filter(d => d !== domain);
   await saveDomainIndex(updated);
@@ -173,20 +310,19 @@ export async function getAllCredentials() {
   const results = [];
 
   for (const domain of index) {
-    const creds = await getCredentialsForDomain(domain);
-    if (creds) {
-      if (creds.expiresAt && new Date(creds.expiresAt) < new Date()) {
-        await deleteCredentials(domain);
-        continue;
-      }
+    const accounts = await getCredentialsForDomain(domain);
+    for (const cred of accounts) {
       results.push({
+        id: cred.id,
         domain,
-        username: creds.username,
-        updatedAt: creds.updatedAt,
-        category: creds.category || null,
-        hidden: creds.hidden || false,
-        expiresAt: creds.expiresAt || null,
-        sharedBy: creds.sharedBy || null,
+        name: cred.name || '',
+        username: cred.username,
+        updatedAt: cred.updatedAt,
+        category: cred.category || null,
+        hidden: cred.hidden || false,
+        expiresAt: cred.expiresAt || null,
+        sharedBy: cred.sharedBy || null,
+        hasNote: !!cred.hasNote,
       });
     }
   }
@@ -195,17 +331,37 @@ export async function getAllCredentials() {
 }
 
 export async function findCredentialsForDomain(domain) {
-  let creds = await getCredentialsForDomain(domain);
-  if (creds) return { ...creds, domain };
+  let accounts = await getCredentialsForDomain(domain);
+  let resolvedDomain = domain;
 
-  const parts = domain.split('.');
-  if (parts.length > 2) {
-    const rootDomain = parts.slice(-2).join('.');
-    creds = await getCredentialsForDomain(rootDomain);
-    if (creds) return { ...creds, domain: rootDomain };
+  if (accounts.length === 0) {
+    const parts = domain.split('.');
+    if (parts.length > 2) {
+      const rootDomain = parts.slice(-2).join('.');
+      accounts = await getCredentialsForDomain(rootDomain);
+      if (accounts.length > 0) {
+        resolvedDomain = rootDomain;
+      }
+    }
   }
 
-  return null;
+  if (accounts.length === 0) return null;
+
+  const primary = accounts[0];
+  return {
+    domain: resolvedDomain,
+    accounts,
+    id: primary.id,
+    name: primary.name || '',
+    username: primary.username,
+    password: primary.password,
+    category: primary.category,
+    hidden: primary.hidden,
+    expiresAt: primary.expiresAt,
+    sharedBy: primary.sharedBy,
+    hasNote: !!primary.hasNote,
+    updatedAt: primary.updatedAt,
+  };
 }
 
 export async function getTotpItems() {
@@ -220,10 +376,20 @@ export async function getTotpItems() {
 export async function saveTotpItem(item) {
   const items = await getTotpItems();
   const id = item.id || `totp_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-  const cleanIssuer = (item.issuer || '').trim();
-  const cleanAccount = (item.account || '').trim();
-  const cleanSecret = (item.secret || '').replace(/\s/g, '').toUpperCase();
-  const category = item.category || 'other';
+  const existingIdx = items.findIndex(t => t.id === id);
+  const existing = existingIdx >= 0 ? items[existingIdx] : null;
+
+  const cleanIssuer = item.issuer !== undefined ? (item.issuer || '').trim() : (existing?.issuer || '');
+  const cleanAccount = item.account !== undefined ? (item.account || '').trim() : (existing?.account || '');
+  const cleanSecret = item.secret !== undefined ? (item.secret || '').replace(/\s/g, '').toUpperCase() : (existing?.secret || '');
+  const category = item.category || existing?.category || 'other';
+  const digits = Number(item.digits || existing?.digits || 6) === 8 ? 8 : 6;
+  const period = Number(item.period || existing?.period || 30) === 60 ? 60 : 30;
+  const rawAlgo = String(item.algorithm || existing?.algorithm || 'SHA1').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const algorithm = ['SHA1', 'SHA256', 'SHA512'].includes(rawAlgo) ? rawAlgo : 'SHA1';
+  const credId = item.credId !== undefined ? (item.credId || null) : (existing?.credId || null);
+  const domain = item.domain !== undefined ? (item.domain || null) : (existing?.domain || null);
+  const notes = item.notes !== undefined ? String(item.notes || '').slice(0, 500) : (existing?.notes || '');
 
   const entry = {
     id,
@@ -231,12 +397,15 @@ export async function saveTotpItem(item) {
     account: cleanAccount,
     secret: cleanSecret,
     category,
-    digits: item.digits || 6,
-    period: item.period || 30,
+    digits,
+    period,
+    algorithm,
+    credId,
+    domain,
+    notes,
     updatedAt: new Date().toISOString(),
   };
 
-  const existingIdx = items.findIndex(t => t.id === id);
   if (existingIdx >= 0) {
     items[existingIdx] = entry;
   } else {
@@ -261,17 +430,22 @@ export async function getFullVaultExport() {
   const credentials = [];
 
   for (const domain of index) {
-    const creds = await getCredentialsForDomain(domain);
-    if (creds) {
+    const accounts = await getCredentialsForDomain(domain);
+    for (const cred of accounts) {
+      const notes = cred.hasNote ? await getNote(cred.id) : '';
       credentials.push({
+        id: cred.id,
         domain,
-        username: creds.username,
-        password: creds.password,
-        updatedAt: creds.updatedAt,
-        category: creds.category || null,
-        hidden: creds.hidden || false,
-        expiresAt: creds.expiresAt || null,
-        sharedBy: creds.sharedBy || null,
+        name: cred.name || '',
+        username: cred.username,
+        password: cred.password,
+        updatedAt: cred.updatedAt,
+        category: cred.category || null,
+        hidden: cred.hidden || false,
+        expiresAt: cred.expiresAt || null,
+        sharedBy: cred.sharedBy || null,
+        hasNote: !!notes,
+        notes: notes || '',
       });
     }
   }
@@ -281,13 +455,13 @@ export async function getFullVaultExport() {
   const totpItems = await getTotpItems();
 
   return {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    credentials,
-    categories,
-    profile,
-    totpItems,
-  };
+     version: 2,
+     exportedAt: new Date().toISOString(),
+     credentials,
+     categories,
+     profile,
+     totpItems,
+   };
 }
 
 let isImportingVault = false;
@@ -307,10 +481,13 @@ export async function importFullVault(vaultObj) {
     for (const cred of credentialsList) {
       if (cred && cred.domain && cred.username) {
         await saveCredentials(cred.domain, cred.username, cred.password || '', {
+          id: cred.id,
+          name: cred.name || '',
           category: cred.category,
           hidden: cred.hidden,
           expiresAt: cred.expiresAt,
           sharedBy: cred.sharedBy,
+          notes: cred.notes !== undefined ? cred.notes : undefined,
         });
       }
     }
@@ -337,6 +514,17 @@ export async function clearAllLocalVaultData() {
   const index = await getDomainIndex();
   for (const domain of index) {
     const key = `${CREDENTIALS_KEY}_${domain.replace(/\./g, '_')}`;
+    try {
+      const raw = await SecureStore.getItemAsync(key);
+      if (raw) {
+        const accounts = normalizeCredentialsArray(JSON.parse(raw), domain);
+        for (const acc of accounts) {
+          if (acc.id) {
+            await SecureStore.deleteItemAsync(getNoteStorageKey(acc.id)).catch(() => {});
+          }
+        }
+      }
+    } catch {}
     await SecureStore.deleteItemAsync(key).catch(() => {});
   }
   await SecureStore.deleteItemAsync(INDEX_KEY).catch(() => {});

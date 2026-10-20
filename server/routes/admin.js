@@ -15,11 +15,47 @@ const { adminLoginLimiter, getClientIp } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
-// Memory store for recent security / operational events (last 500 events)
+// Persistent store for recent security / operational events (last 500 events)
+// Stored outside the server project tree (os.tmpdir()) so PM2 --watch / nodemon
+// never restarts the server when an admin event is logged on login.
 const recentServerLogs = [];
 const MAX_LOGS = 500;
+const LEGACY_LOGS_FILE = path.join(__dirname, '..', 'data', 'admin_events.json');
+const LOGS_DIR = process.env.ADMIN_EVENTS_DIR || path.join(os.tmpdir(), 'flakesecure-runtime');
+const LOGS_FILE = path.join(LOGS_DIR, 'admin_events.json');
+
+// Load persisted events on startup so restarts do not wipe log history
+try {
+  const sourceFile = fs.existsSync(LOGS_FILE)
+    ? LOGS_FILE
+    : (fs.existsSync(LEGACY_LOGS_FILE) ? LEGACY_LOGS_FILE : null);
+  if (sourceFile) {
+    const data = JSON.parse(fs.readFileSync(sourceFile, 'utf8'));
+    if (Array.isArray(data)) {
+      recentServerLogs.push(...data.slice(0, MAX_LOGS));
+    }
+  }
+} catch (_) {}
+
+function saveLogsToFile() {
+  try {
+    if (!fs.existsSync(LOGS_DIR)) {
+      fs.mkdirSync(LOGS_DIR, { recursive: true });
+    }
+    fs.writeFileSync(LOGS_FILE, JSON.stringify(recentServerLogs.slice(0, MAX_LOGS), null, 2), 'utf8');
+  } catch (_) {}
+}
 
 function logServerEvent(level, eventType, message, meta = {}) {
+  // Prevent duplicate consecutive identical entries within 3 seconds
+  if (recentServerLogs.length > 0) {
+    const last = recentServerLogs[0];
+    const diffMs = Date.now() - new Date(last.timestamp).getTime();
+    if (diffMs < 3000 && last.type === eventType && last.message === message) {
+      return;
+    }
+  }
+
   const entry = {
     timestamp: new Date().toISOString(),
     level, // 'info', 'warn', 'error', 'security'
@@ -31,6 +67,7 @@ function logServerEvent(level, eventType, message, meta = {}) {
   if (recentServerLogs.length > MAX_LOGS) {
     recentServerLogs.pop();
   }
+  saveLogsToFile();
 }
 
 // Export for usage across other server modules
@@ -262,6 +299,90 @@ router.get('/backup/download/:filename', requireAdminAuth, (req, res) => {
   }
 
   res.download(filePath, filename);
+});
+// GET /api/admin/pm2-logs
+router.get('/pm2-logs', requireAdminAuth, (req, res) => {
+  const lines = Math.min(Math.max(parseInt(req.query.lines, 10) || 100, 1), 1000);
+  const type = req.query.type || 'out'; // 'out' or 'error'
+  
+  const pm2LogDir = process.env.PM2_LOG_DIR || path.join(os.homedir(), '.pm2', 'logs');
+  
+  if (!fs.existsSync(pm2LogDir)) {
+    return res.json({ logs: [], error: 'PM2 log directory not found' });
+  }
+  
+  try {
+    const logFiles = fs.readdirSync(pm2LogDir)
+      .filter(f => f.includes(type === 'error' ? '-error' : '-out') && f.endsWith('.log'))
+      .sort((a, b) => {
+        try {
+          const aStat = fs.statSync(path.join(pm2LogDir, a));
+          const bStat = fs.statSync(path.join(pm2LogDir, b));
+          return bStat.mtimeMs - aStat.mtimeMs;
+        } catch (_) {
+          return 0;
+        }
+      });
+    
+    if (logFiles.length === 0) {
+      return res.json({ logs: [], message: 'No PM2 log files found' });
+    }
+    
+    const latestLog = path.join(pm2LogDir, logFiles[0]);
+    const stat = fs.statSync(latestLog);
+    const MAX_TAIL_BYTES = 128 * 1024; // Read at most the last 128 KB to prevent OOM on large PM2 logs
+    const readSize = Math.min(stat.size, MAX_TAIL_BYTES);
+    const startOffset = Math.max(0, stat.size - readSize);
+
+    let content = '';
+    if (readSize > 0) {
+      const fd = fs.openSync(latestLog, 'r');
+      try {
+        const buffer = Buffer.alloc(readSize);
+        fs.readSync(fd, buffer, 0, readSize, startOffset);
+        content = buffer.toString('utf8');
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+
+    const rawLines = content.split('\n');
+    // Drop potentially truncated first line if we started reading mid-file
+    if (startOffset > 0 && rawLines.length > 1) {
+      rawLines.shift();
+    }
+    const allLines = rawLines.filter(l => l.trim());
+    const lastLines = allLines.slice(-lines);
+    
+    res.json({ 
+      logs: lastLines,
+      filename: logFiles[0],
+      totalLines: allLines.length
+    });
+  } catch (err) {
+    console.error('PM2 log read error:', err);
+    res.status(500).json({ error: 'Failed to read PM2 logs: ' + err.message });
+  }
+});
+
+// DELETE /api/admin/backup/:filename
+router.delete('/backup/:filename', requireAdminAuth, (req, res) => {
+  const filename = path.basename(req.params.filename);
+  const backupsDir = path.join(__dirname, '..', 'backups');
+  const filePath = path.join(backupsDir, filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Backup file not found' });
+  }
+
+  try {
+    fs.unlinkSync(filePath);
+    logServerEvent('info', 'BACKUP_DELETED', `Backup deleted: ${filename}`);
+    res.json({ success: true, message: `Backup ${filename} deleted successfully` });
+  } catch (err) {
+    console.error('Backup delete error:', err);
+    res.status(500).json({ error: 'Failed to delete backup: ' + err.message });
+  }
 });
 
 module.exports.router = router;

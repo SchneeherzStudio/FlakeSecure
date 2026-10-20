@@ -24,5 +24,13 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "data/*",
+      "backups/*",
+      "cache/*",
+      "*.log"
+    ]
   }
 }

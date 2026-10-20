@@ -525,6 +525,96 @@
       border-color: var(--accent-gold);
       color: var(--accent-gold);
     }
+
+    .otp-notice-hint {
+      margin-top: 0.45rem;
+      font-size: 0.76rem;
+      line-height: 1.45;
+      color: var(--text-secondary);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.5rem 0.7rem;
+    }
+
+    .pwd-policy-box {
+      margin-top: 0.65rem;
+      padding: 0.85rem 0.95rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+    }
+
+    .pwd-strength-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.45rem;
+    }
+
+    .pwd-strength-val {
+      font-weight: 700;
+    }
+
+    .pwd-strength-bars {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 0.75rem;
+    }
+
+    .pwd-strength-seg {
+      height: 5px;
+      border-radius: 3px;
+      background: var(--border-color);
+      transition: background-color 0.2s ease;
+    }
+
+    .pwd-checklist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.38rem;
+      margin: 0;
+      padding: 0;
+    }
+
+    .pwd-rule-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: var(--text-secondary);
+      transition: color 0.15s ease;
+    }
+
+    .pwd-rule-item.pass {
+      color: #4ADE80;
+    }
+
+    .pwd-rule-item.fail {
+      color: #EF4444;
+    }
+
+    .pwd-rule-icon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pwd-rule-icon svg {
+      width: 14px;
+      height: 14px;
+    }
   </style>
 </head>
 <body class="console-page">
@@ -666,6 +756,7 @@
           <div class="form-group" id="regOtpGroup" style="display: none;">
             <label class="form-label" data-i18n="accountPortal.labelOtp">6-Digit Verification Code</label>
             <input type="text" id="regOtpCode" class="form-input" placeholder="123456" data-i18n-placeholder="accountPortal.placeholderOtp" maxlength="6" style="font-family: 'DM Mono', monospace; text-align: center; letter-spacing: 4px; font-size: 1.1rem; font-weight: 700;" />
+            <div class="otp-notice-hint" data-i18n="accountPortal.otpNoticeHint">No code received? Check your inbox - if you already have an account, we sent you a notice instead.</div>
           </div>
 
           <div class="form-group">
@@ -675,7 +766,45 @@
 
           <div class="form-group">
             <label class="form-label" data-i18n="accountPortal.labelMasterPass">Master Password</label>
-            <input type="password" id="regPassword" class="form-input" placeholder="Min. 8 characters" data-i18n-placeholder="accountPortal.placeholderMinPass" required autocomplete="new-password" />
+            <input type="password" id="regPassword" class="form-input" placeholder="Min. 12 characters" data-i18n-placeholder="accountPortal.placeholderMinPass" required minlength="12" autocomplete="new-password" />
+            <div class="pwd-policy-box" id="regPwdPolicyBox">
+              <div class="pwd-strength-header">
+                <span data-i18n="accountPortal.pwdStrengthLabel">Password Strength</span>
+                <span id="regPwdStrengthText" class="pwd-strength-val" data-i18n="accountPortal.pwdStrength0">Too Weak</span>
+              </div>
+              <div class="pwd-strength-bars">
+                <div class="pwd-strength-seg" id="regSeg1"></div>
+                <div class="pwd-strength-seg" id="regSeg2"></div>
+                <div class="pwd-strength-seg" id="regSeg3"></div>
+                <div class="pwd-strength-seg" id="regSeg4"></div>
+              </div>
+              <ul class="pwd-checklist">
+                <li class="pwd-rule-item" id="ruleMinLength">
+                  <span class="pwd-rule-icon" id="iconMinLength"></span>
+                  <span data-i18n="accountPortal.pwdRuleMinLength">At least 12 characters</span>
+                </li>
+                <li class="pwd-rule-item" id="ruleComplexity">
+                  <span class="pwd-rule-icon" id="iconComplexity"></span>
+                  <span data-i18n="accountPortal.pwdRuleComplexity">At least 3 of 4 types (upper, lower, digit, symbol) or 16+ chars</span>
+                </li>
+                <li class="pwd-rule-item" id="ruleNoWhitespace">
+                  <span class="pwd-rule-icon" id="iconNoWhitespace"></span>
+                  <span data-i18n="accountPortal.pwdRuleNoWhitespace">No spaces or whitespace characters</span>
+                </li>
+                <li class="pwd-rule-item" id="rulePersonal">
+                  <span class="pwd-rule-icon" id="iconPersonal"></span>
+                  <span data-i18n="accountPortal.pwdRulePersonal">Does not contain your username or email</span>
+                </li>
+                <li class="pwd-rule-item" id="ruleSequence">
+                  <span class="pwd-rule-icon" id="iconSequence"></span>
+                  <span data-i18n="accountPortal.pwdRuleSequence">No 4+ repeated (aaaa) or sequential (abcd, 1234) chars</span>
+                </li>
+                <li class="pwd-rule-item" id="rulePwned">
+                  <span class="pwd-rule-icon" id="iconPwned"></span>
+                  <span id="textPwned" data-i18n="accountPortal.pwdRulePwned">Not found in known data breaches (HIBP)</span>
+                </li>
+              </ul>
+            </div>
           </div>
 
           <div class="form-group">
@@ -685,19 +814,19 @@
 
           <div class="form-group">
             <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;">
-              <input type="checkbox" id="regTermsCheckbox" required style="margin-top: 3px;" />
+              <input type="checkbox" id="regTermsCheckbox" required />
               <span><span data-i18n="accountPortal.termsAgreementPrefix">I accept the</span> <a href="/terms" target="_blank" style="color: var(--accent-gold);" data-i18n="accountPortal.termsLink">Terms of Service</a> <span data-i18n="accountPortal.andText">and</span> <a href="/legal" target="_blank" style="color: var(--accent-gold);" data-i18n="accountPortal.privacyLink">Privacy Policy</a>.</span>
             </label>
           </div>
 
           <div class="form-group">
             <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;">
-              <input type="checkbox" id="regAgeCheckbox" required style="margin-top: 3px;" />
+              <input type="checkbox" id="regAgeCheckbox" required />
               <span data-i18n="accountPortal.ageConfirmCheckbox">I confirm I am at least 16 years old</span>
             </label>
           </div>
 
-          <button type="submit" id="regSubmitBtn" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" data-i18n="accountPortal.btnRegister">Create Account</button>
+          <button type="submit" id="regSubmitBtn" class="btn btn-primary" disabled style="width: 100%; margin-top: 0.5rem;" data-i18n="accountPortal.btnRegister">Create Account</button>
         </form>
       </div>
     </div>
@@ -900,6 +1029,244 @@
     let currentAuthMode = 'login';
     let previousAuthMode = 'login';
     let isForgotPasswordOpen = false;
+    let verifiedOtpCache = null; // { email, code, token }
+    let hibpCheckTimer = null;
+    let lastHibpPassword = '';
+    let isCurrentPasswordPwned = false;
+    let isHibpChecking = false;
+
+    const SVG_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+    const SVG_CROSS = '<svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    const SVG_PENDING = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle></svg>';
+
+    function t(key, fallback) {
+      if (window.fsI18n && typeof window.fsI18n.t === 'function') {
+        const val = window.fsI18n.t(key);
+        if (val && val !== key) return val;
+      }
+      return fallback || key;
+    }
+
+    function hasSequenceOrRepeatClient(pwd) {
+      if (/(.)\1{3,}/.test(pwd)) return true;
+      const lower = pwd.toLowerCase();
+      for (let i = 0; i <= lower.length - 4; i++) {
+        const c0 = lower.charCodeAt(i);
+        const c1 = lower.charCodeAt(i + 1);
+        const c2 = lower.charCodeAt(i + 2);
+        const c3 = lower.charCodeAt(i + 3);
+        const isAlpha = c0 >= 97 && c0 <= 122 && c1 >= 97 && c1 <= 122 && c2 >= 97 && c2 <= 122 && c3 >= 97 && c3 <= 122;
+        const isDigit = c0 >= 48 && c0 <= 57 && c1 >= 48 && c1 <= 57 && c2 >= 48 && c2 <= 57 && c3 >= 48 && c3 <= 57;
+        if (isAlpha || isDigit) {
+          const d1 = c1 - c0, d2 = c2 - c1, d3 = c3 - c2;
+          if ((d1 === 1 && d2 === 1 && d3 === 1) || (d1 === -1 && d2 === -1 && d3 === -1)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function evaluateLocalPasswordRules(pwd, username, email) {
+      const minLenOk = pwd.length >= 12;
+      const noSpaceOk = pwd.length > 0 && !/\s/.test(pwd);
+
+      let classes = 0;
+      if (/[A-Z]/.test(pwd)) classes++;
+      if (/[a-z]/.test(pwd)) classes++;
+      if (/[0-9]/.test(pwd)) classes++;
+      if (/[^A-Za-z0-9\s]/.test(pwd)) classes++;
+      const complexityOk = pwd.length >= 16 || (pwd.length > 0 && classes >= 3);
+
+      let personalOk = pwd.length > 0;
+      const lowerPwd = pwd.toLowerCase();
+      const cleanUser = (username || '').trim().toLowerCase();
+      if (cleanUser.length >= 3 && lowerPwd.includes(cleanUser)) {
+        personalOk = false;
+      }
+      const localPart = ((email || '').trim().split('@')[0] || '').toLowerCase();
+      if (localPart.length >= 3 && lowerPwd.includes(localPart)) {
+        personalOk = false;
+      }
+
+      const sequenceOk = pwd.length > 0 && !hasSequenceOrRepeatClient(pwd);
+
+      return {
+        minLenOk,
+        noSpaceOk,
+        complexityOk,
+        personalOk,
+        sequenceOk,
+        classes,
+        allLocalOk: minLenOk && noSpaceOk && complexityOk && personalOk && sequenceOk
+      };
+    }
+
+    function setRuleElementState(liId, iconId, passed, isEmpty) {
+      const li = document.getElementById(liId);
+      const icon = document.getElementById(iconId);
+      if (!li || !icon) return;
+      if (isEmpty) {
+        li.className = 'pwd-rule-item';
+        icon.innerHTML = SVG_PENDING;
+      } else if (passed) {
+        li.className = 'pwd-rule-item pass';
+        icon.innerHTML = SVG_CHECK;
+      } else {
+        li.className = 'pwd-rule-item fail';
+        icon.innerHTML = SVG_CROSS;
+      }
+    }
+
+    async function checkHibpLive(pwd) {
+      if (!pwd || pwd.length < 12 || !window.crypto || !window.crypto.subtle) {
+        isCurrentPasswordPwned = false;
+        isHibpChecking = false;
+        updatePasswordUi();
+        return;
+      }
+      isHibpChecking = true;
+      updatePasswordUi();
+      try {
+        const buf = new TextEncoder().encode(pwd);
+        const hashBuf = await window.crypto.subtle.digest('SHA-1', buf);
+        const hashHex = Array.from(new Uint8Array(hashBuf))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('')
+          .toUpperCase();
+        const prefix = hashHex.slice(0, 5);
+        const suffix = hashHex.slice(5);
+
+        const res = await fetch(`/api/security/pwned-range/${prefix}`);
+        if (pwd !== document.getElementById('regPassword').value) return;
+        if (!res.ok) {
+          isCurrentPasswordPwned = false;
+        } else {
+          const text = await res.text();
+          let found = false;
+          const lines = text.split(/\r?\n/);
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const idx = line.indexOf(':');
+            if (idx !== -1 && line.slice(0, idx).trim().toUpperCase() === suffix) {
+              const count = parseInt(line.slice(idx + 1).trim(), 10);
+              if (count > 0) found = true;
+              break;
+            }
+          }
+          isCurrentPasswordPwned = found;
+        }
+      } catch (_) {
+        isCurrentPasswordPwned = false;
+      } finally {
+        isHibpChecking = false;
+        updatePasswordUi();
+      }
+    }
+
+    function updatePasswordUi() {
+      const pwdEl = document.getElementById('regPassword');
+      if (!pwdEl) return;
+      const pwd = pwdEl.value || '';
+      const username = (document.getElementById('regUsername')?.value || '').trim();
+      const email = (document.getElementById('regEmail')?.value || '').trim();
+      const isEmpty = pwd.length === 0;
+
+      const state = evaluateLocalPasswordRules(pwd, username, email);
+      setRuleElementState('ruleMinLength', 'iconMinLength', state.minLenOk, isEmpty);
+      setRuleElementState('ruleComplexity', 'iconComplexity', state.complexityOk, isEmpty);
+      setRuleElementState('ruleNoWhitespace', 'iconNoWhitespace', state.noSpaceOk, isEmpty);
+      setRuleElementState('rulePersonal', 'iconPersonal', state.personalOk, isEmpty);
+      setRuleElementState('ruleSequence', 'iconSequence', state.sequenceOk, isEmpty);
+
+      const textPwned = document.getElementById('textPwned');
+      if (isEmpty || pwd.length < 12) {
+        setRuleElementState('rulePwned', 'iconPwned', false, true);
+        if (textPwned) textPwned.textContent = t('accountPortal.pwdRulePwned', 'Not found in known data breaches (HIBP)');
+      } else if (isHibpChecking) {
+        setRuleElementState('rulePwned', 'iconPwned', false, true);
+        if (textPwned) textPwned.textContent = t('accountPortal.pwdRulePwnedChecking', 'Checking breach database...');
+      } else if (isCurrentPasswordPwned) {
+        setRuleElementState('rulePwned', 'iconPwned', false, false);
+        if (textPwned) textPwned.textContent = t('accountPortal.pwdRulePwnedWarn', 'This password appeared in data breaches - choose another');
+      } else {
+        setRuleElementState('rulePwned', 'iconPwned', true, false);
+        if (textPwned) textPwned.textContent = t('accountPortal.pwdRulePwned', 'Not found in known data breaches (HIBP)');
+      }
+
+      // Compute 4-level strength score (0..4)
+      let level = 0;
+      if (!isEmpty) {
+        if (!state.minLenOk || !state.noSpaceOk || isCurrentPasswordPwned) {
+          level = 1;
+        } else if (!state.allLocalOk) {
+          level = 2;
+        } else if (pwd.length >= 16 || (pwd.length >= 14 && state.classes === 4)) {
+          level = 4;
+        } else {
+          level = 3;
+        }
+      }
+
+      const colors = ['var(--border-color)', '#EF4444', 'var(--accent-gold)', '#4ADE80', '#4ADE80'];
+      const activeColor = colors[level];
+      for (let i = 1; i <= 4; i++) {
+        const seg = document.getElementById(`regSeg${i}`);
+        if (seg) {
+          seg.style.backgroundColor = i <= level ? activeColor : 'var(--border-color)';
+        }
+      }
+
+      const strengthText = document.getElementById('regPwdStrengthText');
+      if (strengthText) {
+        strengthText.textContent = t(`accountPortal.pwdStrength${level}`, ['Too Weak', 'Weak', 'Fair', 'Good', 'Strong'][level]);
+        strengthText.style.color = level === 0 ? 'var(--text-muted)' : activeColor;
+      }
+
+      const submitBtn = document.getElementById('regSubmitBtn');
+      if (submitBtn) {
+        submitBtn.disabled = !(state.allLocalOk && !isCurrentPasswordPwned && !isHibpChecking);
+      }
+    }
+
+    function handleRegPasswordInput() {
+      const pwd = document.getElementById('regPassword')?.value || '';
+      if (pwd !== lastHibpPassword) {
+        lastHibpPassword = pwd;
+        isCurrentPasswordPwned = false;
+        if (hibpCheckTimer) clearTimeout(hibpCheckTimer);
+        if (pwd.length >= 12) {
+          isHibpChecking = true;
+          hibpCheckTimer = setTimeout(() => checkHibpLive(pwd), 350);
+        } else {
+          isHibpChecking = false;
+        }
+      }
+      updatePasswordUi();
+    }
+
+    function formatServerAuthError(data, fallbackMsg) {
+      if (!data) return fallbackMsg;
+      if (data.code === 'USERNAME_TAKEN') {
+        return t('accountPortal.errUsernameTaken', 'Username already taken. Please choose a different username.');
+      }
+      if (data.code === 'REGISTRATION_FAILED') {
+        return t('accountPortal.errRegistrationFailed', 'Registration failed. Please verify your details and try again.');
+      }
+      if (data.code === 'WEAK_PASSWORD' && Array.isArray(data.errors) && data.errors.length > 0) {
+        const codeMap = {
+          MIN_LENGTH: t('accountPortal.pwdRuleMinLength', 'At least 12 characters'),
+          COMPLEXITY: t('accountPortal.pwdRuleComplexity', 'At least 3 of 4 character types or 16+ characters'),
+          NO_WHITESPACE: t('accountPortal.pwdRuleNoWhitespace', 'No spaces or whitespace characters'),
+          CONTAINS_PERSONAL: t('accountPortal.pwdRulePersonal', 'Does not contain your username or email'),
+          SEQUENCE: t('accountPortal.pwdRuleSequence', 'No 4+ repeated or sequential characters'),
+          COMMON: t('accountPortal.pwdRuleCommon', 'This password is too common - please choose a stronger one'),
+          PWNED: t('accountPortal.pwdRulePwnedWarn', 'This password appeared in data breaches - choose another')
+        };
+        return data.errors.map(c => codeMap[c] || data.error).join(' | ');
+      }
+      return data.error || fallbackMsg;
+    }
 
     function setAuthMode(mode) {
       currentAuthMode = mode;
@@ -956,19 +1323,21 @@
       btn.disabled = true;
       btn.textContent = 'Sending...';
       try {
+        const language = window.fsI18n ? window.fsI18n.getCurrentLanguage() : 'en';
         const res = await fetch('/api/otp/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, purpose: 'register' })
+          body: JSON.stringify({ email, purpose: 'register', language })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to send code');
+        verifiedOtpCache = null;
         document.getElementById('regOtpGroup').style.display = 'block';
         showAlert('6-digit verification code sent to your email.', true);
-        btn.textContent = 'Resend';
+        btn.textContent = t('accountPortal.btnResendCode', 'Resend');
       } catch (err) {
         showAlert(err.message, false);
-        btn.textContent = 'Send Code';
+        btn.textContent = t('accountPortal.btnSendCode', 'Send Code');
       } finally {
         btn.disabled = false;
       }
@@ -981,6 +1350,12 @@
       const password = document.getElementById('regPassword').value;
       const confirmPassword = document.getElementById('regConfirmPassword').value;
       const otpCode = document.getElementById('regOtpCode').value.trim();
+
+      const localEval = evaluateLocalPasswordRules(password, username, email);
+      if (!localEval.allLocalOk || isCurrentPasswordPwned) {
+        updatePasswordUi();
+        return;
+      }
 
       if (password !== confirmPassword) {
         showAlert('Passwords do not match.', false);
@@ -996,22 +1371,33 @@
       submitBtn.textContent = 'Creating Account...';
 
       try {
-        const vRes = await fetch('/api/otp/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code: otpCode, purpose: 'register' })
-        });
-        const vData = await vRes.json();
-        if (!vRes.ok) throw new Error(vData.error || 'Invalid OTP code');
+        let otpToken = null;
+        if (verifiedOtpCache && verifiedOtpCache.email === email && verifiedOtpCache.code === otpCode && verifiedOtpCache.token) {
+          otpToken = verifiedOtpCache.token;
+        } else {
+          const vRes = await fetch('/api/otp/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code: otpCode, purpose: 'register' })
+          });
+          const vData = await vRes.json();
+          if (!vRes.ok) throw new Error(vData.error || 'Invalid OTP code');
+          otpToken = vData.token;
+          verifiedOtpCache = { email, code: otpCode, token: otpToken };
+        }
 
+        const language = window.fsI18n ? window.fsI18n.getCurrentLanguage() : 'en';
         const regRes = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, username, password, otpToken: vData.token })
+          body: JSON.stringify({ email, username, password, otpToken, language })
         });
         const regData = await regRes.json();
-        if (!regRes.ok) throw new Error(regData.error || 'Registration failed');
+        if (!regRes.ok) {
+          throw new Error(formatServerAuthError(regData, 'Registration failed'));
+        }
 
+        verifiedOtpCache = null;
         currentToken = regData.token;
         localStorage.setItem('fs_auth_token', currentToken);
         showAlert('Account successfully registered.', true);
@@ -1019,8 +1405,8 @@
       } catch (err) {
         showAlert(err.message, false);
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Create Account';
+        updatePasswordUi();
+        submitBtn.textContent = t('accountPortal.btnRegister', 'Create Account');
       }
     }
 
@@ -1444,6 +1830,20 @@
       const delAccOtpBtn = document.getElementById('delAccOtpBtn');
       if (delAccOtpBtn) delAccOtpBtn.addEventListener('click', sendDeleteAccountOtp);
 
+      // Live password checklist & personal info listeners
+      const regPwd = document.getElementById('regPassword');
+      if (regPwd) regPwd.addEventListener('input', handleRegPasswordInput);
+
+      const regUser = document.getElementById('regUsername');
+      if (regUser) regUser.addEventListener('input', updatePasswordUi);
+
+      const regEmail = document.getElementById('regEmail');
+      if (regEmail) regEmail.addEventListener('input', updatePasswordUi);
+
+      window.addEventListener('fs_language_changed', () => {
+        updatePasswordUi();
+      });
+
       // Sidebar menu
       ['overview', 'fleet', 'vault', 'security', 'danger'].forEach(id => {
         const btn = document.getElementById(`menu-${id}`);
@@ -1493,10 +1893,15 @@
 
     // Init
     bindConsoleEvents();
+    updatePasswordUi();
     if (currentToken) {
       loadUserProfile();
     } else {
       showUnauthenticatedView();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('forgot') === '1' && !isForgotPasswordOpen) {
+        toggleForgotPassword();
+      }
     }
   </script>
 </body>

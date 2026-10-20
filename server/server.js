@@ -132,10 +132,12 @@ app.get('/embed.js', (req, res) => {
 // ─── 7. Static Assets & Pages ───────────────────────────────────────────────
 app.use(
   express.static(PUBLIC_DIR, {
-    setHeaders: (res, path) => {
-      if (path.endsWith('.apk') || path.endsWith('.zip')) {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.zip')) {
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+      } else if (filePath.endsWith('.apk')) {
         res.setHeader('Cache-Control', 'public, max-age=86400');
-      } else if (path.endsWith('.js') || path.endsWith('.css')) {
+      } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
         res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
       } else {
         res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -157,24 +159,28 @@ app.get('/features', (req, res) => sendStaticPage(res, 'features.html'));
 app.get('/account', (req, res) => sendStaticPage(res, 'account.html'));
 app.get('/admin', (req, res) => sendStaticPage(res, 'admin.html'));
 app.get('/reset-password', (req, res) => sendStaticPage(res, 'reset-password.html'));
+app.get('/restore-account', (req, res) => sendStaticPage(res, 'restore-account.html'));
 app.get('/imprint', (req, res) => sendStaticPage(res, 'imprint.html'));
 app.get('/legal', (req, res) => sendStaticPage(res, 'legal.html'));
 app.get('/terms', (req, res) => sendStaticPage(res, 'terms.html'));
 
 // Named download endpoints
 app.get('/download/chrome', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   const file = fs.existsSync(path.join(PUBLIC_DIR, 'FlakeSecure_chrome-v2.0.3.zip'))
     ? 'FlakeSecure_chrome-v2.0.3.zip'
     : 'browser-extension.zip';
   res.download(path.join(PUBLIC_DIR, file), 'FlakeSecure_chrome-v2.0.3.zip');
 });
 app.get('/download/firefox', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   const file = fs.existsSync(path.join(PUBLIC_DIR, 'FlakeSecure_firefox-v2.0.3.zip'))
     ? 'FlakeSecure_firefox-v2.0.3.zip'
     : 'browser-extension-firefox.zip';
   res.download(path.join(PUBLIC_DIR, file), 'FlakeSecure_firefox-v2.0.3.zip');
 });
 app.get('/download/android', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   const apkPath = path.join(PUBLIC_DIR, 'FlakeSecure_android-v2.0.3.apk');
   const legacyApkPath = path.join(PUBLIC_DIR, 'FlakeSecure_v2-0-2.apk');
   if (fs.existsSync(apkPath)) {
@@ -194,6 +200,7 @@ app.get(['/privacy', '/datenschutz', '/legal.html', '/privacy.html'], (req, res)
 app.get(['/agb', '/tos', '/terms.html'], (req, res) => res.redirect(301, '/terms'));
 app.get('/index.html', (req, res) => res.redirect(301, '/'));
 app.get('/account.html', (req, res) => res.redirect(301, '/account'));
+app.get('/restore-account.html', (req, res) => res.redirect(301, '/restore-account'));
 
 // SEO & Metadata Assets
 app.get('/robots.txt', (req, res) => res.type('text/plain').sendFile('robots.txt', { root: PUBLIC_DIR }));
@@ -286,9 +293,11 @@ function scheduleBackgroundCleanups() {
     try {
       await db.query("DELETE FROM shared_payloads WHERE created_at < NOW() - INTERVAL '10 minutes'");
       await db.query("DELETE FROM login_logs WHERE created_at < NOW() - INTERVAL '90 days'");
+      await db.query("DELETE FROM otp_codes WHERE expires_at <= NOW() AND created_at < NOW() - INTERVAL '15 minutes'");
       await db.query("DELETE FROM password_resets WHERE expires_at < NOW() OR used_at IS NOT NULL");
+      await db.query("DELETE FROM account_restore_tokens WHERE expires_at < NOW() AND created_at < NOW() - INTERVAL '15 minutes'");
     } catch (err) {
-      if (err.message && err.message.includes('relation "password_resets" does not exist')) {
+      if (err.message && (err.message.includes('relation "password_resets" does not exist') || err.message.includes('relation "account_restore_tokens" does not exist'))) {
         try {
           await db.query(`
             CREATE TABLE IF NOT EXISTS password_resets (
@@ -301,6 +310,17 @@ function scheduleBackgroundCleanups() {
             );
             CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets(token_hash);
             CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
+
+            CREATE TABLE IF NOT EXISTS account_restore_tokens (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+              token_hash VARCHAR(255) NOT NULL,
+              expires_at TIMESTAMPTZ NOT NULL,
+              used_at TIMESTAMPTZ DEFAULT NULL,
+              created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_account_restore_tokens_hash ON account_restore_tokens(token_hash);
+            CREATE INDEX IF NOT EXISTS idx_account_restore_tokens_user ON account_restore_tokens(user_id);
           `);
         } catch (_) {}
       } else {

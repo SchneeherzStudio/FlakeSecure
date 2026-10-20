@@ -24,6 +24,8 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { AppIcon } from '../components/CategoryIcons';
+import PasswordChecklist, { usePasswordValidation } from '../components/PasswordChecklist';
+import { formatAuthServerError } from '../utils/passwordPolicy';
 import { sendOtp, verifyOtp } from '../utils/api';
 
 export default function LoginScreen({ navigation }) {
@@ -44,6 +46,22 @@ export default function LoginScreen({ navigation }) {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedAge, setAcceptedAge] = useState(false);
+
+  const { evaluation: pwEval, pwnedState, isPasswordReady } = usePasswordValidation(
+    isRegisterMode ? password : '',
+    username,
+    email
+  );
+  const canSubmitRegister =
+    !loading &&
+    isPasswordReady &&
+    password === confirmPassword &&
+    email.trim().includes('@') &&
+    username.trim().length > 0 &&
+    otpSent &&
+    otpCode.trim().length === 6 &&
+    acceptedTerms &&
+    acceptedAge;
 
   const handleLogin = async () => {
     const cleanIdentifier = identifier.trim().toLowerCase();
@@ -75,9 +93,9 @@ export default function LoginScreen({ navigation }) {
     try {
       await sendOtp(cleanEmail, 'register');
       setOtpSent(true);
-      Alert.alert(t('success'), `OTP sent to ${cleanEmail}`);
+      Alert.alert(t('success'), t('login.otpSentAlert', { email: cleanEmail }));
     } catch (e) {
-      Alert.alert(t('error'), e.message || 'Could not send verification code.');
+      Alert.alert(t('error'), e.message || t('login.otpSendFailed'));
     } finally {
       setSendingOtp(false);
     }
@@ -86,10 +104,9 @@ export default function LoginScreen({ navigation }) {
   const handleRegister = async () => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim().toLowerCase();
-    const cleanPassword = password.trim();
     const cleanOtp = otpCode.trim();
 
-    if (!cleanEmail || !cleanUsername || !cleanPassword) {
+    if (!cleanEmail || !cleanUsername || !password) {
       Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
@@ -97,12 +114,12 @@ export default function LoginScreen({ navigation }) {
       Alert.alert(t('error'), t('onboarding.account.usernameRules'));
       return;
     }
-    if (/\s/.test(password)) {
-      Alert.alert(t('error'), t('onboarding.account.passwordNoSpaces'));
+    if (!pwEval.isValid) {
+      Alert.alert(t('error'), t('passwordPolicy.errWeakPassword'));
       return;
     }
-    if (cleanPassword.length < 8) {
-      Alert.alert(t('error'), t('onboarding.account.passwordMinLength'));
+    if (pwnedState.pwned) {
+      Alert.alert(t('error'), t('passwordPolicy.pwnedWarning', { count: pwnedState.count }));
       return;
     }
     if (password !== confirmPassword) {
@@ -129,9 +146,9 @@ export default function LoginScreen({ navigation }) {
     try {
       const verifyRes = await verifyOtp(cleanEmail, cleanOtp, 'register');
       const otpToken = verifyRes.token;
-      await register(cleanEmail, cleanUsername, cleanPassword, otpToken);
+      await register(cleanEmail, cleanUsername, password, otpToken);
     } catch (err) {
-      Alert.alert(t('error'), err.message || 'Registration failed.');
+      Alert.alert(t('error'), formatAuthServerError(err, t));
     } finally {
       setLoading(false);
     }
@@ -192,6 +209,12 @@ export default function LoginScreen({ navigation }) {
                       keyboardType="number-pad"
                       maxLength={6}
                     />
+                    <View style={[styles.otpHintRow, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+                      <AppIcon name="info" size={14} color={colors.gold} />
+                      <Text style={[styles.otpHintText, { color: colors.textSub }]}>
+                        {t('login.otpNoticeHint')}
+                      </Text>
+                    </View>
                   </View>
                 )}
 
@@ -214,6 +237,7 @@ export default function LoginScreen({ navigation }) {
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
+                    autoCapitalize="none"
                   />
                   <TouchableOpacity
                     style={styles.eyeButton}
@@ -222,6 +246,7 @@ export default function LoginScreen({ navigation }) {
                     <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
                   </TouchableOpacity>
                 </View>
+                <PasswordChecklist password={password} evaluation={pwEval} pwnedState={pwnedState} />
 
                 <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.confirmPassword')}</Text>
                 <TextInput
@@ -231,6 +256,7 @@ export default function LoginScreen({ navigation }) {
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showPassword}
+                  autoCapitalize="none"
                 />
 
                 <TouchableOpacity
@@ -240,7 +266,7 @@ export default function LoginScreen({ navigation }) {
                 >
                   <View style={[
                     styles.checkbox,
-                    { borderColor: colors.border, backgroundColor: colors.inputBg },
+                    { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
                     acceptedTerms && { backgroundColor: colors.gold, borderColor: colors.gold }
                   ]}>
                     {acceptedTerms && <AppIcon name="check" size={12} color="#ffffff" />}
@@ -257,7 +283,7 @@ export default function LoginScreen({ navigation }) {
                 >
                   <View style={[
                     styles.checkbox,
-                    { borderColor: colors.border, backgroundColor: colors.inputBg },
+                    { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
                     acceptedAge && { backgroundColor: colors.gold, borderColor: colors.gold }
                   ]}>
                     {acceptedAge && <AppIcon name="check" size={12} color="#ffffff" />}
@@ -267,7 +293,11 @@ export default function LoginScreen({ navigation }) {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.submitBtn} onPress={handleRegister} disabled={loading}>
+                <TouchableOpacity
+                  style={[styles.submitBtn, !canSubmitRegister && { opacity: 0.5 }]}
+                  onPress={handleRegister}
+                  disabled={!canSubmitRegister}
+                >
                   <LinearGradient
                     colors={colors.goldGradient}
                     start={{ x: 0, y: 0 }}
@@ -440,6 +470,21 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
     textAlign: 'center',
     fontWeight: '700',
+  },
+  otpHintRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  otpHintText: {
+    fontSize: 11,
+    lineHeight: 16,
+    flex: 1,
   },
   passwordContainer: {
     flexDirection: 'row',

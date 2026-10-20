@@ -62,6 +62,7 @@ import { syncVaultToServer } from '../utils/vault';
 import { SessionCardSkeleton, SkeletonItem } from '../components/Skeleton';
 import { TapFeedback } from '../components/TapFeedback';
 import { AppIcon } from '../components/CategoryIcons';
+import { clearFaviconCache } from '../components/FaviconImage';
 
 export default function SettingsScreen({ navigation }) {
   const { user, logout, updateUser } = useAuth();
@@ -275,6 +276,15 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
+  const handleClearIconCache = async () => {
+    try {
+      await clearFaviconCache();
+      Alert.alert(t('success'), t('settings.iconCacheCleared'));
+    } catch (e) {
+      Alert.alert(t('error'), e.message || 'Error');
+    }
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       t('settings.deleteAccount'),
@@ -330,7 +340,7 @@ export default function SettingsScreen({ navigation }) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.gold }]}>←</Text>
+          <AppIcon name="back" size={20} color={colors.gold} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.text }]}>{t('settings.title')}</Text>
       </View>
@@ -652,6 +662,13 @@ export default function SettingsScreen({ navigation }) {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <AppIcon name="user" size={15} color={colors.gold} />
               <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.shareLogins')}</Text>
+            </View>
+          </TouchableOpacity>
+          <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
+          <TouchableOpacity style={styles.dataItem} onPress={handleClearIconCache}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <AppIcon name="image" size={15} color={colors.gold} />
+              <Text style={[styles.dataItemText, { color: colors.text }]}>{t('settings.clearIconCache')}</Text>
             </View>
           </TouchableOpacity>
         </View>

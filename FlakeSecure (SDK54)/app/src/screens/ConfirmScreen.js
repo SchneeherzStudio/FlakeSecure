@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Animated, Platform
+  ActivityIndicator, Animated, Platform, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -30,6 +30,7 @@ export default function ConfirmScreen({ route, navigation }) {
   const domain = route.params?.domain || route.params?.d;
   const [state, setState] = useState('loading');
   const [credentials, setCredentials] = useState(null);
+  const [selectedAccountIndex, setSelectedAccountIndex] = useState(0);
   const [matchingTotpItem, setMatchingTotpItem] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [biometricType, setBiometricType] = useState('Biometrie');
@@ -65,6 +66,7 @@ export default function ConfirmScreen({ route, navigation }) {
     }
 
     setCredentials(found);
+    setSelectedAccountIndex(0);
     setState('ready');
   }
 
@@ -94,9 +96,12 @@ export default function ConfirmScreen({ route, navigation }) {
 
   async function sendCredentials() {
     try {
+      const accountsList = credentials?.accounts || (credentials ? [credentials] : []);
+      const selectedAccount = accountsList[selectedAccountIndex] || accountsList[0] || credentials;
+
       const encrypted = await encryptCredentials({
-        username: credentials.username,
-        password: credentials.password
+        username: selectedAccount.username,
+        password: selectedAccount.password
       }, key);
 
       const data = await sendLogin(sid, encrypted);
@@ -106,10 +111,15 @@ export default function ConfirmScreen({ route, navigation }) {
       }
 
       const totpItems = await getTotpItems();
-      const matchingTotp = totpItems.find(
-        (tItem) => (tItem.issuer || '').toLowerCase().includes(domain.toLowerCase()) ||
-               (domain.toLowerCase().includes((tItem.issuer || '').toLowerCase()))
-      );
+      const lowerDomain = (domain || '').toLowerCase();
+      const matchingTotp =
+        (selectedAccount?.id && totpItems.find((tItem) => tItem.credId === selectedAccount.id)) ||
+        totpItems.find((tItem) => tItem.domain && tItem.domain.toLowerCase() === lowerDomain) ||
+        totpItems.find(
+          (tItem) =>
+            (tItem.issuer || '').toLowerCase().includes(lowerDomain) ||
+            (lowerDomain && lowerDomain.includes((tItem.issuer || '').toLowerCase()))
+        );
 
       setState('success');
 
@@ -155,45 +165,142 @@ export default function ConfirmScreen({ route, navigation }) {
           </View>
         );
 
-      case 'ready':
+      case 'ready': {
+        const accountsList = credentials?.accounts || (credentials ? [credentials] : []);
+        const hasMultiple = accountsList.length > 1;
+        const currentAccount = accountsList[selectedAccountIndex] || accountsList[0] || credentials;
+        const singleDisplayName = currentAccount?.name
+          ? currentAccount.name
+          : (currentAccount?.hidden ? t('credentials.sharedAccount') : currentAccount?.username);
+        const singleShowUsername = currentAccount?.name && !currentAccount?.hidden;
+
         return (
-          <View style={styles.centerContent}>
-            <View style={[styles.domainCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-              <Text style={[styles.domainCardTitle, { color: colors.textMuted }]}>{t('confirm.confirmLogin')}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginVertical: 8 }}>
-                <FaviconImage domain={domain} size={28} borderRadius={6} />
-                <Text style={[styles.domainCardDomain, { color: colors.textMain }]}>{domain}</Text>
-              </View>
-              {credentials && (
-                <View style={[styles.credPreview, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
-                  <Text style={[styles.credLabel, { color: colors.textMuted }]}>{t('confirm.user')}</Text>
-                  <Text style={[styles.credValue, { color: colors.gold }]}>{credentials.username}</Text>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.centerContent}>
+              <View style={[styles.domainCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                <Text style={[styles.domainCardTitle, { color: colors.textMuted }]}>{t('confirm.confirmLogin')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginVertical: 8 }}>
+                  <FaviconImage domain={domain} size={28} borderRadius={6} />
+                  <Text style={[styles.domainCardDomain, { color: colors.textMain }]}>{domain}</Text>
                 </View>
-              )}
-            </View>
 
-            <TapFeedback
-              style={styles.confirmButton}
-              onPress={handleConfirm}
-            >
-              <LinearGradient
-                colors={colors.goldGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.confirmGradient}
+                {hasMultiple ? (
+                  <View style={{ width: '100%', marginTop: 8 }}>
+                    <Text style={[styles.selectAccountHeader, { color: colors.textMain }]}>
+                      {t('confirm.selectAccount')}
+                    </Text>
+                    <Text style={[styles.selectAccountSub, { color: colors.textMuted }]}>
+                      {t('confirm.selectAccountSub')}
+                    </Text>
+
+                    <View style={styles.accountSelectionList}>
+                      {accountsList.map((acc, idx) => {
+                        const isSelected = selectedAccountIndex === idx;
+                        const accDisplayName = acc.name
+                          ? acc.name
+                          : (acc.hidden ? t('credentials.sharedAccount') : acc.username);
+                        const showSub = acc.name && !acc.hidden;
+
+                        return (
+                          <TouchableOpacity
+                            key={acc.id || idx}
+                            style={[
+                              styles.accountSelectCard,
+                              { backgroundColor: colors.card, borderColor: colors.border },
+                              isSelected && { borderColor: colors.gold, backgroundColor: colors.goldBg }
+                            ]}
+                            onPress={() => setSelectedAccountIndex(idx)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.accountRadioCircle}>
+                              <View
+                                style={[
+                                  styles.radioOuter,
+                                  { borderColor: isSelected ? colors.gold : colors.textMuted }
+                                ]}
+                              >
+                                {isSelected && (
+                                  <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
+                                )}
+                              </View>
+                            </View>
+
+                            <View style={styles.accountSelectInfo}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text
+                                  style={[
+                                    styles.accountSelectTitle,
+                                    { color: colors.textMain },
+                                    isSelected && { fontWeight: '700' }
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {accDisplayName}
+                                </Text>
+                                {acc.hidden && (
+                                  <AppIcon name="lock" size={11} color={colors.gold} />
+                                )}
+                              </View>
+                              {showSub && (
+                                <Text style={[styles.accountSelectSubText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                  {acc.username}
+                                </Text>
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : (
+                  currentAccount && (
+                    <View style={[styles.credPreview, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+                      <Text style={[styles.credLabel, { color: colors.textMuted }]}>{t('confirm.user')}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.credValue, { color: colors.gold }]}>
+                          {singleDisplayName}
+                        </Text>
+                        {currentAccount.hidden && (
+                          <AppIcon name="lock" size={12} color={colors.gold} />
+                        )}
+                      </View>
+                      {singleShowUsername && (
+                        <Text style={[styles.credSubValue, { color: colors.textSecondary }]}>
+                          {currentAccount.username}
+                        </Text>
+                      )}
+                    </View>
+                  )
+                )}
+              </View>
+
+              <TapFeedback
+                style={styles.confirmButton}
+                onPress={handleConfirm}
               >
-                <AppIcon name="scan" size={20} color="#ffffff" />
-                <Text style={styles.confirmButtonText}>
-                  {t('confirm.confirmWith', { biometricType })}
-                </Text>
-              </LinearGradient>
-            </TapFeedback>
+                <LinearGradient
+                  colors={colors.goldGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.confirmGradient}
+                >
+                  <AppIcon name="scan" size={20} color="#ffffff" />
+                  <Text style={styles.confirmButtonText}>
+                    {t('confirm.confirmWith', { biometricType })}
+                  </Text>
+                </LinearGradient>
+              </TapFeedback>
 
-            <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.goBack()}>
-              <Text style={[styles.cancelLinkText, { color: colors.textMuted }]}>{t('cancel')}</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.goBack()}>
+                <Text style={[styles.cancelLinkText, { color: colors.textMuted }]}>{t('cancel')}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         );
+      }
 
       case 'biometrics':
         return (
@@ -316,6 +423,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     marginTop: 4,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  selectAccountHeader: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  selectAccountSub: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  accountSelectionList: {
+    gap: 8,
+    marginTop: 4,
+    width: '100%',
+  },
+  accountSelectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 8,
+    padding: 10,
+    width: '100%',
+  },
+  accountRadioCircle: {
+    marginRight: 10,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  accountSelectInfo: {
+    flex: 1,
+  },
+  accountSelectTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  accountSelectSubText: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  credSubValue: {
+    fontSize: 12,
+    marginTop: 2,
   },
   credLabel: { fontSize: 11, marginBottom: 2, textTransform: 'uppercase' },
   credValue: { fontSize: 15, fontWeight: '700' },

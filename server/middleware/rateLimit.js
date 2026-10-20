@@ -80,11 +80,53 @@ const adminLoginLimiter = rateLimit({
   }
 });
 
+// 6. User search limiter (prevents username enumeration scraping)
+const searchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // max 30 searches per 15 minutes per user/IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.user && req.user.id ? `user:${req.user.id}` : getClientIp(req)),
+  message: {
+    error: 'Too many search requests. Please try again later.',
+    code: 'SEARCH_RATE_LIMIT_EXCEEDED'
+  }
+});
+
+// 7. HIBP pwned-range proxy limiter
+const pwnedRangeLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // max 60 range checks per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getClientIp,
+  message: {
+    error: 'Too many password range checks. Please slow down.',
+    code: 'PWNED_RATE_LIMIT_EXCEEDED'
+  }
+});
+
+// 8. Favicon proxy limiter (generous for vault rendering)
+const faviconLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300, // max 300 favicon requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getClientIp,
+  message: {
+    error: 'Too many favicon requests. Please slow down.',
+    code: 'FAVICON_RATE_LIMIT_EXCEEDED'
+  }
+});
+
 module.exports = {
   globalLimiter,
   authLimiter,
   otpLimiter,
   relayLimiter,
   adminLoginLimiter,
+  searchLimiter,
+  pwnedRangeLimiter,
+  faviconLimiter,
   getClientIp
 };

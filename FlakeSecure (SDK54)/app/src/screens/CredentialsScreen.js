@@ -22,8 +22,10 @@ export default function CredentialsScreen({ route, navigation }) {
   const { colors } = useTheme();
   const prefillDomain = route.params?.prefillDomain || '';
   const [domain, setDomain] = useState(prefillDomain);
+  const [accountName, setAccountName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [notes, setNotes] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -79,13 +81,30 @@ export default function CredentialsScreen({ route, navigation }) {
 
     setSaving(true);
     try {
-      await saveCredentials(normalizedDomain, username.trim(), password, {
-        category: selectedCategory
+      const savedCred = await saveCredentials(normalizedDomain, username.trim(), password, {
+        name: accountName.trim(),
+        category: selectedCategory,
+        notes: notes.slice(0, 1000),
       });
       Alert.alert(
         t('credentials.savedTitle'),
         t('credentials.savedMsg', { domain: normalizedDomain }),
-        [{ text: t('ok'), onPress: () => navigation.goBack() }]
+        [
+          { text: t('ok'), style: 'cancel', onPress: () => navigation.goBack() },
+          {
+            text: t('credentials.add2faOfferBtn'),
+            onPress: () =>
+              navigation.replace('Authenticator', {
+                prefillAdd: {
+                  domain: normalizedDomain,
+                  credId: savedCred.id,
+                  issuer: normalizedDomain,
+                  account: accountName.trim() || username.trim(),
+                  category: selectedCategory || 'other',
+                },
+              }),
+          },
+        ]
       );
     } catch (err) {
       Alert.alert(t('error'), t('viewCredential.saveFailed', { message: err.message }));
@@ -106,15 +125,15 @@ export default function CredentialsScreen({ route, navigation }) {
               <Text style={[styles.backText, { color: colors.gold }]}>‹ {t('common.back')}</Text>
             </TouchableOpacity>
             <Text style={[styles.title, { color: colors.textMain }]}>{t('credentials.title')}</Text>
-            <Text style={[styles.subtitle, { color: colors.textSub }]}>End-to-end encrypted locally</Text>
+            <Text style={[styles.subtitle, { color: colors.textSub }]}>{t('credentials.subtitle')}</Text>
           </View>
 
           <View style={[styles.infoCard, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
             <AppIcon name="lock" size={20} color={colors.gold} />
             <View style={styles.infoText}>
-              <Text style={[styles.infoTitle, { color: colors.gold }]}>Lokale Verschlüsselung</Text>
+              <Text style={[styles.infoTitle, { color: colors.gold }]}>{t('credentials.encryptionInfoTitle')}</Text>
               <Text style={[styles.infoDesc, { color: colors.textSub }]}>
-                Deine Daten werden mit expo-secure-store im Keychain (iOS) bzw. Keystore (Android) sicher abgelegt.
+                {t('credentials.encryptionInfoDesc')}
               </Text>
             </View>
           </View>
@@ -132,7 +151,21 @@ export default function CredentialsScreen({ route, navigation }) {
                 autoCorrect={false}
                 keyboardType="url"
               />
-              <Text style={[styles.hint, { color: colors.textMuted }]}>Ohne "https://" und "www."</Text>
+              <Text style={[styles.hint, { color: colors.textMuted }]}>{t('credentials.domainHint')}</Text>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.label, { color: colors.textMuted }]}>{t('credentials.accountNameLabel')}</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
+                placeholder={t('credentials.accountNamePlaceholder')}
+                placeholderTextColor={colors.textMuted}
+                value={accountName}
+                onChangeText={setAccountName}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+              <Text style={[styles.hint, { color: colors.textMuted }]}>{t('credentials.accountNameHint')}</Text>
             </View>
 
             <View style={styles.fieldGroup}>
@@ -169,6 +202,32 @@ export default function CredentialsScreen({ route, navigation }) {
                   <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
                 </TouchableOpacity>
               </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <View style={styles.notesLabelRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppIcon name="note" size={13} color={colors.gold} />
+                  <Text style={[styles.label, { color: colors.textMuted }]}>{t('credentials.notesLabel')}</Text>
+                </View>
+                <Text style={[styles.charCounter, { color: notes.length >= 950 ? colors.gold : colors.textMuted }]}>
+                  {notes.length}/1000
+                </Text>
+              </View>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.notesInput,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain },
+                ]}
+                placeholder={t('credentials.notesPlaceholder')}
+                placeholderTextColor={colors.textMuted}
+                value={notes}
+                onChangeText={(txt) => setNotes(txt.slice(0, 1000))}
+                multiline
+                maxLength={1000}
+                textAlignVertical="top"
+              />
             </View>
 
             <View style={styles.fieldGroup}>
@@ -342,6 +401,19 @@ const styles = StyleSheet.create({
   showBtn: {
     borderWidth: 1, borderRadius: 8, width: 46, height: 46,
     alignItems: 'center', justifyContent: 'center'
+  },
+  notesLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  charCounter: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  notesInput: {
+    minHeight: 84,
+    paddingTop: 12,
   },
   categoryScroll: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   categoryChip: {

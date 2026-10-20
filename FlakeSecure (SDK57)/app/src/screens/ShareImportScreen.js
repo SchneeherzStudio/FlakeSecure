@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
-import { getAllCredentials, saveCredentials } from '../utils/storage';
+import { getAllCredentials, saveCredentials, getCredentialsForDomain, getNote } from '../utils/storage';
 import FaviconImage from '../components/FaviconImage';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
@@ -36,11 +36,13 @@ export default function ShareImportScreen({ route, navigation }) {
   const [recipient, setRecipient] = useState('');
   const [hideFromRecipient, setHideFromRecipient] = useState(false);
   const [expiresInHours, setExpiresInHours] = useState(null);
+  const [includeNotes, setIncludeNotes] = useState(mode === 'export');
   
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
 
   useEffect(() => {
+    setIncludeNotes(mode === 'export');
     if (mode === 'export' || mode === 'share') {
       loadCredentials();
     }
@@ -101,27 +103,27 @@ export default function ShareImportScreen({ route, navigation }) {
     }
   };
 
-  const toggleSelection = (domain) => {
+  const toggleSelection = (key) => {
     setSelectedCreds(prev => ({
       ...prev,
-      [domain]: !prev[domain]
+      [key]: !prev[key]
     }));
   };
 
   const selectAll = () => {
-    const allSelected = credentials.every(c => selectedCreds[c.domain]);
+    const allSelected = credentials.every(c => selectedCreds[c.id || c.domain]);
     const newSelected = {};
     if (!allSelected) {
       credentials.forEach(c => {
-        newSelected[c.domain] = true;
+        newSelected[c.id || c.domain] = true;
       });
     }
     setSelectedCreds(newSelected);
   };
 
   const handleGenerateQR = async () => {
-    const selectedDomains = Object.keys(selectedCreds).filter(d => selectedCreds[d]);
-    if (selectedDomains.length === 0) {
+    const selectedKeys = Object.keys(selectedCreds).filter(k => selectedCreds[k]);
+    if (selectedKeys.length === 0) {
       Alert.alert(t('error'), t('share.selectAtLeastOne'));
       return;
     }
@@ -134,15 +136,21 @@ export default function ShareImportScreen({ route, navigation }) {
     try {
       setLoading(true);
       const credsToExport = [];
-      for (const domain of selectedDomains) {
-        const { getCredentialsForDomain } = require('../utils/storage');
-        const cred = await getCredentialsForDomain(domain);
-        if (cred) {
-          credsToExport.push({
-            domain,
-            username: cred.username,
-            password: cred.password
-          });
+      for (const key of selectedKeys) {
+        const item = credentials.find(c => (c.id === key || c.domain === key));
+        if (item) {
+          const accounts = await getCredentialsForDomain(item.domain);
+          const fullCred = (item.id ? accounts.find(a => a.id === item.id) : null) || accounts[0];
+          if (fullCred) {
+            const noteText = includeNotes && fullCred.id ? await getNote(fullCred.id) : '';
+            credsToExport.push({
+              domain: item.domain,
+              name: fullCred.name || '',
+              username: fullCred.username,
+              password: fullCred.password,
+              ...(includeNotes && noteText ? { notes: noteText } : {}),
+            });
+          }
         }
       }
 
@@ -214,6 +222,8 @@ export default function ShareImportScreen({ route, navigation }) {
       for (const newCred of credsToImport) {
         if (newCred && newCred.domain && newCred.username) {
           await saveCredentials(newCred.domain, newCred.username, newCred.password || '', {
+            name: newCred.name || '',
+            ...(newCred.notes !== undefined ? { notes: newCred.notes } : {}),
             ...(hidden && { hidden: true }),
             ...(expiresInHours && { expiresAt: new Date(Date.now() + expiresInHours * 3600000).toISOString() }),
             sharedBy: 'shared'
@@ -276,51 +286,70 @@ export default function ShareImportScreen({ route, navigation }) {
         </View>
       )}
 
-      {mode === 'share' && (
-        <View style={[styles.shareOptions, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-          <TouchableOpacity 
-            style={styles.optionRow} 
-            onPress={() => setHideFromRecipient(!hideFromRecipient)}
-          >
-            <View style={[
-              styles.optionCheck,
-              { borderColor: colors.border, backgroundColor: colors.inputBg },
-              hideFromRecipient && { backgroundColor: colors.gold, borderColor: colors.gold }
-            ]}>
-              {hideFromRecipient && <AppIcon name="check" size={12} color="#ffffff" />}
-            </View>
-            <View style={styles.optionInfo}>
-              <Text style={[styles.optionLabel, { color: colors.textMain }]}>Recipient can't see logins</Text>
-              <Text style={[styles.optionDesc, { color: colors.textMuted }]}>Credentials will auto-fill but remain hidden</Text>
-            </View>
-          </TouchableOpacity>
+      <View style={[styles.shareOptions, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+        {mode === 'share' && (
+          <>
+            <TouchableOpacity 
+              style={styles.optionRow} 
+              onPress={() => setHideFromRecipient(!hideFromRecipient)}
+            >
+              <View style={[
+                styles.optionCheck,
+                { borderColor: colors.border, backgroundColor: colors.inputBg },
+                hideFromRecipient && { backgroundColor: colors.gold, borderColor: colors.gold }
+              ]}>
+                {hideFromRecipient && <AppIcon name="check" size={12} color="#ffffff" />}
+              </View>
+              <View style={styles.optionInfo}>
+                <Text style={[styles.optionLabel, { color: colors.textMain }]}>{t('share.hideFromRecipientLabel')}</Text>
+                <Text style={[styles.optionDesc, { color: colors.textMuted }]}>{t('share.hideFromRecipientDesc')}</Text>
+              </View>
+            </TouchableOpacity>
 
-          <View style={styles.optionRow}>
-            <Text style={[styles.optionLabel, { color: colors.textMain }]}>Auto-delete after</Text>
-            <View style={styles.expiryBtns}>
-              {[null, 1, 24, 168, 720].map(hours => (
-                <TouchableOpacity 
-                  key={hours ?? 'never'}
-                  style={[
-                    styles.expiryBtn,
-                    { backgroundColor: colors.inputBg },
-                    expiresInHours === hours && { backgroundColor: colors.gold }
-                  ]}
-                  onPress={() => setExpiresInHours(hours)}
-                >
-                  <Text style={[
-                    styles.expiryBtnText,
-                    { color: colors.textMuted },
-                    expiresInHours === hours && { color: '#ffffff', fontWeight: '800' }
-                  ]}>
-                    {hours === null ? 'Never' : hours === 1 ? '1h' : hours === 24 ? '1d' : hours === 168 ? '7d' : '30d'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.optionRow}>
+              <Text style={[styles.optionLabel, { color: colors.textMain }]}>{t('share.autoDeleteAfter')}</Text>
+              <View style={styles.expiryBtns}>
+                {[null, 1, 24, 168, 720].map(hours => (
+                  <TouchableOpacity 
+                    key={hours ?? 'never'}
+                    style={[
+                      styles.expiryBtn,
+                      { backgroundColor: colors.inputBg },
+                      expiresInHours === hours && { backgroundColor: colors.gold }
+                    ]}
+                    onPress={() => setExpiresInHours(hours)}
+                  >
+                    <Text style={[
+                      styles.expiryBtnText,
+                      { color: colors.textMuted },
+                      expiresInHours === hours && { color: '#ffffff', fontWeight: '800' }
+                    ]}>
+                      {hours === null ? t('share.expiryNever') : hours === 1 ? '1h' : hours === 24 ? '1d' : hours === 168 ? '7d' : '30d'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
+          </>
+        )}
+
+        <TouchableOpacity
+          style={styles.optionRow}
+          onPress={() => setIncludeNotes(!includeNotes)}
+        >
+          <View style={[
+            styles.optionCheck,
+            { borderColor: colors.border, backgroundColor: colors.inputBg },
+            includeNotes && { backgroundColor: colors.gold, borderColor: colors.gold }
+          ]}>
+            {includeNotes && <AppIcon name="check" size={12} color="#ffffff" />}
           </View>
-        </View>
-      )}
+          <View style={styles.optionInfo}>
+            <Text style={[styles.optionLabel, { color: colors.textMain }]}>{t('share.includeNotesLabel')}</Text>
+            <Text style={[styles.optionDesc, { color: colors.textMuted }]}>{t('share.includeNotesDesc')}</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.listHeader}>
         <Text style={[styles.label, { color: colors.textMuted }]}>Select Credentials to {mode === 'share' ? 'Share' : 'Export'}</Text>
@@ -331,25 +360,39 @@ export default function ShareImportScreen({ route, navigation }) {
       
       <ScrollView style={styles.list}>
         {credentials.map(cred => {
-          const isSelected = !!selectedCreds[cred.domain];
+          const itemKey = cred.id || cred.domain;
+          const isSelected = !!selectedCreds[itemKey];
+          const displayName = cred.name
+            ? cred.name
+            : (cred.hidden ? t('credentials.sharedAccount') : cred.username);
+          const showUsername = cred.name && !cred.hidden;
+
           return (
             <TouchableOpacity 
-              key={cred.domain} 
+              key={itemKey} 
               style={[
                 styles.credItem,
                 { backgroundColor: colors.cardBg, borderColor: colors.border },
                 isSelected && { borderColor: colors.gold, backgroundColor: colors.goldBg }
               ]}
-              onPress={() => toggleSelection(cred.domain)}
+              onPress={() => toggleSelection(itemKey)}
             >
               <FaviconImage domain={cred.domain} size={36} borderRadius={6} style={{ marginRight: 12 }} />
               <View style={styles.credInfo}>
-                <Text style={[styles.credTitle, { color: colors.textMain }]}>{cred.domain}</Text>
-                <Text style={[styles.credUsername, { color: colors.textMuted }]}>{cred.username}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.credTitle, { color: colors.textMain }]}>{cred.domain}</Text>
+                  {cred.hidden && (
+                    <AppIcon name="lock" size={11} color={colors.gold} />
+                  )}
+                </View>
+                <Text style={[styles.credUsername, { color: colors.textMuted }]}>{displayName}</Text>
+                {showUsername && (
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>{cred.username}</Text>
+                )}
               </View>
               <View style={[
                 styles.checkbox,
-                { borderColor: colors.border, backgroundColor: colors.inputBg },
+                { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
                 isSelected && { backgroundColor: colors.gold, borderColor: colors.gold }
               ]}>
                 {isSelected && <AppIcon name="check" size={12} color="#ffffff" />}
@@ -429,7 +472,7 @@ export default function ShareImportScreen({ route, navigation }) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.textMain }]}>←</Text>
+          <AppIcon name="back" size={20} color={colors.textMain} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.textMain }]}>{getTitle()}</Text>
       </View>

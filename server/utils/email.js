@@ -52,7 +52,21 @@ const EMAIL_I18N = {
     resetHeading: 'Reset Your Password',
     resetDesc: (username) => `Hello <strong>${username}</strong>,<br><br>We received a request to reset your FlakeSecure password. This link is valid for <strong>30 minutes</strong>.<br><br><strong>Zero-Knowledge Security Note:</strong><br>Your cloud vault is encrypted client-side with a key derived from your master password. Resetting your account password requires unlocking your local app to re-encrypt and synchronize your cloud vault.`,
     resetButton: 'Reset Password',
-    resetIgnore: 'If you did not request a password reset, you can safely ignore this email. Your account remains secure.'
+    resetIgnore: 'If you did not request a password reset, you can safely ignore this email. Your account remains secure.',
+
+    existsSubject: 'FlakeSecure: Account Registration Attempt Notice',
+    existsHeading: 'Account Already Exists',
+    existsDesc: (username) => `Someone tried to create a FlakeSecure account with this email. An account already exists with username <b>${username}</b>.`,
+    existsLoginBtn: 'Sign In',
+    existsResetBtn: 'Reset Password',
+    existsIgnore: 'If this was not you, you can safely ignore this email. Your account remains secure.',
+
+    restoreSubject: 'FlakeSecure: Restore Your Scheduled Account',
+    restoreHeading: 'Restore Your Account',
+    restoreDesc: (username, dateStr) => `Hello <strong>${username}</strong>,<br><br>Your account is scheduled for deletion on <strong>${dateStr}</strong>. Click below to cancel the scheduled deletion and restore your account. This link is valid for <strong>30 minutes</strong>.`,
+    restoreButton: 'Restore Account',
+    restoreSupport: (supportEmail) => `Problems? Contact support: <a href="mailto:${supportEmail}" style="color:#E8B020;text-decoration:none;">${supportEmail}</a>`,
+    restoreIgnore: 'If you did not request this, you can safely ignore this email.'
   },
   de: {
     otpSubject: (purpose) => purpose === 'register' ? 'FlakeSecure: Bestätigungscode für Registrierung' : 'FlakeSecure: Bestätigung zur Account-Löschung',
@@ -77,7 +91,21 @@ const EMAIL_I18N = {
     resetHeading: 'Passwort zurücksetzen',
     resetDesc: (username) => `Hallo <strong>${username}</strong>,<br><br>wir haben eine Anfrage zum Zurücksetzen deines FlakeSecure Passworts erhalten. Dieser Link ist <strong>30 Minuten</strong> gültig.<br><br><strong>Zero-Knowledge Sicherheitshinweis:</strong><br>Dein Cloud-Tresor ist Ende-zu-Ende mit deinem bisherigen Master-Passwort verschlüsselt. Nach dem Zurücksetzen musst du deine Mobile App öffnen, um deinen Tresor mit dem neuen Passwort neu zu verschlüsseln und zu synchronisieren.`,
     resetButton: 'Passwort jetzt zurücksetzen',
-    resetIgnore: 'Falls du diese Anfrage nicht gestellt hast, ignoriere bitte diese E-Mail. Dein Konto bleibt geschützt.'
+    resetIgnore: 'Falls du diese Anfrage nicht gestellt hast, ignoriere bitte diese E-Mail. Dein Konto bleibt geschützt.',
+
+    existsSubject: 'FlakeSecure: Hinweis zu einem Registrierungsversuch',
+    existsHeading: 'Konto existiert bereits',
+    existsDesc: (username) => `Jemand hat versucht, mit dieser E-Mail-Adresse ein FlakeSecure-Konto zu erstellen. Es existiert bereits ein Konto mit dem Benutzernamen <b>${username}</b>.`,
+    existsLoginBtn: 'Anmelden',
+    existsResetBtn: 'Passwort zurücksetzen',
+    existsIgnore: 'Falls du das nicht warst, kannst du diese E-Mail einfach ignorieren. Dein Konto bleibt geschützt.',
+
+    restoreSubject: 'FlakeSecure: Vorgemerktes Konto wiederherstellen',
+    restoreHeading: 'Konto wiederherstellen',
+    restoreDesc: (username, dateStr) => `Hallo <strong>${username}</strong>,<br><br>dein Konto ist zur Löschung am <strong>${dateStr}</strong> vorgemerkt. Klicke unten, um die Löschung abzubrechen und dein Konto wiederherzustellen. Dieser Link ist <strong>30 Minuten</strong> gültig.`,
+    restoreButton: 'Konto wiederherstellen',
+    restoreSupport: (supportEmail) => `Probleme? Schreib uns an den Support: <a href="mailto:${supportEmail}" style="color:#E8B020;text-decoration:none;">${supportEmail}</a>`,
+    restoreIgnore: 'Falls du dies nicht angefordert hast, kannst du diese E-Mail ignorieren.'
   },
   fr: {
     otpSubject: (purpose) => purpose === 'register' ? 'FlakeSecure: Code de vérification d\'e-mail' : 'FlakeSecure: Confirmer la suppression du compte',
@@ -102,7 +130,21 @@ const EMAIL_I18N = {
     resetHeading: 'Réinitialiser votre mot de passe',
     resetDesc: (username) => `Bonjour <strong>${username}</strong>,<br><br>Nous avons reçu une demande de réinitialisation de votre mot de passe FlakeSecure. Ce lien est valide pendant <strong>30 minutes</strong>.<br><br><strong>Remarque de sécurité Zero-Knowledge:</strong><br>Votre coffre est chiffré de bout en bout. Après réinitialisation, vous devrez déverrouiller votre application mobile pour ré-encrypter vos données.`,
     resetButton: 'Réinitialiser le mot de passe',
-    resetIgnore: 'Si vous n\'avez pas fait cette demande, ignorez cet e-mail en toute sécurité.'
+    resetIgnore: 'Si vous n\'avez pas fait cette demande, ignorez cet e-mail en toute sécurité.',
+
+    existsSubject: 'FlakeSecure: Avis de tentative d\'inscription',
+    existsHeading: 'Le compte existe déjà',
+    existsDesc: (username) => `Quelqu'un a essayé de créer un compte FlakeSecure avec cette adresse e-mail. Un compte existe déjà avec le nom d'utilisateur <b>${username}</b>.`,
+    existsLoginBtn: 'Se connecter',
+    existsResetBtn: 'Réinitialiser le mot de passe',
+    existsIgnore: 'Si ce n\'était pas vous, vous pouvez ignorer cet e-mail en toute sécurité.',
+
+    restoreSubject: 'FlakeSecure: Restaurer votre compte programmé pour suppression',
+    restoreHeading: 'Restaurer votre compte',
+    restoreDesc: (username, dateStr) => `Bonjour <strong>${username}</strong>,<br><br>Votre compte est programmé pour être supprimé le <strong>${dateStr}</strong>. Cliquez ci-dessous pour le restaurer. Ce lien est valide pendant <strong>30 minutes</strong>.`,
+    restoreButton: 'Restaurer le compte',
+    restoreSupport: (supportEmail) => `Des problèmes ? Contactez le support : <a href="mailto:${supportEmail}" style="color:#E8B020;text-decoration:none;">${supportEmail}</a>`,
+    restoreIgnore: 'Si vous n\'êtes pas à l\'origine de cette demande, ignorez cet e-mail.'
   },
   es: {
     otpSubject: (purpose) => purpose === 'register' ? 'FlakeSecure: Código de verificación de correo' : 'FlakeSecure: Confirmar eliminación de cuenta',
@@ -127,7 +169,21 @@ const EMAIL_I18N = {
     resetHeading: 'Restablecer contraseña',
     resetDesc: (username) => `Hola <strong>${username}</strong>,<br><br>Hemos recibido una solicitud para restablecer tu contraseña de FlakeSecure. Este enlace es válido por <strong>30 minutos</strong>.<br><br><strong>Nota de seguridad Zero-Knowledge:</strong><br>Tu bóveda está cifrada en tu dispositivo. Deberás desbloquear tu app móvil para re-sincronizarla.`,
     resetButton: 'Restablecer contraseña',
-    resetIgnore: 'Si no hiciste esta solicitud, ignora este mensaje.'
+    resetIgnore: 'Si no hiciste esta solicitud, ignora este mensaje.',
+
+    existsSubject: 'FlakeSecure: Aviso de intento de registro',
+    existsHeading: 'La cuenta ya existe',
+    existsDesc: (username) => `Alguien intentó crear una cuenta de FlakeSecure con este correo electrónico. Ya existe una cuenta con el nombre de usuario <b>${username}</b>.`,
+    existsLoginBtn: 'Iniciar sesión',
+    existsResetBtn: 'Restablecer contraseña',
+    existsIgnore: 'Si no fuiste tú, puedes ignorar este correo de forma segura.',
+
+    restoreSubject: 'FlakeSecure: Restaurar tu cuenta programada para eliminación',
+    restoreHeading: 'Restaurar tu cuenta',
+    restoreDesc: (username, dateStr) => `Hola <strong>${username}</strong>,<br><br>Tu cuenta está programada para eliminarse el <strong>${dateStr}</strong>. Haz clic abajo para restaurarla. Este enlace es válido por <strong>30 minutos</strong>.`,
+    restoreButton: 'Restaurar cuenta',
+    restoreSupport: (supportEmail) => `¿Problemas? Contacta con soporte: <a href="mailto:${supportEmail}" style="color:#E8B020;text-decoration:none;">${supportEmail}</a>`,
+    restoreIgnore: 'Si no realizaste esta solicitud, puedes ignorar este correo.'
   }
 };
 
@@ -325,9 +381,115 @@ async function sendPasswordResetEmail(email, username, resetUrl, lang = 'en') {
   return client.sendMail(mailOptions);
 }
 
+async function sendAccountExistsEmail(email, username, lang = 'en') {
+  const t = EMAIL_I18N[lang] || EMAIL_I18N.en;
+  const from = process.env.SMTP_FROM || 'FlakeSecure <snowy@snowystudio.dev>';
+  const baseUrl = process.env.BASE_URL || 'https://flakesecure.snowystudio.dev';
+  const loginUrl = `${baseUrl}/account`;
+  const resetUrl = `${baseUrl}/account?forgot=1`;
+
+  const highlightBox = `
+    <div style="text-align:center;">
+      <a href="${escapeHtml(loginUrl)}" style="display:inline-block;background:#E8B020;color:#07090e;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:700;font-size:14px;border:1px solid #C9930A;margin:4px 6px;">
+        ${t.existsLoginBtn}
+      </a>
+      <a href="${escapeHtml(resetUrl)}" style="display:inline-block;background:rgba(255,255,255,0.06);color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;font-size:14px;border:1px solid #1e293b;margin:4px 6px;">
+        ${t.existsResetBtn}
+      </a>
+    </div>
+  `;
+
+  const html = buildHtmlTemplate({
+    heading: t.existsHeading,
+    bodyContent: t.existsDesc(escapeHtml(username)),
+    highlightBox,
+    note: t.existsIgnore,
+    footerText: t.footer,
+  });
+
+  const mailOptions = {
+    from,
+    to: email,
+    subject: t.existsSubject,
+    html,
+  };
+
+  const client = getTransporter();
+  return client.sendMail(mailOptions);
+}
+
+async function sendRestoreAccountEmail(email, username, restoreUrl, lang = 'en', scheduledPurgeDate = null) {
+  const t = EMAIL_I18N[lang] || EMAIL_I18N.en;
+  const from = process.env.SMTP_FROM || 'FlakeSecure <snowy@snowystudio.dev>';
+  const supportEmail = process.env.SUPPORT_EMAIL || 'snowy@snowystudio.dev';
+
+  const purgeDateObj = scheduledPurgeDate
+    ? new Date(scheduledPurgeDate)
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  const locale = lang === 'de' ? 'de-DE' : lang === 'fr' ? 'fr-FR' : lang === 'es' ? 'es-ES' : 'en-US';
+  const dateStr = purgeDateObj.toLocaleDateString(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const highlightBox = `
+    <div style="text-align:center;">
+      <a href="${escapeHtml(restoreUrl)}" style="display:inline-block;background:#E8B020;color:#07090e;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:700;font-size:14px;border:1px solid #C9930A;">
+        ${t.restoreButton}
+      </a>
+      <p style="color:rgba(255,255,255,0.35);font-size:11px;margin-top:12px;word-break:break-all;font-family:monospace;">
+        ${escapeHtml(restoreUrl)}
+      </p>
+    </div>
+  `;
+
+  const note = `${t.restoreSupport(escapeHtml(supportEmail))}<br><br>${t.restoreIgnore}`;
+
+  const html = buildHtmlTemplate({
+    heading: t.restoreHeading,
+    bodyContent: t.restoreDesc(escapeHtml(username), escapeHtml(dateStr)),
+    highlightBox,
+    note,
+    footerText: t.footer,
+  });
+
+  const mailOptions = {
+    from,
+    to: email,
+    subject: t.restoreSubject,
+    html,
+  };
+
+  const client = getTransporter();
+  return client.sendMail(mailOptions);
+}
+
+async function sendCriticalAlertEmail(subject, details = {}) {
+  const to = process.env.ADMIN_EMAIL || process.env.SUPPORT_EMAIL;
+  if (!to || !process.env.SMTP_USER) return;
+  try {
+    const from = process.env.SMTP_FROM || 'FlakeSecure <snowy@snowystudio.dev>';
+    const html = buildHtmlTemplate({
+      heading: escapeHtml(subject || 'Critical Server Alert'),
+      bodyContent: `<pre style="white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:12px;color:#EF4444;">${escapeHtml(JSON.stringify(details, null, 2))}</pre>`,
+      highlightBox: null,
+      note: 'Automated FlakeSecure disaster recovery alert.',
+      footerText: EMAIL_I18N.en.footer,
+    });
+    const client = getTransporter();
+    await client.sendMail({ from, to, subject: `[FlakeSecure Alert] ${subject}`, html });
+  } catch (_) {}
+}
+
 module.exports = {
   sendOtpEmail,
   sendWelcomeEmail,
   sendDeletionNoticeEmail,
   sendPasswordResetEmail,
+  sendAccountExistsEmail,
+  sendRestoreAccountEmail,
+  sendCriticalAlertEmail,
+  SUPPORT_EMAIL: process.env.SUPPORT_EMAIL || 'snowy@snowystudio.dev',
 };

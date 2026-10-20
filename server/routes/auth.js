@@ -27,15 +27,26 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const argon2 = require('argon2');
 const geoip = require('geoip-lite');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware, createToken, hashToken } = require('../middleware/auth');
 const { sendPushToUser } = require('./notifications');
-const { sendWelcomeEmail } = require('../utils/email');
+const { sendWelcomeEmail, sendRestoreAccountEmail } = require('../utils/email');
+const {
+    PASSWORD_POLICY,
+    validatePassword,
+    formatPasswordErrors
+} = require('../utils/passwordPolicy');
+const { logServerEvent } = require('./admin');
 
 const router = express.Router();
+
+router.get('/password-policy', (req, res) => {
+    res.json(PASSWORD_POLICY);
+});
 
 function getCleanIp(req) {
     let ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
@@ -78,12 +89,13 @@ router.post('/register', async (req, res) => {
         return res.status(400).json({ error: 'Username can only contain lowercase letters (a-z), numbers (0-9), hyphens (-), and underscores (_)' });
     }
 
-    if (/\s/.test(password)) {
-        return res.status(400).json({ error: 'Password cannot contain spaces or whitespace characters' });
-    }
-
-    if (password.length < 8) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    const pwdCheck = await validatePassword(password, { username: cleanUsername, email: cleanEmail });
+    if (!pwdCheck.ok) {
+        return res.status(400).json({
+            error: formatPasswordErrors(pwdCheck.errors),
+            code: 'WEAK_PASSWORD',
+            errors: pwdCheck.errors
+        });
     }
 
     if (!otpToken) {
@@ -126,7 +138,18 @@ router.post('/register', async (req, res) => {
     } catch (error) {
         console.error('Register error:', error);
         if (error.code === '23505') {
-            return res.status(409).json({ error: 'Username or email already exists' });
+            const constraint = String(error.constraint || '').toLowerCase();
+            const detail = String(error.detail || '').toLowerCase();
+            if (constraint.includes('username') || detail.includes('(username)')) {
+                return res.status(409).json({
+                    error: 'Username already taken',
+                    code: 'USERNAME_TAKEN'
+                });
+            }
+            return res.status(400).json({
+                error: 'Registration failed',
+                code: 'REGISTRATION_FAILED'
+            });
         }
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -155,8 +178,8 @@ router.post('/forgot-password', async (req, res) => {
         }
 
         const user = rows[0];
-        const rawToken = require('crypto').randomBytes(32).toString('hex');
-        const tokenHash = require('crypto').createHash('sha256').update(rawToken).digest('hex');
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
         // Invalidate older unused reset tokens
         await db.query('DELETE FROM password_resets WHERE user_id = $1', [user.id]);
@@ -189,27 +212,36 @@ router.post('/reset-password', async (req, res) => {
         return res.status(400).json({ error: 'Reset token and new password are required' });
     }
 
-    if (/\s/.test(password)) {
-        return res.status(400).json({ error: 'Password cannot contain spaces or whitespace characters' });
-    }
-
-    if (password.length < 8) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
-    }
-
     try {
-        const tokenHash = require('crypto').createHash('sha256').update(token).digest('hex');
+        const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
 
-        const { rows } = await db.query(
-            'SELECT pr.id as reset_id, pr.user_id, pr.expires_at, pr.used_at, u.email, u.username FROM password_resets pr JOIN users u ON pr.user_id = u.id WHERE pr.token_hash = $1 AND pr.expires_at > NOW() AND pr.used_at IS NULL',
-            [tokenHash]
-        );
+        let resetRecord = null;
+        try {
+            const { rows } = await db.query(
+                'SELECT pr.id as reset_id, pr.user_id, pr.expires_at, pr.used_at, u.email, u.username FROM password_resets pr JOIN users u ON pr.user_id = u.id WHERE pr.token_hash = $1 AND pr.expires_at > NOW() AND pr.used_at IS NULL',
+                [tokenHash]
+            );
+            if (rows.length > 0) {
+                resetRecord = rows[0];
+            }
+        } catch (_) {}
 
-        if (rows.length === 0) {
+        const pwdCheck = await validatePassword(password, {
+            username: resetRecord?.username,
+            email: resetRecord?.email
+        });
+        if (!pwdCheck.ok) {
+            return res.status(400).json({
+                error: formatPasswordErrors(pwdCheck.errors),
+                code: 'WEAK_PASSWORD',
+                errors: pwdCheck.errors
+            });
+        }
+
+        if (!resetRecord) {
             return res.status(400).json({ error: 'Invalid or expired password reset link. Please request a new one.' });
         }
 
-        const resetRecord = rows[0];
         const newPasswordHash = await argon2.hash(password);
 
         // Update password and mark token used
@@ -237,6 +269,73 @@ router.post('/reset-password', async (req, res) => {
     }
 });
 
+router.post('/restore-account', async (req, res) => {
+    const { token } = req.body || {};
+    if (!token || typeof token !== 'string' || !token.trim()) {
+        return res.status(400).json({
+            error: 'Valid restore token is required',
+            code: 'INVALID_RESTORE_TOKEN'
+        });
+    }
+
+    try {
+        const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+        const { rows } = await db.query(
+            `SELECT art.id AS restore_id, art.user_id, u.email, u.username, u.language, u.deleted_at
+             FROM account_restore_tokens art
+             JOIN users u ON art.user_id = u.id
+             WHERE art.token_hash = $1 AND art.expires_at > NOW() AND art.used_at IS NULL`,
+            [tokenHash]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                error: 'Invalid or expired account restore link.',
+                code: 'INVALID_RESTORE_TOKEN'
+            });
+        }
+
+        const record = rows[0];
+
+        await db.query(
+            'UPDATE users SET deleted_at = NULL, scheduled_purge_at = NULL, updated_at = NOW() WHERE id = $1',
+            [record.user_id]
+        );
+
+        await db.query(
+            'UPDATE account_restore_tokens SET used_at = NOW() WHERE id = $1',
+            [record.restore_id]
+        );
+
+        const cleanIp = getCleanIp(req);
+        const deviceInfo = parseDeviceModel(req.headers, req.body?.device_info);
+        const geo = geoip.lookup(cleanIp);
+        const city = geo ? geo.city : null;
+        const region = geo ? geo.region : null;
+        const country = geo ? geo.country : null;
+
+        await db.query(
+            'INSERT INTO login_logs (user_id, ip_address, city, region, country, device_info, action, domain) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [record.user_id, cleanIp, city, region, country, deviceInfo, 'account_restored', null]
+        );
+
+        if (typeof logServerEvent === 'function') {
+            logServerEvent('info', 'ACCOUNT_RESTORED', `User ${record.username} restored their scheduled-for-deletion account.`, {
+                userId: record.user_id,
+                ip: cleanIp
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Account has been successfully restored. You can now sign in.'
+        });
+    } catch (error) {
+        console.error('Restore account error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 router.post('/login', async (req, res) => {
     let { identifier, password } = req.body;
     if (!identifier || !password) {
@@ -257,9 +356,45 @@ router.post('/login', async (req, res) => {
         }
 
         if (user.deleted_at) {
-            return res.status(403).json({
-                error: 'Dieser Account wurde zur Löschung vorgemerkt und ist deaktiviert. (30 Tage Sicherheitsfrist)'
-            });
+            // Return identical generic response to prevent account status enumeration,
+            // while dispatching a restore email in the background (rate limited max 1 per 15 min per account).
+            (async () => {
+                try {
+                    const recentCheck = await db.query(
+                        "SELECT COUNT(*) FROM account_restore_tokens WHERE user_id = $1 AND created_at > NOW() - INTERVAL '15 minutes'",
+                        [user.id]
+                    );
+                    if (parseInt(recentCheck.rows[0].count, 10) === 0) {
+                        const rawToken = crypto.randomBytes(32).toString('hex');
+                        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+                        await db.query(
+                            'UPDATE account_restore_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL',
+                            [user.id]
+                        );
+                        await db.query(
+                            "INSERT INTO account_restore_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 minutes')",
+                            [user.id, tokenHash]
+                        );
+
+                        const baseUrl = process.env.BASE_URL || 'https://flakesecure.snowystudio.dev';
+                        const restoreUrl = `${baseUrl}/restore-account?token=${rawToken}`;
+                        const lang = ['en', 'de', 'fr', 'es'].includes(user.language) ? user.language : 'en';
+
+                        await sendRestoreAccountEmail(
+                            user.email,
+                            user.username,
+                            restoreUrl,
+                            lang,
+                            user.scheduled_purge_at
+                        );
+                    }
+                } catch (bgErr) {
+                    console.error('[Auth] Restore email dispatch error:', bgErr.message);
+                }
+            })();
+
+            return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         const token = createToken(user);

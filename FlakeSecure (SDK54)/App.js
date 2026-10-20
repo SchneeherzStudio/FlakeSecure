@@ -23,7 +23,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -389,8 +389,58 @@ function AppContent() {
 
 function NavigationRoot() {
   const { colors } = useTheme();
+  const { isAuthenticated, needsBiometricUnlock } = useAuth();
+  const navigationRef = useNavigationContainerRef();
+  const [pendingOtpUri, setPendingOtpUri] = useState(null);
+  const [navReady, setNavReady] = useState(false);
+
+  useEffect(() => {
+    const handleUrl = (url) => {
+      if (
+        url &&
+        typeof url === 'string' &&
+        (url.toLowerCase().startsWith('otpauth://') ||
+          url.toLowerCase().startsWith('otpauth-migration://'))
+      ) {
+        setPendingOtpUri(url);
+      }
+    };
+
+    Linking.getInitialURL()
+      .then((initialUrl) => {
+        if (initialUrl) handleUrl(initialUrl);
+      })
+      .catch(() => {});
+
+    const sub = Linking.addEventListener('url', (event) => {
+      if (event?.url) handleUrl(event.url);
+    });
+
+    return () => {
+      if (sub && typeof sub.remove === 'function') sub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      pendingOtpUri &&
+      navReady &&
+      isAuthenticated &&
+      !needsBiometricUnlock &&
+      navigationRef.isReady()
+    ) {
+      const uriToOpen = pendingOtpUri;
+      setPendingOtpUri(null);
+      navigationRef.navigate('Authenticator', { otpauthUri: uriToOpen });
+    }
+  }, [pendingOtpUri, navReady, isAuthenticated, needsBiometricUnlock, navigationRef]);
+
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking}
+      onReady={() => setNavReady(true)}
+    >
       <StatusBar style={colors.statusBar} />
       <AppContent />
     </NavigationContainer>

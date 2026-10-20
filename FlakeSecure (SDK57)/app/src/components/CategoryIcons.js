@@ -354,6 +354,63 @@ export function AppIcon({ name, size = 18, color = '#E8B020', style }) {
           <Path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </Svg>
       );
+    case 'note':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <Polyline points="14 2 14 8 20 8" />
+          <Line x1="16" y1="13" x2="8" y2="13" />
+          <Line x1="16" y1="17" x2="8" y2="17" />
+          <Line x1="10" y1="9" x2="8" y2="9" />
+        </Svg>
+      );
+    case 'image':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <Circle cx="8.5" cy="8.5" r="1.5" />
+          <Polyline points="21 15 16 10 5 21" />
+        </Svg>
+      );
+    case 'link':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <Path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </Svg>
+      );
+    case 'clipboard':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+          <Rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+        </Svg>
+      );
+    case 'qr':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="3" y="3" width="7" height="7" rx="1" />
+          <Rect x="14" y="3" width="7" height="7" rx="1" />
+          <Rect x="3" y="14" width="7" height="7" rx="1" />
+          <Rect x="14" y="14" width="3" height="3" />
+          <Line x1="21" y1="14" x2="21" y2="14.01" />
+          <Line x1="14" y1="21" x2="14" y2="21.01" />
+          <Line x1="18" y1="18" x2="21" y2="21" />
+        </Svg>
+      );
+    case 'back':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="15 18 9 12 15 6" />
+        </Svg>
+      );
+    case 'edit':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </Svg>
+      );
     default:
       return <CategoryIcon name={name} size={size} color={color} style={style} />;
   }

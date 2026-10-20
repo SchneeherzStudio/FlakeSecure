@@ -1,24 +1,37 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Server Favicon Image Component (FaviconImage) v2.1
+ * FlakeSecure Mobile App - Server Favicon Image Component (FaviconImage) v3.0
  * ============================================================================
  * 
- * FUNCTION OVERVIEW & MULTI-TIER FALLBACK:
+ * FUNCTION OVERVIEW:
  * 
- * 1. DOMAIN & SUBDOMAIN PARSING:
- *    - Extracts clean hostname from raw URL or domain strings.
- *    - Detects if domain is a subdomain (e.g. login.ionos.de -> root: ionos.de).
+ * 1. PRIVACY-PRESERVING BACKEND PROXY + DISK CACHE (Variant C):
+ *    - Requests favicons exclusively from `${serverUrl}/api/favicon/${cleanDomain}?sz=128`.
+ *    - No direct client requests to third-party CDNs (Google / icon.horse).
+ *    - Uses `expo-image` with `cachePolicy="disk"` and `recyclingKey={cleanDomain}` for instant rendering.
  * 
- * 2. MULTI-STAGE FAVICON RESOLUTION:
- *    - Stage 0: Subdomain on Google CDN (https://www.google.com/s2/favicons?domain=login.ionos.de&sz=128)
- *    - Stage 1: Root domain on Google CDN if subdomain fails (https://www.google.com/s2/favicons?domain=ionos.de&sz=128)
- *    - Stage 2: Secondary CDN fallback (icon.horse) for root domain
- *    - Stage 3: Graceful styled local fallback badge with initial or category icon.
+ * 2. PERSISTENT MISS CACHE:
+ *    - Records 404/error misses in AsyncStorage (`favicon_miss_<domain>`) with a 7-day TTL
+ *      so known misses immediately render the initial badge without network round-trips.
+ *    - Exports `clearFaviconCache()` to purge disk/memory image caches and reset miss entries.
  * ============================================================================
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getServerUrl, DEFAULT_SERVER } from '../utils/api';
+import { useTheme } from '../context/ThemeContext';
+
+const MISS_KEY_PREFIX = 'favicon_miss_';
+const MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+// In-memory cache of resolved serverUrl and domain miss status
+let cachedServerUrl = DEFAULT_SERVER;
+let serverUrlLoaded = false;
+const memoryMissMap = new Map(); // domain -> timestamp (or false if known not-miss)
+const cacheListeners = new Set();
 
 function extractHost(domain) {
   return (domain || '')
@@ -43,58 +56,130 @@ function extractRootDomain(host) {
   return parts.slice(-2).join('.');
 }
 
+async function ensureServerUrl() {
+  if (serverUrlLoaded) return cachedServerUrl;
+  try {
+    cachedServerUrl = await getServerUrl();
+    serverUrlLoaded = true;
+  } catch {}
+  return cachedServerUrl;
+}
+
+async function isDomainMarkedMiss(cleanDomain) {
+  if (!cleanDomain) return true;
+  if (memoryMissMap.has(cleanDomain)) {
+    const ts = memoryMissMap.get(cleanDomain);
+    if (!ts) return false;
+    if (Date.now() - ts < MISS_TTL_MS) return true;
+    memoryMissMap.delete(cleanDomain);
+  }
+  try {
+    const raw = await AsyncStorage.getItem(`${MISS_KEY_PREFIX}${cleanDomain}`);
+    if (!raw) {
+      memoryMissMap.set(cleanDomain, 0);
+      return false;
+    }
+    const ts = Number(raw) || 0;
+    if (Date.now() - ts < MISS_TTL_MS) {
+      memoryMissMap.set(cleanDomain, ts);
+      return true;
+    }
+    await AsyncStorage.removeItem(`${MISS_KEY_PREFIX}${cleanDomain}`);
+    memoryMissMap.set(cleanDomain, 0);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function markDomainMiss(cleanDomain) {
+  if (!cleanDomain) return;
+  const now = Date.now();
+  memoryMissMap.set(cleanDomain, now);
+  try {
+    await AsyncStorage.setItem(`${MISS_KEY_PREFIX}${cleanDomain}`, String(now));
+  } catch {}
+}
+
+export async function clearFaviconCache() {
+  memoryMissMap.clear();
+  try {
+    await Image.clearDiskCache();
+  } catch {}
+  try {
+    await Image.clearMemoryCache();
+  } catch {}
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const missKeys = allKeys.filter((k) => k.startsWith(MISS_KEY_PREFIX));
+    if (missKeys.length > 0) {
+      await AsyncStorage.multiRemove(missKeys);
+    }
+  } catch {}
+  cacheListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {}
+  });
+}
+
 export default function FaviconImage({
   domain = '',
   size = 36,
   style,
   fallbackIcon = null,
-  fallbackBg = 'rgba(232, 176, 32, 0.15)',
-  fallbackTextColor = '#E8B020',
+  fallbackBg,
+  fallbackTextColor,
   borderRadius = 8,
 }) {
+  const { colors } = useTheme();
   const cleanDomain = extractHost(domain);
   const rootDomain = extractRootDomain(cleanDomain);
-  const hasSubdomain = cleanDomain && rootDomain && cleanDomain !== rootDomain;
 
-  // Stages: 0 = exact domain Google, 1 = root domain Google (if subdomain), 2 = IconHorse, 3 = failed
-  const [stage, setStage] = useState(0);
+  const resolvedFallbackBg = fallbackBg || colors.goldBg || 'rgba(232, 176, 32, 0.15)';
+  const resolvedFallbackText = fallbackTextColor || colors.gold || '#E8B020';
+
+  const [serverBase, setServerBase] = useState(cachedServerUrl);
+  const [failed, setFailed] = useState(() => {
+    if (!cleanDomain) return true;
+    const mem = memoryMissMap.get(cleanDomain);
+    return !!(mem && Date.now() - mem < MISS_TTL_MS);
+  });
+  const [cacheVersion, setCacheVersion] = useState(0);
 
   useEffect(() => {
-    setStage(0);
-  }, [domain]);
+    let active = true;
+    ensureServerUrl().then((url) => {
+      if (active && url !== serverBase) setServerBase(url);
+    });
+    isDomainMarkedMiss(cleanDomain).then((miss) => {
+      if (active) setFailed(miss);
+    });
 
-  const getSourceUri = () => {
-    const iconSize = size >= 40 ? 128 : 64;
-    if (stage === 0) {
-      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(cleanDomain)}&sz=${iconSize}`;
-    }
-    if (stage === 1 && hasSubdomain) {
-      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(rootDomain)}&sz=${iconSize}`;
-    }
-    if (stage === 2) {
-      return `https://icon.horse/icon/${encodeURIComponent(rootDomain || cleanDomain)}`;
-    }
-    return null;
-  };
-
-  const handleImageError = () => {
-    if (stage === 0) {
-      if (hasSubdomain) {
-        setStage(1); // Try root domain
-      } else {
-        setStage(2); // Try secondary provider
+    const onClear = () => {
+      if (active) {
+        setFailed(false);
+        setCacheVersion((v) => v + 1);
       }
-    } else if (stage === 1) {
-      setStage(2); // Try secondary provider
-    } else {
-      setStage(3); // All stages failed -> render fallback
-    }
-  };
+    };
+    cacheListeners.add(onClear);
+    return () => {
+      active = false;
+      cacheListeners.delete(onClear);
+    };
+  }, [cleanDomain, serverBase]);
 
-  const initial = (rootDomain || cleanDomain) ? (rootDomain || cleanDomain).charAt(0).toUpperCase() : '?';
-  const uri = cleanDomain && stage < 3 ? getSourceUri() : null;
+  const initial = (rootDomain || cleanDomain)
+    ? (rootDomain || cleanDomain).charAt(0).toUpperCase()
+    : '?';
 
-  if (!cleanDomain || !uri || stage >= 3) {
+  const iconSize = size >= 40 ? 128 : 64;
+  const uri =
+    cleanDomain && !failed
+      ? `${serverBase}/api/favicon/${encodeURIComponent(cleanDomain)}?sz=${iconSize}`
+      : null;
+
+  if (!cleanDomain || !uri || failed) {
     return (
       <View
         style={[
@@ -102,19 +187,20 @@ export default function FaviconImage({
           {
             width: size,
             height: size,
-            borderRadius: borderRadius,
-            backgroundColor: fallbackBg,
+            borderRadius,
+            backgroundColor: resolvedFallbackBg,
+            borderColor: colors.border || 'rgba(255, 255, 255, 0.08)',
           },
           style,
         ]}
       >
         {fallbackIcon ? (
-          <Text style={{ fontSize: size * 0.48 }}>{fallbackIcon}</Text>
+          <Text style={{ fontSize: size * 0.48, color: resolvedFallbackText }}>{fallbackIcon}</Text>
         ) : (
           <Text
             style={[
               styles.initialText,
-              { fontSize: Math.max(12, size * 0.45), color: fallbackTextColor },
+              { fontSize: Math.max(12, size * 0.45), color: resolvedFallbackText },
             ]}
           >
             {initial}
@@ -131,22 +217,29 @@ export default function FaviconImage({
         {
           width: size,
           height: size,
-          borderRadius: borderRadius,
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          borderRadius,
+          backgroundColor: colors.inputBg || 'rgba(255, 255, 255, 0.08)',
+          borderColor: colors.border || 'rgba(255, 255, 255, 0.08)',
         },
         style,
       ]}
     >
       <Image
-        key={`${cleanDomain}-${stage}`}
+        key={`${cleanDomain}-${cacheVersion}`}
+        recyclingKey={cleanDomain}
         source={{ uri }}
+        cachePolicy="disk"
+        contentFit="contain"
+        transition={120}
         style={{
           width: size * 0.68,
           height: size * 0.68,
           borderRadius: Math.max(4, borderRadius - 4),
         }}
-        resizeMode="contain"
-        onError={handleImageError}
+        onError={() => {
+          setFailed(true);
+          markDomainMiss(cleanDomain);
+        }}
       />
     </View>
   );
@@ -158,7 +251,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   initialText: {
     fontWeight: '800',

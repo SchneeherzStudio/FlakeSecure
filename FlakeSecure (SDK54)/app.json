@@ -14,7 +14,12 @@
       "bundleIdentifier": "com.snowy.studio.FlakeSecure",
       "associatedDomains": ["applinks:flakesecure.snowystudio.dev"],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["flakesecure", "otpauth", "otpauth-migration"]
+          }
+        ]
       }
     },
     "android": {
@@ -40,6 +45,12 @@
             },
             {
               "scheme": "flakesecure"
+            },
+            {
+              "scheme": "otpauth"
+            },
+            {
+              "scheme": "otpauth-migration"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
