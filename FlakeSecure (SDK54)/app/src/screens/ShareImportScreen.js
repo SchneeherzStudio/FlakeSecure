@@ -1,55 +1,75 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Credential Sharing & Device Import (ShareImportScreen)
+ * FlakeSecure Mobile App - Credential & Code Sharing / Device Import
+ * (ShareImportScreen) v2.1.0
  * ============================================================================
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
-import { getAllCredentials, saveCredentials, getCredentialsForDomain, getNote } from '../utils/storage';
+import {
+  getAllCredentials,
+  saveCredentials,
+  getCredentialsForDomain,
+  getNote,
+  getCodes,
+  saveCode,
+  CODE_CATEGORIES,
+} from '../utils/storage';
 import FaviconImage from '../components/FaviconImage';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
 import { encryptCredentials, decryptCredentials, bytesToHex } from '../utils/crypto';
 import * as ExpoCrypto from 'expo-crypto';
 import { getServerUrl } from '../utils/api';
-import { AppIcon } from '../components/CategoryIcons';
+import { AppIcon, CategoryIcon } from '../components/CategoryIcons';
 
 export default function ShareImportScreen({ route, navigation }) {
   const { t } = useLanguage();
   const { colors, isDark } = useTheme();
   const { mode } = route.params || { mode: 'import' };
-  const { user } = useAuth();
-  
+  const preselectCodeId = route.params?.preselectCodeId || null;
+  const { isOfflineMode } = useAuth();
+  const toast = useToast();
+
   const [credentials, setCredentials] = useState([]);
+  const [codes, setCodes] = useState([]);
   const [selectedCreds, setSelectedCreds] = useState({});
+  const [selectedCodes, setSelectedCodes] = useState({});
   const [loading, setLoading] = useState(false);
   const [qrData, setQrData] = useState(null);
   const [activeSid, setActiveSid] = useState(null);
-  
+
   const [recipient, setRecipient] = useState('');
   const [hideFromRecipient, setHideFromRecipient] = useState(false);
   const [expiresInHours, setExpiresInHours] = useState(null);
   const [includeNotes, setIncludeNotes] = useState(mode === 'export');
-  
+
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
 
   useEffect(() => {
     setIncludeNotes(mode === 'export');
     if (mode === 'export' || mode === 'share') {
-      loadCredentials();
+      loadShareableItems();
     }
     if (route.params?.sid && route.params?.key) {
       processImportPayload(route.params.sid, route.params.key);
     }
   }, [mode, route.params]);
+
+  useEffect(() => {
+    if (preselectCodeId) {
+      setSelectedCodes((prev) => ({ ...prev, [preselectCodeId]: true }));
+    }
+  }, [preselectCodeId]);
 
   useEffect(() => {
     if (!activeSid || !qrData) return;
@@ -67,22 +87,21 @@ export default function ShareImportScreen({ route, navigation }) {
           if (isMounted) {
             setQrData(null);
             setActiveSid(null);
-            Alert.alert(
+            toast.success(
               t('success'),
-              mode === 'share' ? t('share.shareSuccessAlert') : t('share.exportSuccessAlert'),
-              [{ text: t('ok'), onPress: () => navigation.goBack() }]
+              mode === 'share' ? t('share.shareSuccessAlert') : t('share.exportSuccessAlert')
             );
+            setTimeout(() => navigation.goBack(), 900);
           }
         } else if (data.status === 'expired') {
           clearInterval(interval);
           if (isMounted) {
             setQrData(null);
             setActiveSid(null);
-            Alert.alert(t('error'), t('share.exportFailedAlert'));
+            toast.error(t('error'), t('share.exportFailedAlert'));
           }
         }
-      } catch (err) {
-      }
+      } catch (err) {}
     }, 1500);
 
     return () => {
@@ -91,59 +110,89 @@ export default function ShareImportScreen({ route, navigation }) {
     };
   }, [activeSid, qrData, mode, navigation]);
 
-  const loadCredentials = async () => {
+  const loadShareableItems = async () => {
     try {
       setLoading(true);
-      const creds = await getAllCredentials();
-      setCredentials(creds);
+      const [creds, storedCodes] = await Promise.all([
+        getAllCredentials(),
+        getCodes(),
+      ]);
+      setCredentials(creds || []);
+      setCodes(storedCodes || []);
     } catch (error) {
-      Alert.alert(t('error'), 'Failed to load credentials');
+      toast.error(t('error'), 'Failed to load vault items');
     } finally {
       setLoading(false);
     }
   };
 
   const toggleSelection = (key) => {
-    setSelectedCreds(prev => ({
+    setSelectedCreds((prev) => ({
       ...prev,
-      [key]: !prev[key]
+      [key]: !prev[key],
+    }));
+  };
+
+  const toggleCodeSelection = (id) => {
+    setSelectedCodes((prev) => ({
+      ...prev,
+      [id]: !prev[id],
     }));
   };
 
   const selectAll = () => {
-    const allSelected = credentials.every(c => selectedCreds[c.id || c.domain]);
-    const newSelected = {};
+    const allCredsSelected =
+      credentials.length === 0 || credentials.every((c) => selectedCreds[c.id || c.domain]);
+    const allCodesSelected =
+      codes.length === 0 || codes.every((c) => selectedCodes[c.id]);
+    const allSelected = allCredsSelected && allCodesSelected;
+
+    const newSelectedCreds = {};
+    const newSelectedCodes = {};
     if (!allSelected) {
-      credentials.forEach(c => {
-        newSelected[c.id || c.domain] = true;
+      credentials.forEach((c) => {
+        newSelectedCreds[c.id || c.domain] = true;
+      });
+      codes.forEach((c) => {
+        newSelectedCodes[c.id] = true;
       });
     }
-    setSelectedCreds(newSelected);
+    setSelectedCreds(newSelectedCreds);
+    setSelectedCodes(newSelectedCodes);
   };
 
   const handleGenerateQR = async () => {
-    const selectedKeys = Object.keys(selectedCreds).filter(k => selectedCreds[k]);
-    if (selectedKeys.length === 0) {
-      Alert.alert(t('error'), t('share.selectAtLeastOne'));
+    if (isOfflineMode) {
+      toast.warn(t('offline.actionRequiresOnlineTitle'), t('offline.shareRequiresOnline'));
+      return;
+    }
+
+    const selectedCredKeys = Object.keys(selectedCreds).filter((k) => selectedCreds[k]);
+    const selectedCodeIds = Object.keys(selectedCodes).filter((k) => selectedCodes[k]);
+
+    if (selectedCredKeys.length === 0 && selectedCodeIds.length === 0) {
+      toast.warn(t('error'), t('share.selectAtLeastOne'));
       return;
     }
 
     if (mode === 'share' && !recipient.trim()) {
-      Alert.alert(t('error'), t('share.enterRecipient'));
+      toast.warn(t('error'), t('share.enterRecipient'));
       return;
     }
 
     try {
       setLoading(true);
-      const credsToExport = [];
-      for (const key of selectedKeys) {
-        const item = credentials.find(c => (c.id === key || c.domain === key));
+      const itemsToExport = [];
+
+      for (const key of selectedCredKeys) {
+        const item = credentials.find((c) => c.id === key || c.domain === key);
         if (item) {
           const accounts = await getCredentialsForDomain(item.domain);
-          const fullCred = (item.id ? accounts.find(a => a.id === item.id) : null) || accounts[0];
+          const fullCred = (item.id ? accounts.find((a) => a.id === item.id) : null) || accounts[0];
           if (fullCred) {
             const noteText = includeNotes && fullCred.id ? await getNote(fullCred.id) : '';
-            credsToExport.push({
+            itemsToExport.push({
+              itemType: 'login',
               domain: item.domain,
               name: fullCred.name || '',
               username: fullCred.username,
@@ -154,25 +203,39 @@ export default function ShareImportScreen({ route, navigation }) {
         }
       }
 
+      for (const codeId of selectedCodeIds) {
+        const codeObj = codes.find((c) => c.id === codeId);
+        if (codeObj) {
+          itemsToExport.push({
+            itemType: 'code',
+            label: codeObj.label,
+            codeValue: codeObj.codeValue,
+            category: codeObj.category || 'door',
+            location: codeObj.location || '',
+            ...(includeNotes && codeObj.notes ? { notes: codeObj.notes } : {}),
+          });
+        }
+      }
+
       const randomKey = await ExpoCrypto.getRandomBytesAsync(32);
       const keyHex = bytesToHex(randomKey);
 
       const randomSid = await ExpoCrypto.getRandomBytesAsync(16);
       const sid = bytesToHex(randomSid);
 
-      const encrypted = await encryptCredentials(credsToExport, keyHex);
+      const encrypted = await encryptCredentials(itemsToExport, keyHex);
 
       const serverUrl = await getServerUrl();
       const response = await fetch(`${serverUrl}/api/share/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          sid, 
-          payload: encrypted, 
+        body: JSON.stringify({
+          sid,
+          payload: encrypted,
           recipient: mode === 'share' ? recipient.trim().toLowerCase() : undefined,
           hidden: mode === 'share' ? hideFromRecipient : false,
-          expiresInHours: mode === 'share' ? expiresInHours : null
-        })
+          expiresInHours: mode === 'share' ? expiresInHours : null,
+        }),
       });
 
       if (!response.ok) {
@@ -184,13 +247,18 @@ export default function ShareImportScreen({ route, navigation }) {
       setQrData(qrPayload);
       setActiveSid(sid);
     } catch (error) {
-      Alert.alert(t('error'), error.message || 'Failed to create share package');
+      toast.error(t('error'), error.message || 'Failed to create share package');
     } finally {
       setLoading(false);
     }
   };
 
   const processImportPayload = async (sid, keyHex) => {
+    if (isOfflineMode) {
+      toast.warn(t('offline.actionRequiresOnlineTitle'), t('offline.shareRequiresOnline'));
+      return;
+    }
+
     try {
       setLoading(true);
       const serverUrl = await getServerUrl();
@@ -199,43 +267,52 @@ export default function ShareImportScreen({ route, navigation }) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to fetch shared data (code expired or already used)');
       }
-      
+
       let { payload: payloadRaw, hidden, expiresInHours } = await response.json();
       if (typeof payloadRaw === 'string') {
         try {
           payloadRaw = JSON.parse(payloadRaw);
-        } catch (e) {
-        }
+        } catch (e) {}
       }
       const decryptedJson = await decryptCredentials(payloadRaw, keyHex);
-      let credsToImport = JSON.parse(decryptedJson);
+      let itemsToImport = JSON.parse(decryptedJson);
 
-      if (typeof credsToImport === 'string') {
-        credsToImport = JSON.parse(credsToImport);
+      if (typeof itemsToImport === 'string') {
+        itemsToImport = JSON.parse(itemsToImport);
       }
-      if (!Array.isArray(credsToImport)) {
-        credsToImport = [credsToImport];
+      if (!Array.isArray(itemsToImport)) {
+        itemsToImport = [itemsToImport];
       }
 
       let savedCount = 0;
 
-      for (const newCred of credsToImport) {
-        if (newCred && newCred.domain && newCred.username) {
-          await saveCredentials(newCred.domain, newCred.username, newCred.password || '', {
-            name: newCred.name || '',
-            ...(newCred.notes !== undefined ? { notes: newCred.notes } : {}),
+      for (const item of itemsToImport) {
+        if (!item) continue;
+        if (item.itemType === 'code' || (item.codeValue && item.label)) {
+          await saveCode({
+            label: item.label || 'Code',
+            codeValue: item.codeValue || '',
+            category: item.category || 'door',
+            location: item.location || '',
+            notes: item.notes || '',
+          });
+          savedCount++;
+        } else if (item.domain && item.username) {
+          await saveCredentials(item.domain, item.username, item.password || '', {
+            name: item.name || '',
+            ...(item.notes !== undefined ? { notes: item.notes } : {}),
             ...(hidden && { hidden: true }),
             ...(expiresInHours && { expiresAt: new Date(Date.now() + expiresInHours * 3600000).toISOString() }),
-            sharedBy: 'shared'
+            sharedBy: 'shared',
           });
           savedCount++;
         }
       }
 
-      Alert.alert('Import Successful', `Successfully imported ${savedCount} credential${savedCount === 1 ? '' : 's'}.`);
-      setTimeout(() => navigation.navigate('Home'), 1500);
+      toast.success(t('success'), `Successfully imported ${savedCount} item${savedCount === 1 ? '' : 's'}.`);
+      setTimeout(() => navigation.navigate('Home'), 1200);
     } catch (error) {
-      Alert.alert('Import Error', error.message || 'Failed to process import data');
+      toast.error(t('error'), error.message || 'Failed to process import data');
     } finally {
       setLoading(false);
       setScanned(false);
@@ -260,11 +337,11 @@ export default function ShareImportScreen({ route, navigation }) {
       if (sid && keyHex) {
         await processImportPayload(sid, keyHex);
       } else {
-        Alert.alert('Invalid QR', 'This QR code is not valid for FlakeSecure imports.');
+        toast.warn(t('error'), 'This QR code is not valid for FlakeSecure imports.');
         setScanned(false);
       }
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to process QR code');
+      toast.error(t('error'), error.message || 'Failed to process QR code');
       setScanned(false);
     }
   };
@@ -289,15 +366,17 @@ export default function ShareImportScreen({ route, navigation }) {
       <View style={[styles.shareOptions, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
         {mode === 'share' && (
           <>
-            <TouchableOpacity 
-              style={styles.optionRow} 
+            <TouchableOpacity
+              style={styles.optionRow}
               onPress={() => setHideFromRecipient(!hideFromRecipient)}
             >
-              <View style={[
-                styles.optionCheck,
-                { borderColor: colors.border, backgroundColor: colors.inputBg },
-                hideFromRecipient && { backgroundColor: colors.gold, borderColor: colors.gold }
-              ]}>
+              <View
+                style={[
+                  styles.optionCheck,
+                  { borderColor: colors.border, backgroundColor: colors.inputBg },
+                  hideFromRecipient && { backgroundColor: colors.gold, borderColor: colors.gold },
+                ]}
+              >
                 {hideFromRecipient && <AppIcon name="check" size={12} color="#ffffff" />}
               </View>
               <View style={styles.optionInfo}>
@@ -309,21 +388,23 @@ export default function ShareImportScreen({ route, navigation }) {
             <View style={styles.optionRow}>
               <Text style={[styles.optionLabel, { color: colors.textMain }]}>{t('share.autoDeleteAfter')}</Text>
               <View style={styles.expiryBtns}>
-                {[null, 1, 24, 168, 720].map(hours => (
-                  <TouchableOpacity 
+                {[null, 1, 24, 168, 720].map((hours) => (
+                  <TouchableOpacity
                     key={hours ?? 'never'}
                     style={[
                       styles.expiryBtn,
                       { backgroundColor: colors.inputBg },
-                      expiresInHours === hours && { backgroundColor: colors.gold }
+                      expiresInHours === hours && { backgroundColor: colors.gold },
                     ]}
                     onPress={() => setExpiresInHours(hours)}
                   >
-                    <Text style={[
-                      styles.expiryBtnText,
-                      { color: colors.textMuted },
-                      expiresInHours === hours && { color: '#ffffff', fontWeight: '800' }
-                    ]}>
+                    <Text
+                      style={[
+                        styles.expiryBtnText,
+                        { color: colors.textMuted },
+                        expiresInHours === hours && { color: '#ffffff', fontWeight: '800' },
+                      ]}
+                    >
                       {hours === null ? t('share.expiryNever') : hours === 1 ? '1h' : hours === 24 ? '1d' : hours === 168 ? '7d' : '30d'}
                     </Text>
                   </TouchableOpacity>
@@ -337,11 +418,13 @@ export default function ShareImportScreen({ route, navigation }) {
           style={styles.optionRow}
           onPress={() => setIncludeNotes(!includeNotes)}
         >
-          <View style={[
-            styles.optionCheck,
-            { borderColor: colors.border, backgroundColor: colors.inputBg },
-            includeNotes && { backgroundColor: colors.gold, borderColor: colors.gold }
-          ]}>
+          <View
+            style={[
+              styles.optionCheck,
+              { borderColor: colors.border, backgroundColor: colors.inputBg },
+              includeNotes && { backgroundColor: colors.gold, borderColor: colors.gold },
+            ]}
+          >
             {includeNotes && <AppIcon name="check" size={12} color="#ffffff" />}
           </View>
           <View style={styles.optionInfo}>
@@ -352,28 +435,32 @@ export default function ShareImportScreen({ route, navigation }) {
       </View>
 
       <View style={styles.listHeader}>
-        <Text style={[styles.label, { color: colors.textMuted }]}>Select Credentials to {mode === 'share' ? 'Share' : 'Export'}</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>
+          Select Logins & Codes to {mode === 'share' ? 'Share' : 'Export'}
+        </Text>
         <TouchableOpacity onPress={selectAll}>
           <Text style={[styles.selectAllText, { color: colors.gold }]}>Toggle All</Text>
         </TouchableOpacity>
       </View>
-      
+
       <ScrollView style={styles.list}>
-        {credentials.map(cred => {
+        {credentials.map((cred) => {
           const itemKey = cred.id || cred.domain;
           const isSelected = !!selectedCreds[itemKey];
           const displayName = cred.name
             ? cred.name
-            : (cred.hidden ? t('credentials.sharedAccount') : cred.username);
+            : cred.hidden
+            ? t('credentials.sharedAccount')
+            : cred.username;
           const showUsername = cred.name && !cred.hidden;
 
           return (
-            <TouchableOpacity 
-              key={itemKey} 
+            <TouchableOpacity
+              key={itemKey}
               style={[
                 styles.credItem,
                 { backgroundColor: colors.cardBg, borderColor: colors.border },
-                isSelected && { borderColor: colors.gold, backgroundColor: colors.goldBg }
+                isSelected && { borderColor: colors.gold, backgroundColor: colors.goldBg },
               ]}
               onPress={() => toggleSelection(itemKey)}
             >
@@ -381,25 +468,76 @@ export default function ShareImportScreen({ route, navigation }) {
               <View style={styles.credInfo}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={[styles.credTitle, { color: colors.textMain }]}>{cred.domain}</Text>
-                  {cred.hidden && (
-                    <AppIcon name="lock" size={11} color={colors.gold} />
-                  )}
+                  {cred.hidden && <AppIcon name="lock" size={11} color={colors.gold} />}
                 </View>
                 <Text style={[styles.credUsername, { color: colors.textMuted }]}>{displayName}</Text>
                 {showUsername && (
                   <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>{cred.username}</Text>
                 )}
               </View>
-              <View style={[
-                styles.checkbox,
-                { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
-                isSelected && { backgroundColor: colors.gold, borderColor: colors.gold }
-              ]}>
+              <View
+                style={[
+                  styles.checkbox,
+                  { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
+                  isSelected && { backgroundColor: colors.gold, borderColor: colors.gold },
+                ]}
+              >
                 {isSelected && <AppIcon name="check" size={12} color="#ffffff" />}
               </View>
             </TouchableOpacity>
           );
         })}
+
+        {codes.length > 0 && (
+          <View style={{ marginTop: 10 }}>
+            <Text style={[styles.label, { color: colors.textMuted, marginBottom: 8 }]}>
+              {t('home.segmentCodes')} ({codes.length})
+            </Text>
+            {codes.map((codeItem) => {
+              const isSelected = !!selectedCodes[codeItem.id];
+              const catDef =
+                CODE_CATEGORIES.find(
+                  (c) => c.id === (codeItem.codeCategory || codeItem.category)
+                ) || CODE_CATEGORIES[0];
+              return (
+                <TouchableOpacity
+                  key={codeItem.id}
+                  style={[
+                    styles.credItem,
+                    { backgroundColor: colors.cardBg, borderColor: colors.border },
+                    isSelected && { borderColor: colors.gold, backgroundColor: colors.goldBg },
+                  ]}
+                  onPress={() => toggleCodeSelection(codeItem.id)}
+                >
+                  <View
+                    style={[
+                      styles.codeIconBox,
+                      { backgroundColor: colors.goldBg, borderColor: colors.goldBorder },
+                    ]}
+                  >
+                    <CategoryIcon name={catDef.icon} size={18} color={colors.gold} />
+                  </View>
+                  <View style={styles.credInfo}>
+                    <Text style={[styles.credTitle, { color: colors.textMain }]}>{codeItem.label}</Text>
+                    <Text style={[styles.credUsername, { color: colors.textMuted }]}>
+                      {t(catDef.labelKey)}
+                      {codeItem.location ? ` • ${codeItem.location}` : ''}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
+                      isSelected && { backgroundColor: colors.gold, borderColor: colors.gold },
+                    ]}
+                  >
+                    {isSelected && <AppIcon name="check" size={12} color="#ffffff" />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       {qrData ? (
@@ -408,7 +546,7 @@ export default function ShareImportScreen({ route, navigation }) {
           <Text style={[styles.qrInstructions, { color: colors.textMuted }]}>
             {mode === 'share' ? t('share.shareWaitingInstruction') : t('share.exportWaitingInstruction')}
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.cancelQrBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
             onPress={async () => {
               if (activeSid) {
@@ -444,7 +582,7 @@ export default function ShareImportScreen({ route, navigation }) {
         </View>
       );
     }
-    
+
     return (
       <View style={[styles.cameraContainer, { backgroundColor: colors.bg }]}>
         <Text style={[styles.instructionText, { color: colors.textMain }]}>Scan the QR code shown on your other device</Text>
@@ -476,8 +614,8 @@ export default function ShareImportScreen({ route, navigation }) {
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.textMain }]}>{getTitle()}</Text>
       </View>
-      
-      {(mode === 'export' || mode === 'share') ? renderExportShare() : renderImport()}
+
+      {mode === 'export' || mode === 'share' ? renderExportShare() : renderImport()}
     </SafeAreaView>
   );
 }
@@ -495,10 +633,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: 15,
-  },
-  backButtonText: {
-    fontSize: 22,
-    fontWeight: '700',
   },
   title: {
     fontSize: 18,
@@ -595,6 +729,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginBottom: 8,
+  },
+  codeIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   credInfo: {
     flex: 1,
@@ -698,5 +841,5 @@ const styles = StyleSheet.create({
   rescanText: {
     fontSize: 14,
     fontWeight: '700',
-  }
+  },
 });

@@ -24,6 +24,7 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { sendPushToUser } = require('./notifications');
 
 const router = express.Router();
 
@@ -47,6 +48,8 @@ router.post('/create', async (req, res) => {
     }
 
     let senderId = null;
+    let senderUsername = null;
+    let resolvedRecipientUser = null;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const jwt = require('jsonwebtoken');
@@ -54,6 +57,7 @@ router.post('/create', async (req, res) => {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             senderId = decoded.id;
+            senderUsername = decoded.username || null;
         } catch (e) {}
     }
 
@@ -70,6 +74,7 @@ router.post('/create', async (req, res) => {
                 return res.status(404).json({ error: 'Recipient not found' });
             }
             const recipientUser = rRes.rows[0];
+            resolvedRecipientUser = recipientUser;
 
             if (recipientUser.share_mode === 'only_me') {
                 return res.status(403).json({ error: 'Recipient does not accept shared logins' });
@@ -82,6 +87,13 @@ router.post('/create', async (req, res) => {
                 );
                 if (allowRes.rows.length === 0) {
                     return res.status(403).json({ error: 'You are not in the recipient\'s whitelist' });
+                }
+            }
+
+            if (!senderUsername) {
+                const sRes = await db.query('SELECT username FROM users WHERE id = $1', [senderId]);
+                if (sRes.rows.length > 0) {
+                    senderUsername = sRes.rows[0].username;
                 }
             }
         } catch (error) {
@@ -101,6 +113,21 @@ router.post('/create', async (req, res) => {
             "INSERT INTO shared_payloads (sid, payload, created_at) VALUES ($1, $2, NOW())",
             [sid, wrappedPayload]
         );
+
+        if (resolvedRecipientUser) {
+            try {
+                await sendPushToUser(
+                    resolvedRecipientUser.id,
+                    'Neue Freigabe erhalten',
+                    `${senderUsername || 'Ein Nutzer'} hat Zugangsdaten mit dir geteilt.`,
+                    { type: 'share_received', targetScreen: 'ShareImport', sid },
+                    'share_alerts'
+                );
+            } catch (pushErr) {
+                console.log('[Share] Share push notification skipped:', pushErr.message);
+            }
+        }
+
         res.json({ success: true });
     } catch (error) {
         console.error('Share create error:', error);

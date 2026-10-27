@@ -3,7 +3,7 @@
     "name": "FlakeSecure",
     "slug": "FlakeSecure",
     "owner": "snowy.studio",
-    "version": "2.0.3",
+    "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "flakesecure",
@@ -82,7 +82,8 @@
         {
           "faceIDPermission": "Allow FlakeSecure to use Face ID for biometric authentication."
         }
-      ]
+      ],
+      "./plugins/withFlakeSecureAutofill"
     ],
     "extra": {
       "eas": {

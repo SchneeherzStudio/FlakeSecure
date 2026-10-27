@@ -538,6 +538,82 @@
 
   <div class="footer" id="t-footer">FlakeSecure: Biometrische Sicherheit</div>
 
+  <style>
+    .fs-ext-toast-container {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+    .fs-ext-toast {
+      pointer-events: auto;
+      position: relative;
+      background: var(--bg-card, #111524);
+      color: var(--text-primary, #f8fafc);
+      border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
+      border-left: 3px solid #3b82f6;
+      border-radius: 8px;
+      padding: 9px 10px 12px 10px;
+      font-size: 11.5px;
+      font-weight: 500;
+      line-height: 1.35;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      overflow: hidden;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    body.light-theme .fs-ext-toast {
+      background: #ffffff;
+      color: #0f172a;
+      border-color: rgba(15, 23, 42, 0.14);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+    }
+    .fs-ext-toast.fs-ext-toast-hide {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    .fs-ext-toast-error { border-left-color: #ef4444; }
+    .fs-ext-toast-warning { border-left-color: #f59e0b; }
+    .fs-ext-toast-success { border-left-color: #10b981; }
+    .fs-ext-toast-info { border-left-color: #3b82f6; }
+    .fs-ext-toast-body { flex: 1; word-break: break-word; }
+    .fs-ext-toast-close {
+      background: transparent;
+      border: none;
+      color: inherit;
+      opacity: 0.55;
+      cursor: pointer;
+      padding: 0 2px;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .fs-ext-toast-close:hover { opacity: 1; }
+    .fs-ext-toast-track {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 2.5px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    body.light-theme .fs-ext-toast-track {
+      background: rgba(15, 23, 42, 0.08);
+    }
+    .fs-ext-toast-bar {
+      height: 100%;
+      width: 100%;
+      transition: width 0.05s linear;
+    }
+  </style>
+  <div id="ext-toast-container" class="fs-ext-toast-container" aria-live="polite"></div>
+
   <script src="popup.js"></script>
 </body>
 </html>

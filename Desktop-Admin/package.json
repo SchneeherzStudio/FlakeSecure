@@ -1,6 +1,6 @@
 {
   "name": "flakesecure-desktop-admin",
-  "version": "2.0.3",
+  "version": "2.1.0",
   "description": "FlakeSecure Desktop Admin Panel - Cross-platform System & Announcement Management for Windows and Linux",
   "main": "main.js",
   "author": "SchneeherzStudio / Snowy Studio",

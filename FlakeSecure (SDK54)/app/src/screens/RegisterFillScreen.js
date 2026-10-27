@@ -7,18 +7,20 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, Alert, ActivityIndicator, Modal, Switch
+  ScrollView, ActivityIndicator, Modal, Switch
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
 import { AppIcon, CategoryIcon, AVAILABLE_CATEGORY_ICONS } from '../components/CategoryIcons';
 import { encryptCredentials } from '../utils/crypto';
 import { saveCredentials, getCategories, saveCategory, getDefaultProfile, saveDefaultProfile } from '../utils/storage';
 import { sendLogin } from '../utils/api';
 import { TapFeedback } from '../components/TapFeedback';
+import FlakeToggle from '../components/FlakeToggle';
 
 const COMPACT_FIELD_MAP = {
   e: { key: 'email', label: 'E-Mail', type: 'email', required: true },
@@ -34,6 +36,7 @@ const COMPACT_FIELD_MAP = {
 export default function RegisterFillScreen({ route, navigation }) {
   const { t } = useLanguage();
   const { colors } = useTheme();
+  const toast = useToast();
   const sid = route.params?.sid || route.params?.s;
   const key = route.params?.key || route.params?.k;
   const domain = route.params?.domain || route.params?.d;
@@ -211,7 +214,7 @@ export default function RegisterFillScreen({ route, navigation }) {
     const cleanPassword = password.trim();
 
     if (!cleanPassword) {
-      Alert.alert(t('error'), 'Bitte gib ein Passwort an oder generiere eines.');
+      toast.warn(t('error'), 'Bitte gib ein Passwort an oder generiere eines.');
       return;
     }
 
@@ -219,15 +222,15 @@ export default function RegisterFillScreen({ route, navigation }) {
     const needsUsername = isFieldDetected('username');
 
     if (needsEmail && !cleanEmail) {
-      Alert.alert(t('error'), 'Bitte gib eine gültige E-Mail-Adresse an.');
+      toast.warn(t('error'), 'Bitte gib eine gültige E-Mail-Adresse an.');
       return;
     }
     if (needsUsername && !cleanUsername && !cleanEmail) {
-      Alert.alert(t('error'), 'Bitte gib einen Benutzernamen an.');
+      toast.warn(t('error'), 'Bitte gib einen Benutzernamen an.');
       return;
     }
     if (!cleanEmail && !cleanUsername && !cleanFirstName) {
-      Alert.alert(t('error'), 'Bitte fülle die erforderlichen Account-Angaben aus.');
+      toast.warn(t('error'), 'Bitte fülle die erforderlichen Account-Angaben aus.');
       return;
     }
 
@@ -275,13 +278,13 @@ export default function RegisterFillScreen({ route, navigation }) {
         throw new Error(res.error || 'Fehler beim Senden der Daten an den Browser');
       }
 
-      Alert.alert(
+      toast.success(
         'Erfolgreich',
-        `Zugangsdaten für ${domain} wurden sicher gespeichert und im Browser eingetragen.`,
-        [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+        `Zugangsdaten für ${domain} wurden sicher gespeichert und im Browser eingetragen.`
       );
+      setTimeout(() => navigation.navigate('Home'), 1000);
     } catch (err) {
-      Alert.alert('Fehler', err.message || 'Registrierungsdaten konnten nicht übertragen werden.');
+      toast.error('Fehler', err.message || 'Registrierungsdaten konnten nicht übertragen werden.');
     } finally {
       setSubmitting(false);
     }
@@ -524,37 +527,33 @@ export default function RegisterFillScreen({ route, navigation }) {
 
               <View style={styles.optionRow}>
                 <Text style={[styles.optionLabel, { color: colors.textSub }]}>Großbuchstaben (A-Z)</Text>
-                <Switch
+                <FlakeToggle
                   value={pwUpper}
                   onValueChange={(val) => { setPwUpper(val); handleRegeneratePassword(pwLength, { upper: val, lower: pwLower, nums: pwNums, syms: pwSymbols }); }}
-                  trackColor={{ false: colors.border, true: colors.gold }}
                 />
               </View>
 
               <View style={styles.optionRow}>
                 <Text style={[styles.optionLabel, { color: colors.textSub }]}>Kleinbuchstaben (a-z)</Text>
-                <Switch
+                <FlakeToggle
                   value={pwLower}
                   onValueChange={(val) => { setPwLower(val); handleRegeneratePassword(pwLength, { upper: pwUpper, lower: val, nums: pwNums, syms: pwSymbols }); }}
-                  trackColor={{ false: colors.border, true: colors.gold }}
                 />
               </View>
 
               <View style={styles.optionRow}>
                 <Text style={[styles.optionLabel, { color: colors.textSub }]}>Zahlen (0-9)</Text>
-                <Switch
+                <FlakeToggle
                   value={pwNums}
                   onValueChange={(val) => { setPwNums(val); handleRegeneratePassword(pwLength, { upper: pwUpper, lower: pwLower, nums: val, syms: pwSymbols }); }}
-                  trackColor={{ false: colors.border, true: colors.gold }}
                 />
               </View>
 
               <View style={styles.optionRow}>
                 <Text style={[styles.optionLabel, { color: colors.textSub }]}>Sonderzeichen (!@#$...)</Text>
-                <Switch
+                <FlakeToggle
                   value={pwSymbols}
                   onValueChange={(val) => { setPwSymbols(val); handleRegeneratePassword(pwLength, { upper: pwUpper, lower: pwLower, nums: pwNums, syms: val }); }}
-                  trackColor={{ false: colors.border, true: colors.gold }}
                 />
               </View>
             </View>

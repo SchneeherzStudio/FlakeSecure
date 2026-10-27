@@ -25,7 +25,7 @@
         </svg>
         <div class="logo-text">
           <span class="brand-title">Flake<span>Secure</span></span>
-          <span class="brand-badge">ADMIN v2.0.3</span>
+          <span class="brand-badge">ADMIN v2.1.0</span>
         </div>
       </div>
 
@@ -78,12 +78,31 @@
 
           <form id="form-create-announcement">
             <div class="form-group">
-              <label for="ann-message">Nachrichtentext <span class="req">*</span></label>
-              <textarea id="ann-message" rows="3" placeholder="z. B. Wartungsarbeiten am 05.09 von 14:00 bis 16:00 Uhr..." required></textarea>
-              <div class="input-hint">Wird allen Nutzern beim Öffnen der App angezeigt.</div>
+              <label for="ann-title">Titel (für Push &amp; Popup – optional)</label>
+              <input type="text" id="ann-title" maxlength="150" placeholder="z. B. Sicherheits-Update v2.1.0">
             </div>
 
-            <div class="form-row">
+            <div class="form-group">
+              <label for="ann-message">Nachrichtentext <span class="req">*</span></label>
+              <textarea id="ann-message" rows="3" placeholder="z. B. Wartungsarbeiten am 05.09 von 14:00 bis 16:00 Uhr..." required></textarea>
+              <div class="input-hint">Wird allen Nutzern beim Öffnen der App bzw. als Push-Benachrichtigung angezeigt.</div>
+            </div>
+
+            <div class="form-group">
+              <label>Zustellungs-Kanal <span class="req">*</span></label>
+              <div class="toggle-group">
+                <input type="radio" id="mode-in-app" name="ann-delivery-mode" value="in_app" checked>
+                <label for="mode-in-app" class="toggle-btn">Nur In-App (Popup / Banner)</label>
+
+                <input type="radio" id="mode-both" name="ann-delivery-mode" value="both">
+                <label for="mode-both" class="toggle-btn">In-App + Push</label>
+
+                <input type="radio" id="mode-push" name="ann-delivery-mode" value="push">
+                <label for="mode-push" class="toggle-btn">Nur Push (Sofort-Push)</label>
+              </div>
+            </div>
+
+            <div class="form-row" id="row-in-app-options">
               <div class="form-group flex-1">
                 <label>Darstellungs-Typ <span class="req">*</span></label>
                 <div class="toggle-group">
@@ -109,6 +128,22 @@
 
             <div class="form-row">
               <div class="form-group flex-1">
+                <label for="ann-target-screen">Zielseite beim Antippen (Deep-Link)</label>
+                <select id="ann-target-screen" class="form-select">
+                  <option value="">Keine spezielle Seite (Standard)</option>
+                  <option value="Home">Startseite / Tresor (Logins)</option>
+                  <option value="Home:cards">Tresor -&gt; Karten-Tab</option>
+                  <option value="Home:codes">Tresor -&gt; Codes-Tab</option>
+                  <option value="Authenticator">2FA Authenticator</option>
+                  <option value="Scan">QR-Scanner</option>
+                  <option value="Settings">Einstellungen</option>
+                  <option value="Logs">Aktivitätsprotokoll (Logs)</option>
+                  <option value="ShareImport">Geteilte Zugangsdaten (Import)</option>
+                  <option value="VaultTransfer">Tresor-Übertragung (Export/Import)</option>
+                </select>
+              </div>
+
+              <div class="form-group flex-1">
                 <label for="ann-priority">Priorität (höher = wichtiger)</label>
                 <div class="priority-input-wrapper">
                   <input type="number" id="ann-priority" value="0" min="-10" max="100">
@@ -119,6 +154,20 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div class="form-group">
+              <label for="ann-regions">Regionen / Länder-Filter (IP / Sprache)</label>
+              <div class="quick-preset-btns" style="margin-bottom:8px;">
+                <button type="button" class="preset-pill" onclick="setRegionsPreset('ALL')">ALL (Weltweit)</button>
+                <button type="button" class="preset-pill" onclick="setRegionsPreset('DE,AT,CH')">DE,AT,CH (DACH)</button>
+                <button type="button" class="preset-pill" onclick="setRegionsPreset('DE')">DE (Deutschland)</button>
+                <button type="button" class="preset-pill" onclick="setRegionsPreset('FR')">FR (Frankreich)</button>
+                <button type="button" class="preset-pill" onclick="setRegionsPreset('ES')">ES (Spanien)</button>
+                <button type="button" class="preset-pill" onclick="setRegionsPreset('US,GB')">US,GB (Englisch)</button>
+              </div>
+              <input type="text" id="ann-regions" value="ALL" placeholder="ALL oder z. B. DE,AT,CH">
+              <div class="input-hint">DSGVO-konform: Auswertung erfolgt rein lokal über geoip-lite anhand des Ländercodes ohne Speicherung der IP-Adresse beim Push-Token.</div>
             </div>
 
             <div class="form-group">
@@ -152,11 +201,24 @@
                     <span style="font-size:10px;">5G 100%</span>
                   </div>
 
+                  <!-- Simulated OS Push Notification Banner -->
+                  <div class="mock-push-banner hidden" id="mock-push-banner">
+                    <div class="mock-push-icon">FS</div>
+                    <div class="mock-push-body">
+                      <div class="mock-push-top">
+                        <strong id="mock-push-title">FlakeSecure</strong>
+                        <span>jetzt</span>
+                      </div>
+                      <div class="mock-push-text" id="mock-push-text">Vorschautext...</div>
+                    </div>
+                  </div>
+
                   <!-- Simulated Phone Content Underneath -->
                   <div class="phone-app-bg">
                     <div class="mock-header">FlakeSecure</div>
                     <div class="mock-card">Saved Logins (14)</div>
                     <div class="mock-card">2FA Tokens (4)</div>
+                    <div class="mock-target-badge hidden" id="mock-target-badge">Ziel: Home</div>
                   </div>
 
                   <!-- Live Banner Component inside Mockup -->
@@ -315,7 +377,7 @@
           <div class="card metric-card">
             <span class="metric-label">Server / App Version</span>
             <div class="metric-value-row">
-              <span class="metric-val" id="metric-version">v2.0.3</span>
+              <span class="metric-val" id="metric-version">v2.1.0</span>
             </div>
             <span class="metric-sub" id="metric-min-app">Mindest-App: v2.0.3</span>
           </div>

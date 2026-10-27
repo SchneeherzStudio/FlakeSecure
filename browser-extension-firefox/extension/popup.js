@@ -328,6 +328,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const API_URL = 'https://flakesecure.snowystudio.dev';
 
+  function showExtToast(message, severity = 'info') {
+    const container = document.getElementById('ext-toast-container');
+    if (!container || !message) return;
+    const cfg = {
+      error: { color: '#ef4444', duration: 6000 },
+      warning: { color: '#f59e0b', duration: 4500 },
+      success: { color: '#10b981', duration: 3500 },
+      info: { color: '#3b82f6', duration: 3500 }
+    }[severity] || { color: '#3b82f6', duration: 3500 };
+
+    const toast = document.createElement('div');
+    toast.className = `fs-ext-toast fs-ext-toast-${severity}`;
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'fs-ext-toast-body';
+    bodyEl.textContent = message;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'fs-ext-toast-close';
+    closeBtn.textContent = '×';
+    const track = document.createElement('div');
+    track.className = 'fs-ext-toast-track';
+    const bar = document.createElement('div');
+    bar.className = 'fs-ext-toast-bar';
+    bar.style.background = cfg.color;
+    bar.style.width = '100%';
+    track.appendChild(bar);
+    toast.appendChild(bodyEl);
+    toast.appendChild(closeBtn);
+    toast.appendChild(track);
+
+    let remaining = cfg.duration;
+    let lastTick = performance.now();
+    let paused = false;
+    let rafId = null;
+    let removed = false;
+
+    function dismiss() {
+      if (removed) return;
+      removed = true;
+      if (rafId) cancelAnimationFrame(rafId);
+      toast.classList.add('fs-ext-toast-hide');
+      setTimeout(() => toast.remove(), 210);
+    }
+
+    function tick(now) {
+      if (removed) return;
+      if (!paused) {
+        remaining = Math.max(0, remaining - (now - lastTick));
+        bar.style.width = `${(remaining / cfg.duration) * 100}%`;
+        if (remaining <= 0) {
+          dismiss();
+          return;
+        }
+      }
+      lastTick = now;
+      rafId = requestAnimationFrame(tick);
+    }
+
+    toast.addEventListener('mouseenter', () => { paused = true; });
+    toast.addEventListener('mouseleave', () => { paused = false; lastTick = performance.now(); });
+    closeBtn.addEventListener('click', dismiss);
+
+    container.appendChild(toast);
+    rafId = requestAnimationFrame(tick);
+  }
+
   function updateAuthUI(user) {
     if (user) {
       loginView.style.display = 'none';
@@ -349,8 +415,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const t = EXT_I18N[currentLang] || EXT_I18N.en;
 
     if (!identifier || !password) {
-      loginError.textContent = t.fillAllFields;
-      loginError.style.display = 'block';
+      loginError.style.display = 'none';
+      showExtToast(t.fillAllFields, 'error');
       return;
     }
     
@@ -378,10 +444,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAuthUI(data.user);
         loginIdentifier.value = '';
         loginPassword.value = '';
+        showExtToast(`${t.loggedInAs}: ${data.user.username || data.user.email}`, 'success');
       });
     } catch (err) {
-      loginError.textContent = err.message || t.loginError;
-      loginError.style.display = 'block';
+      loginError.style.display = 'none';
+      showExtToast(err.message || t.loginError, 'error');
     } finally {
       loginBtn.disabled = false;
       loginBtn.style.opacity = '1';

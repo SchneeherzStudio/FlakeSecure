@@ -13,7 +13,6 @@ import {
   FlatList,
   TextInput,
   Modal,
-  Alert,
   ScrollView,
   Vibration,
   KeyboardAvoidingView,
@@ -26,6 +25,7 @@ import { CameraView, useCameraPermissions, scanFromURLAsync } from 'expo-camera'
 import * as ImagePicker from 'expo-image-picker';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
 import { AppIcon } from '../components/CategoryIcons';
 import {
   getTotpItems,
@@ -42,6 +42,7 @@ export default function AuthenticatorScreen({ route, navigation }) {
   const activeRelaySession = route?.params?.relaySession || null;
   const { t } = useLanguage();
   const { colors } = useTheme();
+  const toast = useToast();
 
   const [totpList, setTotpList] = useState([]);
   const [allCredentials, setAllCredentials] = useState([]);
@@ -205,7 +206,7 @@ export default function AuthenticatorScreen({ route, navigation }) {
 
   const handleIncomingOtpUri = useCallback(async (rawUri, appendBatch = false) => {
     if (!rawUri || typeof rawUri !== 'string') {
-      Alert.alert(t('error'), t('authenticator.invalidQrUri'));
+      toast.error(t('error'), t('authenticator.invalidQrUri'));
       return false;
     }
     const uri = rawUri.trim();
@@ -214,7 +215,7 @@ export default function AuthenticatorScreen({ route, navigation }) {
     if (lower.startsWith('otpauth-migration://')) {
       const migration = parseOtpMigrationUri(uri);
       if (!migration || (migration.items.length === 0 && migration.skippedHotpCount === 0)) {
-        Alert.alert(t('error'), t('authenticator.invalidMigrationQr'));
+        toast.error(t('error'), t('authenticator.invalidMigrationQr'));
         return false;
       }
 
@@ -256,15 +257,15 @@ export default function AuthenticatorScreen({ route, navigation }) {
     if (lower.startsWith('otpauth://')) {
       const parsed = parseOtpAuthUri(uri);
       if (!parsed) {
-        Alert.alert(t('error'), t('authenticator.invalidQrUri'));
+        toast.error(t('error'), t('authenticator.invalidQrUri'));
         return false;
       }
       if (parsed.type === 'hotp') {
-        Alert.alert(t('error'), t('authenticator.hotpUnsupportedMsg'));
+        toast.warn(t('error'), t('authenticator.hotpUnsupportedMsg'));
         return false;
       }
       if (!parsed.secret) {
-        Alert.alert(t('error'), t('authenticator.invalidSecret'));
+        toast.error(t('error'), t('authenticator.invalidSecret'));
         return false;
       }
       setScannerVisible(false);
@@ -281,9 +282,9 @@ export default function AuthenticatorScreen({ route, navigation }) {
       return true;
     }
 
-    Alert.alert(t('error'), t('authenticator.invalidQrUri'));
+    toast.error(t('error'), t('authenticator.invalidQrUri'));
     return false;
-  }, [totpList, t, openAddModal, linkedCredId, linkedDomain]);
+  }, [totpList, t, openAddModal, linkedCredId, linkedDomain, toast]);
 
   // Handle route params (`otpauthUri` or `prefillAdd`)
   useEffect(() => {
@@ -310,7 +311,7 @@ export default function AuthenticatorScreen({ route, navigation }) {
       const assetUri = result.assets[0].uri;
       const scanResults = await scanFromURLAsync(assetUri, ['qr']);
       if (!scanResults || scanResults.length === 0) {
-        Alert.alert(t('error'), t('authenticator.noOtpQrInImage'));
+        toast.warn(t('error'), t('authenticator.noOtpQrInImage'));
         return;
       }
       const otpScan = scanResults.find(
@@ -320,12 +321,12 @@ export default function AuthenticatorScreen({ route, navigation }) {
             r.data.toLowerCase().startsWith('otpauth-migration://'))
       );
       if (!otpScan) {
-        Alert.alert(t('error'), t('authenticator.noOtpQrInImage'));
+        toast.warn(t('error'), t('authenticator.noOtpQrInImage'));
         return;
       }
       await handleIncomingOtpUri(otpScan.data, false);
     } catch (e) {
-      Alert.alert(t('error'), t('authenticator.noOtpQrInImage'));
+      toast.error(t('error'), t('authenticator.noOtpQrInImage'));
     }
   };
 
@@ -333,7 +334,7 @@ export default function AuthenticatorScreen({ route, navigation }) {
     if (!permission?.granted) {
       const perm = await requestPermission();
       if (!perm.granted) {
-        Alert.alert(t('error'), t('scan.permission'));
+        toast.warn(t('error'), t('scan.permission'));
         return;
       }
     }
@@ -376,13 +377,13 @@ export default function AuthenticatorScreen({ route, navigation }) {
     const cleanAccount = accountInput.trim();
 
     if (!cleanSecret) {
-      Alert.alert(t('error'), t('authenticator.invalidSecret'));
+      toast.warn(t('error'), t('authenticator.invalidSecret'));
       return;
     }
 
     const testCode = generateTOTP(cleanSecret, periodInput, digitsInput, algorithmInput);
     if (testCode === '------') {
-      Alert.alert(t('error'), t('authenticator.invalidSecret'));
+      toast.error(t('error'), t('authenticator.invalidSecret'));
       return;
     }
 
@@ -404,7 +405,7 @@ export default function AuthenticatorScreen({ route, navigation }) {
       resetForm();
       loadData();
     } catch (e) {
-      Alert.alert(t('error'), 'Failed to save');
+      toast.error(t('error'), 'Failed to save');
     }
   };
 
@@ -439,31 +440,28 @@ export default function AuthenticatorScreen({ route, navigation }) {
       setMigrationVisible(false);
       setMigrationItems([]);
       await loadData();
-      Alert.alert(
+      toast.success(
         t('success'),
         t('authenticator.migrationImportedMsg', { count: selectedIndices.length })
       );
     } catch (e) {
-      Alert.alert(t('error'), e.message || 'Failed to import');
+      toast.error(t('error'), e.message || 'Failed to import');
     }
   };
 
   const handleDelete = (item) => {
-    Alert.alert(
-      t('authenticator.deleteTitle'),
-      t('authenticator.deleteMsg', { name: item.issuer || item.account }),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('delete'),
-          style: 'destructive',
-          onPress: async () => {
-            await deleteTotpItem(item.id);
-            loadData();
-          },
-        },
-      ]
-    );
+    toast.confirm({
+      title: t('authenticator.deleteTitle'),
+      message: t('authenticator.deleteMsg', { name: item.issuer || item.account }),
+      confirmText: t('delete'),
+      cancelText: t('cancel'),
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        await deleteTotpItem(item.id);
+        loadData();
+      },
+    });
   };
 
   const filteredList = totpList.filter((item) => {

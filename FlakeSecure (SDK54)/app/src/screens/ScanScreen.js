@@ -1,13 +1,13 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - QR-Code Scanner Screen (ScanScreen)
+ * FlakeSecure Mobile App - QR-Code Scanner Screen (ScanScreen) v2.1.0
  * ============================================================================
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Animated, Vibration, Alert, ActivityIndicator
+  Animated, Vibration, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -15,20 +15,22 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
 import { AppIcon } from '../components/CategoryIcons';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { encryptCredentials, decryptCredentials } from '../utils/crypto';
-import { saveCredentials, getFullVaultExport, findCredentialsForDomain } from '../utils/storage';
+import { saveCredentials, saveCode, getFullVaultExport, findCredentialsForDomain } from '../utils/storage';
 import { getServerUrl, notifyQrScanned } from '../utils/api';
 
 const FRAME_SIZE = 250;
 
 export default function ScanScreen() {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, isOfflineMode } = useAuth();
   const { t } = useLanguage();
   const { colors } = useTheme();
+  const toast = useToast();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -59,7 +61,14 @@ export default function ScanScreen() {
       navigation.replace('Authenticator', { otpauthUri: data });
       return;
     }
-    
+
+    if (isOfflineMode) {
+      setScanned(true);
+      toast.warn(t('offline.actionRequiresOnlineTitle'), t('offline.shareRequiresOnline'));
+      setTimeout(() => setScanned(false), 2000);
+      return;
+    }
+
     const hasSid = data.includes('sid=') || data.includes('s=');
     const hasKey = data.includes('key=') || data.includes('k=');
     if (!hasSid || !hasKey) {
@@ -123,7 +132,7 @@ export default function ScanScreen() {
         setImporting(true);
         const rawCreds = await SecureStore.getItemAsync('auth_credentials');
         if (!rawCreds) {
-          Alert.alert(
+          toast.error(
             t('error'),
             t('vaultTransfer.noKeyOnDeviceToAuthorize') || 'Dieses Gerät besitzt keine gespeicherten Tresor-Schlüssel zur Autorisierung.'
           );
@@ -134,7 +143,7 @@ export default function ScanScreen() {
 
         const localCreds = JSON.parse(rawCreds);
         if (!localCreds || !localCreds.password) {
-          Alert.alert(
+          toast.error(
             t('error'),
             t('vaultTransfer.noKeyOnDeviceToAuthorize') || 'Dieses Gerät besitzt keine gespeicherten Tresor-Schlüssel zur Autorisierung.'
           );
@@ -179,11 +188,11 @@ export default function ScanScreen() {
           throw new Error('Fehler beim Senden des Autorisierungs-Schlüssels.');
         }
 
-        Alert.alert(
+        toast.success(
           t('success'),
-          t('vaultTransfer.authorizeSentSuccess') || 'Schlüssel erfolgreich übertragen! Das andere Gerät stellt den Tresor nun wieder her.',
-          [{ text: t('ok'), onPress: () => navigation.navigate('Home') }]
+          t('vaultTransfer.authorizeSentSuccess') || 'Schlüssel erfolgreich übertragen! Das andere Gerät stellt den Tresor nun wieder her.'
         );
+        setTimeout(() => navigation.navigate('Home'), 1000);
         return;
       } else if (isRegister && domain) {
         notifyQrScanned(sid, user?.username || '').catch(() => {});
@@ -232,21 +241,33 @@ export default function ScanScreen() {
         }
 
         const decryptedJson = await decryptCredentials(payloadRaw, key);
-        let credsToImport = JSON.parse(decryptedJson);
+        let itemsToImport = JSON.parse(decryptedJson);
 
-        if (typeof credsToImport === 'string') {
-          credsToImport = JSON.parse(credsToImport);
+        if (typeof itemsToImport === 'string') {
+          itemsToImport = JSON.parse(itemsToImport);
         }
-        if (!Array.isArray(credsToImport)) {
-          credsToImport = [credsToImport];
+        if (!Array.isArray(itemsToImport)) {
+          itemsToImport = [itemsToImport];
         }
 
         let savedCount = 0;
-        for (const newCred of credsToImport) {
-          if (newCred && newCred.domain && newCred.username) {
-            await saveCredentials(newCred.domain, newCred.username, newCred.password || '', {
-              name: newCred.name || '',
-              ...(newCred.notes !== undefined ? { notes: newCred.notes } : {}),
+        let importedCodeOnly = false;
+        for (const item of itemsToImport) {
+          if (!item) continue;
+          if (item.itemType === 'code' || (item.codeValue && item.label)) {
+            await saveCode({
+              label: item.label || 'Code',
+              codeValue: item.codeValue || '',
+              category: item.category || 'door',
+              location: item.location || '',
+              notes: item.notes || '',
+            });
+            savedCount++;
+            importedCodeOnly = true;
+          } else if (item.domain && item.username) {
+            await saveCredentials(item.domain, item.username, item.password || '', {
+              name: item.name || '',
+              ...(item.notes !== undefined ? { notes: item.notes } : {}),
               ...(hidden && { hidden: true }),
               ...(expiresInHours && { expiresAt: new Date(Date.now() + expiresInHours * 3600000).toISOString() }),
               sharedBy: 'shared'
@@ -255,11 +276,13 @@ export default function ScanScreen() {
           }
         }
 
-        Alert.alert(
-          'Import Successful',
-          `Successfully imported ${savedCount} credential${savedCount === 1 ? '' : 's'}.`,
-          [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+        toast.success(
+          t('success'),
+          `Successfully imported ${savedCount} item${savedCount === 1 ? '' : 's'}.`
         );
+        setTimeout(() => {
+          navigation.navigate('Home', importedCodeOnly ? { initialSegment: 'codes' } : undefined);
+        }, 1000);
       } else {
         const cleanDomain = decodeURIComponent(domain);
         findCredentialsForDomain(cleanDomain)
@@ -276,7 +299,7 @@ export default function ScanScreen() {
     } catch (err) {
       setScanned(false);
       setImporting(false);
-      Alert.alert('Scan Error', err.message || 'Failed to process QR code');
+      toast.error(t('error'), err.message || 'Failed to process QR code');
     }
   };
 
@@ -317,8 +340,8 @@ export default function ScanScreen() {
   const maskSides = isLayoutReady ? (layout.width - FRAME_SIZE) / 2 : 0;
 
   return (
-    <View 
-      style={[styles.container, { backgroundColor: '#000' }]} 
+    <View
+      style={[styles.container, { backgroundColor: '#000' }]}
       onLayout={(e) => setLayout(e.nativeEvent.layout)}
     >
       {isLayoutReady && (

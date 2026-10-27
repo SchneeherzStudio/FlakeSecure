@@ -1,37 +1,46 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Login & Registration Screen v2.0
+ * FlakeSecure Mobile App - Login & Registration Screen v2.1
  * ============================================================================
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator,
   Linking,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
 import { AppIcon } from '../components/CategoryIcons';
 import PasswordChecklist, { usePasswordValidation } from '../components/PasswordChecklist';
 import { formatAuthServerError } from '../utils/passwordPolicy';
 import { sendOtp, verifyOtp } from '../utils/api';
 
-export default function LoginScreen({ navigation }) {
-  const { login, register } = useAuth();
+export default function LoginScreen() {
+  const {
+    login,
+    register,
+    isOfflineMode,
+    hasSavedBiometricCredentials,
+    unlockLocalVaultOffline,
+  } = useAuth();
   const { t } = useLanguage();
   const { colors } = useTheme();
+  const toast = useToast();
+
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
@@ -47,6 +56,33 @@ export default function LoginScreen({ navigation }) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedAge, setAcceptedAge] = useState(false);
 
+  // Rich Login Error states
+  const [hasAuthError, setHasAuthError] = useState(false);
+  const [showOfflineCard, setShowOfflineCard] = useState(false);
+  const [rateLimitRemaining, setRateLimitRemaining] = useState(0);
+  const [policyHighlight, setPolicyHighlight] = useState(false);
+
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (rateLimitRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setRateLimitRemaining((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rateLimitRemaining]);
+
+  const triggerShake = () => {
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 7, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -7, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 55, useNativeDriver: true }),
+    ]).start();
+  };
+
   const { evaluation: pwEval, pwnedState, isPasswordReady } = usePasswordValidation(
     isRegisterMode ? password : '',
     username,
@@ -54,6 +90,7 @@ export default function LoginScreen({ navigation }) {
   );
   const canSubmitRegister =
     !loading &&
+    rateLimitRemaining <= 0 &&
     isPasswordReady &&
     password === confirmPassword &&
     email.trim().includes('@') &&
@@ -68,15 +105,43 @@ export default function LoginScreen({ navigation }) {
     const cleanPassword = password.trim();
 
     if (!cleanIdentifier || !cleanPassword) {
-      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
+      toast.warn(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
 
+    setHasAuthError(false);
+    setShowOfflineCard(false);
     setLoading(true);
     try {
       await login(cleanIdentifier, cleanPassword);
     } catch (err) {
-      Alert.alert(t('login.failed'), err.message || t('login.invalidCredentials'));
+      if (err?.isNetworkError || !err?.status) {
+        setShowOfflineCard(true);
+        toast.warn(
+          t('offline.loginOfflineCardTitle'),
+          t('offline.loginOfflineCardDesc')
+        );
+      } else if (err.status === 401) {
+        setHasAuthError(true);
+        triggerShake();
+        toast.error(t('offline.wrongPasswordTitle'), t('offline.wrongPasswordMsg'));
+      } else if (err.status === 429) {
+        const secs = err.retryAfter || 30;
+        setRateLimitRemaining(secs);
+        toast.warn(
+          t('offline.rateLimitedTitle'),
+          t('offline.rateLimitedCountdown', { seconds: secs })
+        );
+      } else if (err.status >= 500) {
+        toast.error(
+          t('offline.serverErrorTitle', { status: err.status }),
+          t('offline.serverErrorMsg')
+        );
+      } else {
+        setHasAuthError(true);
+        triggerShake();
+        toast.error(t('login.failed'), err.message || t('login.invalidCredentials'));
+      }
     } finally {
       setLoading(false);
     }
@@ -85,7 +150,7 @@ export default function LoginScreen({ navigation }) {
   const handleSendOtp = async () => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
-      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
+      toast.warn(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
 
@@ -93,9 +158,17 @@ export default function LoginScreen({ navigation }) {
     try {
       await sendOtp(cleanEmail, 'register');
       setOtpSent(true);
-      Alert.alert(t('success'), t('login.otpSentAlert', { email: cleanEmail }));
+      toast.success(t('success'), t('login.otpSentAlert', { email: cleanEmail }));
     } catch (e) {
-      Alert.alert(t('error'), e.message || t('login.otpSendFailed'));
+      if (e?.isNetworkError || !e?.status) {
+        setShowOfflineCard(true);
+        toast.warn(
+          t('offline.loginOfflineCardTitle'),
+          t('offline.loginOfflineCardDesc')
+        );
+      } else {
+        toast.error(t('error'), e.message || t('login.otpSendFailed'));
+      }
     } finally {
       setSendingOtp(false);
     }
@@ -107,59 +180,75 @@ export default function LoginScreen({ navigation }) {
     const cleanOtp = otpCode.trim();
 
     if (!cleanEmail || !cleanUsername || !password) {
-      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
+      toast.warn(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
     if (!/^[a-z0-9_-]+$/.test(cleanUsername)) {
-      Alert.alert(t('error'), t('onboarding.account.usernameRules'));
+      toast.warn(t('error'), t('onboarding.account.usernameRules'));
       return;
     }
     if (!pwEval.isValid) {
-      Alert.alert(t('error'), t('passwordPolicy.errWeakPassword'));
+      setPolicyHighlight(true);
+      toast.error(t('error'), t('passwordPolicy.errWeakPassword'));
       return;
     }
     if (pwnedState.pwned) {
-      Alert.alert(t('error'), t('passwordPolicy.pwnedWarning', { count: pwnedState.count }));
+      setPolicyHighlight(true);
+      toast.error(t('error'), t('passwordPolicy.pwnedWarning', { count: pwnedState.count }));
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert(t('error'), t('onboarding.account.passwordsDoNotMatch'));
+      toast.warn(t('error'), t('onboarding.account.passwordsDoNotMatch'));
       return;
     }
 
-    if (!otpSent) {
-      Alert.alert(t('error'), t('onboarding.account.otpLabel'));
-      return;
-    }
-
-    if (!cleanOtp || cleanOtp.length !== 6) {
-      Alert.alert(t('error'), t('onboarding.account.otpLabel'));
+    if (!otpSent || !cleanOtp || cleanOtp.length !== 6) {
+      toast.warn(t('error'), t('onboarding.account.otpLabel'));
       return;
     }
 
     if (!acceptedTerms || !acceptedAge) {
-      Alert.alert(t('error'), t('login.acceptTermsRequired'));
+      toast.warn(t('error'), t('login.acceptTermsRequired'));
       return;
     }
 
+    setPolicyHighlight(false);
     setLoading(true);
     try {
       const verifyRes = await verifyOtp(cleanEmail, cleanOtp, 'register');
       const otpToken = verifyRes.token;
       await register(cleanEmail, cleanUsername, password, otpToken);
     } catch (err) {
-      Alert.alert(t('error'), formatAuthServerError(err, t));
+      if (err?.code === 'PASSWORD_POLICY_FAILED') {
+        setPolicyHighlight(true);
+      }
+      toast.error(t('error'), formatAuthServerError(err, t));
     } finally {
       setLoading(false);
     }
   };
 
+  const handleOfflineBiometricOpen = async () => {
+    const res = await unlockLocalVaultOffline();
+    if (!res?.success && res?.reason !== 'cancelled') {
+      toast.error(t('error'), t('biometricUnlock.failed'));
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: colors.goldBg, borderColor: colors.goldBorder },
+              ]}
+            >
               <AppIcon name="snowflake" size={32} color={colors.gold} />
             </View>
             <Text style={[styles.title, { color: colors.textMain }]}>
@@ -170,13 +259,88 @@ export default function LoginScreen({ navigation }) {
             </Text>
           </View>
 
-          <View style={[styles.form, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+          {(showOfflineCard || isOfflineMode) && (
+            <View
+              style={[
+                styles.offlineCard,
+                {
+                  backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                  borderColor: 'rgba(245, 158, 11, 0.45)',
+                },
+              ]}
+            >
+              <View style={styles.offlineCardHeader}>
+                <AppIcon name="offline-cloud" size={20} color="#f59e0b" />
+                <Text style={[styles.offlineCardTitle, { color: colors.textMain }]}>
+                  {t('offline.loginOfflineCardTitle')}
+                </Text>
+              </View>
+              <Text style={[styles.offlineCardDesc, { color: colors.textSub }]}>
+                {t('offline.loginOfflineCardDesc')}
+              </Text>
+              {hasSavedBiometricCredentials && (
+                <TouchableOpacity
+                  style={styles.offlineUnlockBtn}
+                  onPress={handleOfflineBiometricOpen}
+                  activeOpacity={0.85}
+                >
+                  <AppIcon name="scan" size={16} color="#090b14" />
+                  <Text style={styles.offlineUnlockBtnText}>
+                    {t('offline.openLocalVaultBiometricBtn')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {rateLimitRemaining > 0 && (
+            <View
+              style={[
+                styles.rateLimitBanner,
+                {
+                  backgroundColor: 'rgba(245, 158, 11, 0.14)',
+                  borderColor: 'rgba(245, 158, 11, 0.5)',
+                },
+              ]}
+            >
+              <AppIcon name="clock" size={18} color="#f59e0b" />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rateLimitTitle, { color: '#f59e0b' }]}>
+                  {t('offline.rateLimitedTitle')}
+                </Text>
+                <Text style={[styles.rateLimitText, { color: colors.textSub }]}>
+                  {t('offline.rateLimitedCountdown', { seconds: rateLimitRemaining })}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <Animated.View
+            style={[
+              styles.form,
+              {
+                backgroundColor: colors.cardBg,
+                borderColor: colors.border,
+                transform: [{ translateX: shakeAnim }],
+              },
+            ]}
+          >
             {isRegisterMode ? (
               <>
-                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.email')}</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                  {t('onboarding.account.email')}
+                </Text>
                 <View style={styles.otpRow}>
                   <TextInput
-                    style={[styles.input, { flex: 1, backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
+                    style={[
+                      styles.input,
+                      {
+                        flex: 1,
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.border,
+                        color: colors.textMain,
+                      },
+                    ]}
                     placeholder="email@domain.com"
                     placeholderTextColor={colors.textMuted}
                     value={email}
@@ -185,23 +349,38 @@ export default function LoginScreen({ navigation }) {
                     autoCapitalize="none"
                   />
                   <TouchableOpacity
-                    style={[styles.sendOtpBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
+                    style={[
+                      styles.sendOtpBtn,
+                      { backgroundColor: colors.goldBg, borderColor: colors.goldBorder },
+                    ]}
                     onPress={handleSendOtp}
                     disabled={sendingOtp}
                   >
                     {sendingOtp ? (
                       <ActivityIndicator color={colors.gold} size="small" />
                     ) : (
-                      <Text style={[styles.sendOtpText, { color: colors.gold }]}>{otpSent ? t('login.resendOtp') : t('login.sendOtp')}</Text>
+                      <Text style={[styles.sendOtpText, { color: colors.gold }]}>
+                        {otpSent ? t('login.resendOtp') : t('login.sendOtp')}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 </View>
 
                 {otpSent && (
                   <View style={styles.otpInputBox}>
-                    <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('login.otpLabel')}</Text>
+                    <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                      {t('login.otpLabel')}
+                    </Text>
                     <TextInput
-                      style={[styles.input, styles.otpCodeInput, { backgroundColor: colors.inputBg, borderColor: colors.gold, color: colors.gold }]}
+                      style={[
+                        styles.input,
+                        styles.otpCodeInput,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.gold,
+                          color: colors.gold,
+                        },
+                      ]}
                       placeholder={t('login.otpPlaceholder')}
                       placeholderTextColor={colors.textMuted}
                       value={otpCode}
@@ -209,7 +388,12 @@ export default function LoginScreen({ navigation }) {
                       keyboardType="number-pad"
                       maxLength={6}
                     />
-                    <View style={[styles.otpHintRow, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+                    <View
+                      style={[
+                        styles.otpHintRow,
+                        { backgroundColor: colors.goldBg, borderColor: colors.goldBorder },
+                      ]}
+                    >
                       <AppIcon name="info" size={14} color={colors.gold} />
                       <Text style={[styles.otpHintText, { color: colors.textSub }]}>
                         {t('login.otpNoticeHint')}
@@ -218,9 +402,18 @@ export default function LoginScreen({ navigation }) {
                   </View>
                 )}
 
-                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.username')}</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                  {t('onboarding.account.username')}
+                </Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.border,
+                      color: colors.textMain,
+                    },
+                  ]}
                   placeholder="username"
                   placeholderTextColor={colors.textMuted}
                   value={username}
@@ -228,14 +421,27 @@ export default function LoginScreen({ navigation }) {
                   autoCapitalize="none"
                 />
 
-                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.password')}</Text>
-                <View style={[styles.passwordContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                  {t('onboarding.account.password')}
+                </Text>
+                <View
+                  style={[
+                    styles.passwordContainer,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: policyHighlight ? '#ef4444' : colors.border,
+                    },
+                  ]}
+                >
                   <TextInput
                     style={[styles.passwordInput, { color: colors.textMain }]}
                     placeholder="••••••••"
                     placeholderTextColor={colors.textMuted}
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={(v) => {
+                      setPassword(v);
+                      setPolicyHighlight(false);
+                    }}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                   />
@@ -243,14 +449,45 @@ export default function LoginScreen({ navigation }) {
                     style={styles.eyeButton}
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
+                    <AppIcon
+                      name={showPassword ? 'eyeOff' : 'eye'}
+                      size={18}
+                      color={colors.gold}
+                    />
                   </TouchableOpacity>
                 </View>
-                <PasswordChecklist password={password} evaluation={pwEval} pwnedState={pwnedState} />
+                <View
+                  style={
+                    policyHighlight
+                      ? {
+                          borderWidth: 1,
+                          borderColor: 'rgba(239, 68, 68, 0.5)',
+                          borderRadius: 8,
+                          padding: 4,
+                          marginTop: 4,
+                        }
+                      : null
+                  }
+                >
+                  <PasswordChecklist
+                    password={password}
+                    evaluation={pwEval}
+                    pwnedState={pwnedState}
+                  />
+                </View>
 
-                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('onboarding.account.confirmPassword')}</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                  {t('onboarding.account.confirmPassword')}
+                </Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.border,
+                      color: colors.textMain,
+                    },
+                  ]}
                   placeholder="••••••••"
                   placeholderTextColor={colors.textMuted}
                   value={confirmPassword}
@@ -264,11 +501,19 @@ export default function LoginScreen({ navigation }) {
                   onPress={() => setAcceptedTerms(!acceptedTerms)}
                   activeOpacity={0.7}
                 >
-                  <View style={[
-                    styles.checkbox,
-                    { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
-                    acceptedTerms && { backgroundColor: colors.gold, borderColor: colors.gold }
-                  ]}>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        borderColor: colors.isDark ? '#ffffff' : '#94a3b8',
+                        backgroundColor: colors.inputBg,
+                      },
+                      acceptedTerms && {
+                        backgroundColor: colors.gold,
+                        borderColor: colors.gold,
+                      },
+                    ]}
+                  >
                     {acceptedTerms && <AppIcon name="check" size={12} color="#ffffff" />}
                   </View>
                   <Text style={[styles.termsLabel, { color: colors.textSub }]}>
@@ -281,11 +526,19 @@ export default function LoginScreen({ navigation }) {
                   onPress={() => setAcceptedAge(!acceptedAge)}
                   activeOpacity={0.7}
                 >
-                  <View style={[
-                    styles.checkbox,
-                    { borderColor: colors.isDark ? '#ffffff' : '#94a3b8', backgroundColor: colors.inputBg },
-                    acceptedAge && { backgroundColor: colors.gold, borderColor: colors.gold }
-                  ]}>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        borderColor: colors.isDark ? '#ffffff' : '#94a3b8',
+                        backgroundColor: colors.inputBg,
+                      },
+                      acceptedAge && {
+                        backgroundColor: colors.gold,
+                        borderColor: colors.gold,
+                      },
+                    ]}
+                  >
                     {acceptedAge && <AppIcon name="check" size={12} color="#ffffff" />}
                   </View>
                   <Text style={[styles.termsLabel, { color: colors.textSub }]}>
@@ -314,35 +567,71 @@ export default function LoginScreen({ navigation }) {
               </>
             ) : (
               <>
-                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('login.emailOrUsername')}</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                  {t('login.emailOrUsername')}
+                </Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textMain }]}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: hasAuthError ? '#ef4444' : colors.border,
+                      color: colors.textMain,
+                    },
+                  ]}
                   placeholder="user@domain.com / username"
                   placeholderTextColor={colors.textMuted}
                   value={identifier}
-                  onChangeText={setIdentifier}
+                  onChangeText={(v) => {
+                    setIdentifier(v);
+                    if (hasAuthError) setHasAuthError(false);
+                  }}
                   autoCapitalize="none"
                 />
 
-                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{t('login.password')}</Text>
-                <View style={[styles.passwordContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                  {t('login.password')}
+                </Text>
+                <View
+                  style={[
+                    styles.passwordContainer,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: hasAuthError ? '#ef4444' : colors.border,
+                    },
+                  ]}
+                >
                   <TextInput
                     style={[styles.passwordInput, { color: colors.textMain }]}
                     placeholder="••••••••"
                     placeholderTextColor={colors.textMuted}
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={(v) => {
+                      setPassword(v);
+                      if (hasAuthError) setHasAuthError(false);
+                    }}
                     secureTextEntry={!showPassword}
                   />
                   <TouchableOpacity
                     style={styles.eyeButton}
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color={colors.gold} />
+                    <AppIcon
+                      name={showPassword ? 'eyeOff' : 'eye'}
+                      size={18}
+                      color={colors.gold}
+                    />
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.submitBtn} onPress={handleLogin} disabled={loading}>
+                <TouchableOpacity
+                  style={[
+                    styles.submitBtn,
+                    (loading || rateLimitRemaining > 0) && { opacity: 0.55 },
+                  ]}
+                  onPress={handleLogin}
+                  disabled={loading || rateLimitRemaining > 0}
+                >
                   <LinearGradient
                     colors={colors.goldGradient}
                     start={{ x: 0, y: 0 }}
@@ -351,6 +640,10 @@ export default function LoginScreen({ navigation }) {
                   >
                     {loading ? (
                       <ActivityIndicator color="#ffffff" />
+                    ) : rateLimitRemaining > 0 ? (
+                      <Text style={styles.submitBtnText}>
+                        {t('login.loginButton')} ({rateLimitRemaining}s)
+                      </Text>
                     ) : (
                       <Text style={styles.submitBtnText}>{t('login.loginButton')}</Text>
                     )}
@@ -365,29 +658,46 @@ export default function LoginScreen({ navigation }) {
                 setIsRegisterMode(!isRegisterMode);
                 setOtpSent(false);
                 setOtpCode('');
+                setHasAuthError(false);
               }}
             >
               <Text style={[styles.toggleModeText, { color: colors.gold }]}>
-                {isRegisterMode
-                  ? t('login.toggleToLogin')
-                  : t('login.toggleToRegister')}
+                {isRegisterMode ? t('login.toggleToLogin') : t('login.toggleToRegister')}
               </Text>
             </TouchableOpacity>
 
             <View style={[styles.legalLinksRow, { borderTopColor: colors.border }]}>
-              <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/terms')}>
-                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.termsLink')}</Text>
+              <TouchableOpacity
+                onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/terms')}
+              >
+                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>
+                  {t('login.termsLink')}
+                </Text>
               </TouchableOpacity>
-              <Text style={[styles.legalLinkSeparator, { color: colors.textMuted }]}>•</Text>
-              <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/legal')}>
-                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.privacyLink')}</Text>
+              <Text style={[styles.legalLinkSeparator, { color: colors.textMuted }]}>
+                •
+              </Text>
+              <TouchableOpacity
+                onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/legal')}
+              >
+                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>
+                  {t('login.privacyLink')}
+                </Text>
               </TouchableOpacity>
-              <Text style={[styles.legalLinkSeparator, { color: colors.textMuted }]}>•</Text>
-              <TouchableOpacity onPress={() => Linking.openURL('https://flakesecure.snowystudio.dev/imprint')}>
-                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>{t('login.imprintLink')}</Text>
+              <Text style={[styles.legalLinkSeparator, { color: colors.textMuted }]}>
+                •
+              </Text>
+              <TouchableOpacity
+                onPress={() =>
+                  Linking.openURL('https://flakesecure.snowystudio.dev/imprint')
+                }
+              >
+                <Text style={[styles.legalLinkText, { color: colors.textMuted }]}>
+                  {t('login.imprintLink')}
+                </Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -406,7 +716,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   iconCircle: {
     width: 60,
@@ -425,6 +735,59 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     marginTop: 4,
+  },
+  offlineCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  offlineCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  offlineCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  offlineCardDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  offlineUnlockBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#f59e0b',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 9,
+  },
+  offlineUnlockBtnText: {
+    color: '#090b14',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  rateLimitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  rateLimitTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  rateLimitText: {
+    fontSize: 12,
   },
   form: {
     borderWidth: 1,

@@ -1,15 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Zero-Knowledge Vault Synchronization Utility v2.4
- * ============================================================================
- * 
- * CHANGES IN v2.4:
- * - Diagnostic logging for key derivation debugging.
- * - syncVaultToServer always uses (userEmail || identifier) directly, no
- *   resolveUserDetails indirection, ensuring the same path as background sync.
- * - syncVaultFromServer exhaustively tries all candidate identifiers × rounds,
- *   with detailed per-candidate logging.
- * - Overwrite guard: empty local vault will not overwrite populated cloud vault.
+ * FlakeSecure Mobile App - Zero-Knowledge Vault Synchronization Utility v2.5
  * ============================================================================
  */
 
@@ -18,7 +9,14 @@ export default {};
 import * as ExpoCrypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { encryptCredentials, decryptCredentials } from './crypto';
-import { getFullVaultExport, importFullVault, clearAllLocalVaultData } from './storage';
+import {
+  getFullVaultExport,
+  importFullVault,
+  clearAllLocalVaultData,
+  markPendingVaultSync,
+  clearPendingVaultSync,
+  hasPendingVaultSync,
+} from './storage';
 import { getVault, syncVault, getMe } from './api';
 
 const DEFAULT_ROUNDS = 50;
@@ -35,17 +33,12 @@ export async function deriveVaultKey(password, identifier, rounds = DEFAULT_ROUN
   return keyMaterial;
 }
 
-/**
- * Gather every identifier string we can find for this user.
- * Used by syncVaultFromServer to build an exhaustive candidate list.
- */
 async function gatherAllIdentifiers(providedEmail, providedIdentifier) {
   const ids = [];
 
   if (providedEmail) ids.push(providedEmail);
   if (providedIdentifier) ids.push(providedIdentifier);
 
-  // From local SecureStore
   try {
     const stored = await SecureStore.getItemAsync('auth_credentials');
     if (stored) {
@@ -56,7 +49,6 @@ async function gatherAllIdentifiers(providedEmail, providedIdentifier) {
     }
   } catch (e) {}
 
-  // From server /api/auth/me
   try {
     const me = await getMe();
     if (me && me.user) {
@@ -65,7 +57,6 @@ async function gatherAllIdentifiers(providedEmail, providedIdentifier) {
     }
   } catch (e) {}
 
-  // Derive additional variants (username part of email, etc.)
   const extended = [];
   for (const id of ids) {
     extended.push(id);
@@ -73,22 +64,32 @@ async function gatherAllIdentifiers(providedEmail, providedIdentifier) {
       extended.push(id.split('@')[0]);
     }
   }
-  extended.push(''); // empty string fallback
+  extended.push('');
 
-  // Deduplicate, lowercase, trim
-  return [...new Set(extended.map(c => c.trim().toLowerCase()).filter(c => typeof c === 'string'))];
+  return [
+    ...new Set(
+      extended.map((c) => c.trim().toLowerCase()).filter((c) => typeof c === 'string')
+    ),
+  ];
 }
 
-export async function syncVaultToServer(password, identifier, userEmail = null, options = {}) {
+export async function syncVaultToServer(
+  password,
+  identifier,
+  userEmail = null,
+  options = {}
+) {
   if (!password) return false;
   try {
     const fullData = await getFullVaultExport();
     const hasLocalContent =
       (fullData.credentials && fullData.credentials.length > 0) ||
+      (fullData.bankAccounts && fullData.bankAccounts.length > 0) ||
+      (fullData.cards && fullData.cards.length > 0) ||
+      (fullData.codes && fullData.codes.length > 0) ||
       (fullData.totpItems && fullData.totpItems.length > 0) ||
       (fullData.categories && fullData.categories.length > 6);
 
-    // Overwrite guard
     if (!hasLocalContent && !options.forceEmpty) {
       try {
         const existing = await getVault();
@@ -98,7 +99,6 @@ export async function syncVaultToServer(password, identifier, userEmail = null, 
       } catch (e) {}
     }
 
-    // Determine primary identifier:
     let primaryId = (userEmail || identifier || '').trim().toLowerCase();
     if (!primaryId) {
       try {
@@ -114,8 +114,24 @@ export async function syncVaultToServer(password, identifier, userEmail = null, 
     const encryptedPacket = await encryptCredentials(fullData, vaultKeyHex);
     const blobString = JSON.stringify(encryptedPacket);
     await syncVault(blobString, 1);
+    await clearPendingVaultSync();
     return true;
   } catch (error) {
+    await markPendingVaultSync();
+    return false;
+  }
+}
+
+export async function flushPendingVaultSync() {
+  try {
+    const pending = await hasPendingVaultSync();
+    if (!pending) return false;
+    const raw = await SecureStore.getItemAsync('auth_credentials');
+    if (!raw) return false;
+    const creds = JSON.parse(raw);
+    if (!creds || !creds.password) return false;
+    return await syncVaultToServer(creds.password, creds.identifier, creds.email);
+  } catch {
     return false;
   }
 }
@@ -130,13 +146,16 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
 
     let encryptedPacket = res.vault.encrypted_blob;
     if (typeof encryptedPacket === 'string') {
-      try { encryptedPacket = JSON.parse(encryptedPacket); } catch (e) {}
+      try {
+        encryptedPacket = JSON.parse(encryptedPacket);
+      } catch (e) {}
     }
     if (typeof encryptedPacket === 'string') {
-      try { encryptedPacket = JSON.parse(encryptedPacket); } catch (e) {}
+      try {
+        encryptedPacket = JSON.parse(encryptedPacket);
+      } catch (e) {}
     }
 
-    // Verify we have a proper {iv, data} structure
     if (!encryptedPacket || !encryptedPacket.iv || !encryptedPacket.data) {
       return false;
     }
@@ -156,7 +175,8 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
 
           let parsed = null;
           try {
-            parsed = typeof decryptedStr === 'string' ? JSON.parse(decryptedStr) : decryptedStr;
+            parsed =
+              typeof decryptedStr === 'string' ? JSON.parse(decryptedStr) : decryptedStr;
             if (typeof parsed === 'string') {
               parsed = JSON.parse(parsed);
             }
@@ -168,6 +188,9 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
             parsed &&
             typeof parsed === 'object' &&
             (parsed.credentials !== undefined ||
+              parsed.bankAccounts !== undefined ||
+              parsed.cards !== undefined ||
+              parsed.codes !== undefined ||
               Array.isArray(parsed) ||
               parsed.categories !== undefined ||
               parsed.profile !== undefined ||
@@ -190,6 +213,7 @@ export async function syncVaultFromServer(password, identifier, userEmail = null
     }
 
     await importFullVault(validVaultData);
+    await clearPendingVaultSync();
     return true;
   } catch (error) {
     return false;

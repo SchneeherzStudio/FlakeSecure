@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Master Server v2.0.2
+ * FlakeSecure Master Server v2.1.0
  * ============================================================================
  * 
  * ARCHITECTURAL SUMMARY:
@@ -212,7 +212,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'FlakeSecure Unified Server',
-    version: '2.0.3',
+    version: '2.1.0',
     uptime: Math.floor(process.uptime()),
     activeSessions: relayService.activeSessions.size,
     timestamp: new Date().toISOString()
@@ -420,7 +420,7 @@ process.on('unhandledRejection', async (reason, promise) => {
 // ─── 12. Server Startup ─────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
   console.log('');
-  console.log('  [FlakeSecure] Unified Server v2.0.2');
+  console.log('  [FlakeSecure] Unified Server v2.1.0');
   console.log('  ─────────────────────────────────────');
   console.log(`  Listening on: http://localhost:${PORT}`);
   console.log(`  Health Check: http://localhost:${PORT}/health`);

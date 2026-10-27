@@ -1,46 +1,64 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - API Client Utility v2.0
- * ============================================================================
- * 
- * FUNCTION OVERVIEW:
- * 
- * 1. HTTP CLIENT & AUTH HEADERS:
- *    - getServerUrl(): Reads configured server URL from SecureStore (fallback: DEFAULT_SERVER_URL).
- *    - getToken(): Retrieves stored JWT token from SecureStore.
- *    - apiRequest(endpoint, options): Executes HTTP requests with automatic Bearer token injection and error handling.
- * 
- * 2. AUTH METHODS:
- *    - register(email, username, password, otpToken), login(identifier, password), logout(), getMe()
- * 
- * 3. ACCOUNT & SHARING METHODS:
- *    - deleteAccount(otpToken), updateAccount(data), getRestrictions(), addRestriction(username), removeRestriction(recipientId), searchUsers(query)
- *    - getSessions(), deleteSession(sessionId)
- * 
- * 4. SYSTEM & ANNOUNCEMENT METHODS:
- *    - getSystemStatus(), getAnnouncements(), dismissAnnouncement(id)
- * 
- * 5. OTP VERIFICATION METHODS:
- *    - sendOtp(email, purpose), verifyOtp(email, code, purpose)
- * 
- * 6. VAULT SYNC METHODS:
- *    - getVault(), syncVault(encryptedBlob, blobVersion), purgeVault()
- * 
- * 7. PUSH NOTIFICATION METHODS:
- *    - registerPushToken(expoToken, deviceInfo), unregisterPushToken(expoToken), getPushStatus()
- * 
- * 8. RELAY & TOTP STREAMING METHODS:
- *    - sendLogin(sid, payload), sendTotp(sid, payload)
- * 
- * 9. LOGS METHODS:
- *    - getLogs(page, limit), clearLogs()
+ * FlakeSecure Mobile App - API Client Utility v2.1
  * ============================================================================
  */
 
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const DEFAULT_SERVER_URL = 'https://flakesecure.snowystudio.dev';
+export const DEFAULT_SERVER_URL = 'https://flakesecure.snowystudio.dev';
+export const DEFAULT_SERVER = DEFAULT_SERVER_URL;
+
+let isOfflineState = false;
+const connectivityListeners = new Set();
+
+export function getIsOffline() {
+  return isOfflineState;
+}
+
+export function reportNetworkStatus(isOnline) {
+  const nextOffline = !isOnline;
+  if (isOfflineState !== nextOffline) {
+    isOfflineState = nextOffline;
+    connectivityListeners.forEach((cb) => {
+      try {
+        cb(isOfflineState);
+      } catch {}
+    });
+  }
+}
+
+export function subscribeConnectivity(listener) {
+  if (typeof listener !== 'function') return () => {};
+  connectivityListeners.add(listener);
+  return () => {
+    connectivityListeners.delete(listener);
+  };
+}
+
+export async function checkServerReachability(timeoutMs = 6000) {
+  try {
+    const serverUrl = await getServerUrl();
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const res = await fetch(`${serverUrl}/api/system/status`, {
+        method: 'GET',
+        signal: controller?.signal,
+      });
+      if (timer) clearTimeout(timer);
+      const reachable = res.status < 500;
+      reportNetworkStatus(reachable);
+      return reachable;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  } catch {
+    reportNetworkStatus(false);
+    return false;
+  }
+}
 
 export function getDeviceModelName() {
   if (Platform.OS === 'ios') {
@@ -69,32 +87,57 @@ export async function getToken() {
 export async function apiRequest(endpoint, options = {}) {
   const serverUrl = await getServerUrl();
   const token = await getToken();
-  
+
   const headers = {
     'Content-Type': 'application/json',
     'x-device-name': getDeviceModelName(),
     ...options.headers,
   };
-  
-  if (token) {
+
+  if (token && token !== 'offline_local_token') {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
-  const response = await fetch(`${serverUrl}${endpoint}`, {
-    ...options,
-    headers,
-  });
-  
+
+  const timeoutMs = options.timeoutMs || 12000;
+  const controller =
+    typeof AbortController !== 'undefined' && !options.signal ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  let response;
+  try {
+    response = await fetch(`${serverUrl}${endpoint}`, {
+      ...options,
+      headers,
+      signal: options.signal || controller?.signal,
+    });
+  } catch (networkErr) {
+    if (timeoutId) clearTimeout(timeoutId);
+    reportNetworkStatus(false);
+    const err = new Error(networkErr?.message || 'Network request failed');
+    err.isNetworkError = true;
+    err.code = 'NETWORK_ERROR';
+    throw err;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+
+  reportNetworkStatus(true);
+
   const data = await response.json().catch(() => ({}));
-  
+
   if (!response.ok) {
     const err = new Error(data.error || `HTTP ${response.status}`);
     err.status = response.status;
     if (data.code) err.code = data.code;
     if (data.errors) err.errors = data.errors;
+    if (response.status === 429) {
+      const retryHeader = response.headers?.get?.('retry-after');
+      const parsedRetry = parseInt(data.retryAfter || retryHeader || '30', 10);
+      err.retryAfter = Number.isFinite(parsedRetry) && parsedRetry > 0 ? parsedRetry : 30;
+    }
     throw err;
   }
-  
+
   return data;
 }
 
@@ -115,14 +158,24 @@ export async function fetchPwnedRange(prefix) {
 export async function register(email, username, password, otpToken = null) {
   return apiRequest('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, username, password, otpToken, device_info: getDeviceModelName() }),
+    body: JSON.stringify({
+      email,
+      username,
+      password,
+      otpToken,
+      device_info: getDeviceModelName(),
+    }),
   });
 }
 
 export async function login(identifier, password) {
   return apiRequest('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ identifier, password, device_info: getDeviceModelName() }),
+    body: JSON.stringify({
+      identifier,
+      password,
+      device_info: getDeviceModelName(),
+    }),
   });
 }
 
@@ -224,10 +277,30 @@ export async function purgeVault() {
   });
 }
 
-export async function registerPushToken(expoToken, deviceInfo = '') {
+export async function registerPushToken(
+  expoToken,
+  deviceInfo = '',
+  language = 'de',
+  preferences = null
+) {
   return apiRequest('/api/notifications/register', {
     method: 'POST',
-    body: JSON.stringify({ expo_token: expoToken, device_info: deviceInfo }),
+    body: JSON.stringify({
+      expo_token: expoToken,
+      device_info: deviceInfo || getDeviceModelName(),
+      language,
+      ...(preferences ? { preferences } : {}),
+    }),
+  });
+}
+
+export async function updatePushPreferences(preferences, language = null) {
+  return apiRequest('/api/notifications/preferences', {
+    method: 'PUT',
+    body: JSON.stringify({
+      preferences,
+      ...(language ? { language } : {}),
+    }),
   });
 }
 
@@ -246,8 +319,10 @@ export async function sendLogin(sid, payload) {
   const serverUrl = await getServerUrl();
   const token = await getToken();
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  
+  if (token && token !== 'offline_local_token') {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${serverUrl}/send-login`, {
     method: 'POST',
     headers,
@@ -260,8 +335,10 @@ export async function sendTotp(sid, payload) {
   const serverUrl = await getServerUrl();
   const token = await getToken();
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  
+  if (token && token !== 'offline_local_token') {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${serverUrl}/send-totp`, {
     method: 'POST',
     headers,

@@ -70,4 +70,49 @@ The existing embed/widget system (`embed.js`, `widget.html`) could be enhanced t
 
 ---
 
-*Last updated: 2026-09-23*
+## 3. iOS AutoFill Credential Provider Extension (`ASCredentialProviderViewController`)
+
+**Priority:** Future (once paid Apple Developer Program membership is active)  
+**Status:** Deferred (Android `AutofillService` implemented in v2.1.0)  
+**Prerequisite:** Paid Apple Developer Account with the `com.apple.developer.authentication-services.autofill-credential-provider` entitlement.
+
+### Concept
+Integrate FlakeSecure into iOS system-wide Password & 2FA AutoFill (*Settings → General → AutoFill & Passwords*) so Safari and native iOS apps suggest FlakeSecure accounts directly above the QuickType keyboard and unlock them via Face ID / Touch ID.
+
+### Required Components
+- **Expo Config Plugin (`withFlakeSecureIOSAutofill`)**:
+  - Adds a secondary iOS App Extension target (`FlakeSecureAutoFillExtension`) embedding an `ASCredentialProviderViewController` subclass in Swift (`CredentialProviderViewController.swift`).
+  - Configures shared entitlements for both the main app and the extension target:
+    - **Keychain Sharing (`keychain-access-groups`)**: `$(AppIdentifierPrefix)com.snowy.studio.FlakeSecure.shared` so the extension can read hardware-encrypted credentials written by the main React Native app.
+    - **App Groups (`com.apple.security.application-groups`)**: `group.com.snowy.studio.FlakeSecure` for non-sensitive domain index metadata and theme preferences.
+    - **AutoFill Credential Provider (`com.apple.developer.authentication-services.autofill-credential-provider`)**: `true`.
+- **QuickType Keyboard Suggestions (`ASCredentialIdentityStore`)**:
+  - Whenever credentials or linked 2FA items are added/updated/deleted in `storage.js`, the JS bridge (`autofillBridge.js`) registers `ASPasswordCredentialIdentity` (and on iOS 18+ `ASOneTimeCodeCredentialIdentity`) records with `ASCredentialIdentityStore.shared` using `ASPasskeyCredentialIdentity` / `ASPasswordCredentialIdentity(serviceIdentifier: user: recordIdentifier:)`.
+- **Extension Lifecycle (`CredentialProviderViewController.swift`)**:
+  - `prepareCredentialList(for serviceIdentifiers:)`: Displays matching accounts for the requested domain (supporting multiple logins per domain with their custom display names) after Face ID / Touch ID verification via `LAContext`.
+  - `provideCredentialWithoutUserInteraction(for credentialIdentity:)`: Evaluates `LAContext` biometrics if required and completes the request with `ASPasswordCredential(user: password:)`.
+  - **Linked 2FA / TOTP**: If the selected credential has a linked TOTP secret, automatically copies the current 6/8-digit TOTP code to `UIPasteboard.general` (with 45s expiration via `UIPasteboard.OptionsKey.expirationDate`) or fills via iOS 18+ `provideOneTimeCodeCredentialWithoutUserInteraction`.
+  - `prepareInterfaceForExtensionConfiguration()`: Renders a quick status & biometric setup screen when opened from iOS Settings.
+
+---
+
+## 4. Simple Overlay (Redesign) — Apple Pay-Inspired System Overlay
+
+**Priority:** Future  
+**Status:** Planned  
+**Scope:** Browser Extensions (`chrome-extension`, `firefox-extension`), Embed Widget (`embed.js` / `widget.html`), and future Desktop Overlay (`Desktop-Login`)
+
+### Vision & Design Philosophy
+A complete visual redesign of the FlakeSecure login/autofill overlay inspired by **Apple Pay on Desktop (macOS/Safari)**:
+- **Simple, Clean & Unobtrusive:** Minimalist sheet/modal that feels like a native OS system prompt rather than a heavy third-party widget.
+- **System-Native Aesthetics:**
+  - Adaptive translucent surface (`backdrop-filter: blur(24px) saturate(180%)`) that harmonizes with the user's system theme (Dark / Light mode) and OS typography (`system-ui`, `-apple-system`, `Segoe UI Variable`).
+  - Subtle hairline borders, soft ambient elevation shadows, and smooth spring-based entrance/exit animations.
+- **Focused Interaction Flow:**
+  - Compact header with service favicon, verified domain badge, and single-click dismiss.
+  - Clean, scannable QR code presentation (or account/card selector) with a subtle FlakeSecure emblem and status indicator ("Mit FlakeSecure auf dem Handy scannen" / "Scan with FlakeSecure").
+  - Seamless transition states: *Waiting for Scan* → *Biometric Verification on Phone* → *Animated Checkmark (Apple Pay-style completion ring)* → *Auto-Close & Fill*.
+
+---
+
+*Last updated: 2026-10-27*

@@ -258,6 +258,18 @@ router.post('/reset-password', async (req, res) => {
         // Invalidate all active sessions for security
         await db.query('DELETE FROM sessions WHERE user_id = $1', [resetRecord.user_id]);
 
+        try {
+            await sendPushToUser(
+                resetRecord.user_id,
+                'Passwort geändert',
+                'Dein FlakeSecure Master-Passwort wurde erfolgreich zurückgesetzt.',
+                { type: 'security_alert', targetScreen: 'Settings' },
+                'security_alerts'
+            );
+        } catch (pushErr) {
+            console.log('[FlakeSecure] Password reset push skipped:', pushErr.message);
+        }
+
         res.json({
             success: true,
             message: 'Password has been successfully updated. You can now log in with your new password.',
@@ -422,7 +434,8 @@ router.post('/login', async (req, res) => {
                 user.id,
                 'Neuer Login erkannt',
                 `Anmeldung von ${loginDevice} (${city || country || 'Unbekannter Ort'})`,
-                { type: 'new_login', device: loginDevice }
+                { type: 'new_login', device: loginDevice, targetScreen: 'Logs' },
+                'login_alerts'
             );
         } catch (pushErr) {
             console.log('[FlakeSecure] Push notification skipped:', pushErr.message);

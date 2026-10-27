@@ -11,7 +11,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   RefreshControl,
   ScrollView,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
 import { AppIcon } from '../components/CategoryIcons';
 import { getLogs, clearLogs } from '../utils/api';
 import { LogRowSkeleton } from '../components/Skeleton';
@@ -27,6 +27,7 @@ import { TapFeedback } from '../components/TapFeedback';
 export default function LogsScreen({ navigation }) {
   const { t, locale } = useLanguage();
   const { colors } = useTheme();
+  const toast = useToast();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -67,7 +68,7 @@ export default function LogsScreen({ navigation }) {
       }
     } catch (error) {
       console.log('Failed to fetch logs', error);
-      Alert.alert(t('error'), t('logs.loadError'));
+      toast.error(t('error'), t('logs.loadError'));
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -90,25 +91,22 @@ export default function LogsScreen({ navigation }) {
   };
 
   const handleClearLogs = () => {
-    Alert.alert(
-      t('logs.clearConfirmTitle'),
-      t('logs.clearConfirmMsg'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearLogs();
-              setLogs([]);
-            } catch (error) {
-              Alert.alert(t('error'), t('logs.clearError'));
-            }
-          },
-        },
-      ]
-    );
+    toast.confirm({
+      title: t('logs.clearConfirmTitle'),
+      message: t('logs.clearConfirmMsg'),
+      confirmText: t('delete'),
+      cancelText: t('cancel'),
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        try {
+          await clearLogs();
+          setLogs([]);
+        } catch (error) {
+          toast.error(t('error'), t('logs.clearError'));
+        }
+      },
+    });
   };
 
   const renderActionIcon = (actionType) => {

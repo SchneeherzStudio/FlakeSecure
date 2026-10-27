@@ -17,6 +17,14 @@ export const AVAILABLE_CATEGORY_ICONS = [
   'star',
   'shield',
   'tag',
+  'door',
+  'bike',
+  'safe',
+  'bell',
+  'locker',
+  'garage',
+  'wifi',
+  'keypad',
 ];
 
 const EMOJI_TO_ICON_KEY = {
@@ -69,10 +77,86 @@ export function CategoryIcon({ name, size = 18, color = '#E8B020', style }) {
         </Svg>
       );
     case 'card':
+    case 'credit-card':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
           <Line x1="1" y1="10" x2="23" y2="10" />
+          <Line x1="5" y1="15" x2="9" y2="15" />
+        </Svg>
+      );
+    case 'door':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14" />
+          <Path d="M2 20h20" />
+          <Circle cx="14" cy="12" r="1" fill={color} />
+        </Svg>
+      );
+    case 'bike':
+    case 'bikelock':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Circle cx="5.5" cy="17.5" r="3.5" />
+          <Circle cx="18.5" cy="17.5" r="3.5" />
+          <Path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2" />
+        </Svg>
+      );
+    case 'safe':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <Circle cx="12" cy="12" r="4" />
+          <Line x1="12" y1="8" x2="12" y2="10" />
+          <Line x1="12" y1="14" x2="12" y2="16" />
+          <Line x1="8" y1="12" x2="10" y2="12" />
+          <Line x1="14" y1="12" x2="16" y2="12" />
+        </Svg>
+      );
+    case 'bell':
+    case 'alarm':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </Svg>
+      );
+    case 'locker':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+          <Line x1="8" y1="6" x2="16" y2="6" />
+          <Line x1="8" y1="10" x2="16" y2="10" />
+          <Circle cx="15" cy="15" r="1.5" />
+        </Svg>
+      );
+    case 'garage':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M3 21V8l9-5 9 5v13" />
+          <Rect x="6" y="12" width="12" height="9" />
+          <Line x1="6" y1="15" x2="18" y2="15" />
+          <Line x1="6" y1="18" x2="18" y2="18" />
+        </Svg>
+      );
+    case 'wifi':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M5 12.55a11 11 0 0 1 14.08 0" />
+          <Path d="M1.42 9a16 16 0 0 1 21.16 0" />
+          <Path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+          <Line x1="12" y1="20" x2="12.01" y2="20" />
+        </Svg>
+      );
+    case 'keypad':
+    case 'hash':
+    case 'other':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="4" y1="9" x2="20" y2="9" />
+          <Line x1="4" y1="15" x2="20" y2="15" />
+          <Line x1="10" y1="3" x2="8" y2="21" />
+          <Line x1="16" y1="3" x2="14" y2="21" />
         </Svg>
       );
     case 'message':
@@ -409,6 +493,102 @@ export function AppIcon({ name, size = 18, color = '#E8B020', style }) {
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
           <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </Svg>
+      );
+    case 'pin-warning':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <Line x1="12" y1="8" x2="12" y2="12" />
+          <Line x1="12" y1="16" x2="12.01" y2="16" />
+        </Svg>
+      );
+    case 'offline-cloud':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3" />
+          <Line x1="1" y1="1" x2="23" y2="23" />
+        </Svg>
+      );
+    case 'chevronUp':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="18 15 12 9 6 15" />
+        </Svg>
+      );
+    case 'chevronDown':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="6 9 12 15 18 9" />
+        </Svg>
+      );
+    case 'reorder':
+    case 'sort':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="7 8 12 3 17 8" />
+          <Polyline points="7 16 12 21 17 16" />
+          <Line x1="12" y1="3" x2="12" y2="21" />
+        </Svg>
+      );
+    case 'chevronRight':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="9 18 15 12 9 6" />
+        </Svg>
+      );
+    case 'search':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Circle cx="11" cy="11" r="8" />
+          <Line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </Svg>
+      );
+    case 'refresh':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="23 4 23 10 17 10" />
+          <Polyline points="1 20 1 14 7 14" />
+          <Path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </Svg>
+      );
+    case 'smartphone':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+          <Line x1="12" y1="18" x2="12.01" y2="18" />
+        </Svg>
+      );
+    case 'check-circle':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <Polyline points="22 4 12 14.01 9 11.01" />
+        </Svg>
+      );
+    case 'x-circle':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Circle cx="12" cy="12" r="10" />
+          <Line x1="15" y1="9" x2="9" y2="15" />
+          <Line x1="9" y1="9" x2="15" y2="15" />
+        </Svg>
+      );
+    case 'chip':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="3" y="5" width="18" height="14" rx="2.5" />
+          <Line x1="3" y1="10" x2="21" y2="10" />
+          <Line x1="3" y1="14" x2="21" y2="14" />
+          <Line x1="9" y1="5" x2="9" y2="19" />
+          <Line x1="15" y1="5" x2="15" y2="19" />
+        </Svg>
+      );
+    case 'location':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+          <Circle cx="12" cy="10" r="3" />
         </Svg>
       );
     default:

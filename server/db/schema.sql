@@ -1,5 +1,5 @@
 -- ============================================================================
--- FlakeSecure Server - PostgreSQL Database Schema v2.0.1
+-- FlakeSecure Server - PostgreSQL Database Schema v2.1.0
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -86,17 +86,25 @@ CREATE INDEX IF NOT EXISTS idx_received_creds_recipient ON received_credentials(
 
 CREATE TABLE IF NOT EXISTS announcements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(150) DEFAULT NULL,
     message TEXT NOT NULL,
     type VARCHAR(10) NOT NULL DEFAULT 'popup',
     display VARCHAR(10) NOT NULL DEFAULT 'once',
     active BOOLEAN DEFAULT true,
     priority INTEGER DEFAULT 0,
+    target_screen VARCHAR(50) DEFAULT NULL,
+    regions VARCHAR(255) DEFAULT 'ALL',
+    delivery_mode VARCHAR(20) DEFAULT 'in_app',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     expires_at TIMESTAMPTZ
 );
 
 ALTER TABLE announcements ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE announcements ADD COLUMN IF NOT EXISTS title VARCHAR(150) DEFAULT NULL;
+ALTER TABLE announcements ADD COLUMN IF NOT EXISTS target_screen VARCHAR(50) DEFAULT NULL;
+ALTER TABLE announcements ADD COLUMN IF NOT EXISTS regions VARCHAR(255) DEFAULT 'ALL';
+ALTER TABLE announcements ADD COLUMN IF NOT EXISTS delivery_mode VARCHAR(20) DEFAULT 'in_app';
 CREATE INDEX IF NOT EXISTS idx_announcements_active_expires ON announcements(active, expires_at);
 
 CREATE TABLE IF NOT EXISTS maintenance (
@@ -161,13 +169,27 @@ CREATE TABLE IF NOT EXISTS push_tokens (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     expo_token VARCHAR(255) NOT NULL,
     device_info TEXT,
+    country VARCHAR(5) DEFAULT NULL,
+    language VARCHAR(5) DEFAULT 'de',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(user_id, expo_token)
 );
 
 ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS country VARCHAR(5) DEFAULT NULL;
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS language VARCHAR(5) DEFAULT 'de';
 CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id);
+
+CREATE TABLE IF NOT EXISTS notification_prefs (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    login_alerts BOOLEAN DEFAULT true,
+    security_alerts BOOLEAN DEFAULT true,
+    share_alerts BOOLEAN DEFAULT true,
+    system_announcements BOOLEAN DEFAULT true,
+    custom_pushes BOOLEAN DEFAULT true,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS dismissed_announcements (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,

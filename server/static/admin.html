@@ -667,11 +667,14 @@
           pre.textContent = 'Fehler: ' + data.error;
           return;
         }
+        const procName = data.processName || 'flakesecure';
         pre.textContent = (data.logs && data.logs.length > 0)
           ? data.logs.join('\n')
-          : 'Keine Logs vorhanden.';
+          : (data.message || 'Keine Logs vorhanden.');
         if (data.filename) {
-          pre.textContent = '// Datei: ' + data.filename + ' (' + (data.totalLines || '?') + ' Zeilen gesamt)\n\n' + pre.textContent;
+          pre.textContent = '// Prozess: ' + procName + ' | Datei: ' + data.filename + ' (' + (data.totalLines || '?') + ' Zeilen gesamt)\n\n' + pre.textContent;
+        } else {
+          pre.textContent = '// Prozess: ' + procName + '\n\n' + pre.textContent;
         }
         pre.scrollTop = pre.scrollHeight;
       } catch (e) {

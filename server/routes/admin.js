@@ -253,7 +253,7 @@ router.post('/backup', requireAdminAuth, async (req, res) => {
     const pushTokens = (await db.query('SELECT * FROM push_tokens')).rows;
 
     const backupData = {
-      version: '2.0.3',
+      version: '2.1.0',
       createdAt: new Date().toISOString(),
       counts: {
         users: users.length,
@@ -303,32 +303,70 @@ router.get('/backup/download/:filename', requireAdminAuth, (req, res) => {
 // GET /api/admin/pm2-logs
 router.get('/pm2-logs', requireAdminAuth, (req, res) => {
   const lines = Math.min(Math.max(parseInt(req.query.lines, 10) || 100, 1), 1000);
-  const type = req.query.type || 'out'; // 'out' or 'error'
-  
-  const pm2LogDir = process.env.PM2_LOG_DIR || path.join(os.homedir(), '.pm2', 'logs');
-  
-  if (!fs.existsSync(pm2LogDir)) {
-    return res.json({ logs: [], error: 'PM2 log directory not found' });
-  }
-  
+  const type = req.query.type === 'error' ? 'error' : 'out'; // 'out' or 'error'
+  const suffix = type === 'error' ? 'error' : 'out';
+  const targetAppName = (process.env.PM2_APP_NAME || process.env.name || 'flakesecure').trim();
+
   try {
-    const logFiles = fs.readdirSync(pm2LogDir)
-      .filter(f => f.includes(type === 'error' ? '-error' : '-out') && f.endsWith('.log'))
-      .sort((a, b) => {
-        try {
-          const aStat = fs.statSync(path.join(pm2LogDir, a));
-          const bStat = fs.statSync(path.join(pm2LogDir, b));
-          return bStat.mtimeMs - aStat.mtimeMs;
-        } catch (_) {
-          return 0;
-        }
-      });
-    
-    if (logFiles.length === 0) {
-      return res.json({ logs: [], message: 'No PM2 log files found' });
+    let latestLog = null;
+
+    // Priority 1: PM2 runtime environment variables injected directly into this Node process
+    const runtimePath = type === 'error' ? process.env.pm_err_log_path : process.env.pm_out_log_path;
+    if (runtimePath && fs.existsSync(runtimePath)) {
+      latestLog = runtimePath;
     }
-    
-    const latestLog = path.join(pm2LogDir, logFiles[0]);
+
+    // Priority 2: Explicit env override paths
+    if (!latestLog) {
+      const envOverridePath = type === 'error' ? process.env.PM2_LOG_FILE_ERR : process.env.PM2_LOG_FILE_OUT;
+      if (envOverridePath && fs.existsSync(envOverridePath)) {
+        latestLog = envOverridePath;
+      }
+    }
+
+    // Priority 3: Strictly filter files in PM2_LOG_DIR matching only targetAppName
+    if (!latestLog) {
+      const pm2LogDir = process.env.PM2_LOG_DIR || path.join(os.homedir(), '.pm2', 'logs');
+      if (!fs.existsSync(pm2LogDir)) {
+        return res.json({
+          logs: [],
+          processName: targetAppName,
+          message: `Keine PM2-Logdatei für Prozess "${targetAppName}" gefunden.`
+        });
+      }
+
+      const targetLower = targetAppName.toLowerCase();
+      const logFiles = fs.readdirSync(pm2LogDir)
+        .filter(f => {
+          const lowerName = f.toLowerCase();
+          return lowerName.endsWith('.log') && (
+            lowerName === `${targetLower}-${suffix}.log` ||
+            lowerName.startsWith(`${targetLower}-${suffix}-`)
+          );
+        })
+        .sort((a, b) => {
+          try {
+            const aStat = fs.statSync(path.join(pm2LogDir, a));
+            const bStat = fs.statSync(path.join(pm2LogDir, b));
+            return bStat.mtimeMs - aStat.mtimeMs;
+          } catch (_) {
+            return 0;
+          }
+        });
+
+      if (logFiles.length > 0) {
+        latestLog = path.join(pm2LogDir, logFiles[0]);
+      }
+    }
+
+    if (!latestLog || !fs.existsSync(latestLog)) {
+      return res.json({
+        logs: [],
+        processName: targetAppName,
+        message: `Keine PM2-Logdatei für Prozess "${targetAppName}" gefunden.`
+      });
+    }
+
     const stat = fs.statSync(latestLog);
     const MAX_TAIL_BYTES = 128 * 1024; // Read at most the last 128 KB to prevent OOM on large PM2 logs
     const readSize = Math.min(stat.size, MAX_TAIL_BYTES);
@@ -353,10 +391,11 @@ router.get('/pm2-logs', requireAdminAuth, (req, res) => {
     }
     const allLines = rawLines.filter(l => l.trim());
     const lastLines = allLines.slice(-lines);
-    
-    res.json({ 
+
+    res.json({
       logs: lastLines,
-      filename: logFiles[0],
+      filename: path.basename(latestLog),
+      processName: targetAppName,
       totalLines: allLines.length
     });
   } catch (err) {
@@ -385,4 +424,5 @@ router.delete('/backup/:filename', requireAdminAuth, (req, res) => {
   }
 });
 
+module.exports.requireAdminAuth = requireAdminAuth;
 module.exports.router = router;

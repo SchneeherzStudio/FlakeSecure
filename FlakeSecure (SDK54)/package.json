@@ -1,6 +1,6 @@
 {
   "name": "flakesecure",
-  "version": "2.0.3",
+  "version": "2.1.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -18,12 +18,14 @@
     "expo-constants": "~18.0.14",
     "expo-crypto": "~15.0.9",
     "expo-file-system": "~19.0.24",
+    "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
     "expo-image-picker": "~17.0.11",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.12",
     "expo-local-authentication": "~17.0.9",
     "expo-localization": "~17.0.9",
+    "expo-notifications": "~0.32.16",
     "expo-secure-store": "~15.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",

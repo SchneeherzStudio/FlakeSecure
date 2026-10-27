@@ -7,7 +7,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Dimensions, Animated, TextInput, Alert,
+  Dimensions, Animated, TextInput,
   KeyboardAvoidingView, Platform, ScrollView,
   ActivityIndicator, Linking
 } from 'react-native';
@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
 import { AppIcon } from '../components/CategoryIcons';
 import PasswordChecklist, { usePasswordValidation } from '../components/PasswordChecklist';
 import { formatAuthServerError } from '../utils/passwordPolicy';
@@ -35,6 +36,7 @@ export default function OnboardingScreen({ onComplete }) {
   const { register } = useAuth();
   const { t, locale, changeLanguage: setAppLang } = useLanguage();
   const { colors } = useTheme();
+  const toast = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState(locale || 'en');
   const [email, setEmail] = useState('');
@@ -87,7 +89,7 @@ export default function OnboardingScreen({ onComplete }) {
   const handleSendOtp = async () => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
-      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
+      toast.warn(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
 
@@ -95,9 +97,9 @@ export default function OnboardingScreen({ onComplete }) {
     try {
       await sendOtp(cleanEmail, 'register');
       setOtpSent(true);
-      Alert.alert(t('success'), t('login.otpSentAlert', { email: cleanEmail }));
+      toast.success(t('success'), t('login.otpSentAlert', { email: cleanEmail }));
     } catch (e) {
-      Alert.alert(t('error'), e.message || t('login.otpSendFailed'));
+      toast.error(t('error'), e.message || t('login.otpSendFailed'));
     } finally {
       setSendingOtp(false);
     }
@@ -109,38 +111,38 @@ export default function OnboardingScreen({ onComplete }) {
     const cleanOtp = otpCode.trim();
 
     if (!cleanEmail || !cleanUsername || !password) {
-      Alert.alert(t('error'), t('viewCredential.allFieldsRequired'));
+      toast.warn(t('error'), t('viewCredential.allFieldsRequired'));
       return;
     }
     if (!/^[a-z0-9_-]+$/.test(cleanUsername)) {
-      Alert.alert(t('error'), t('onboarding.account.usernameRules'));
+      toast.warn(t('error'), t('onboarding.account.usernameRules'));
       return;
     }
     if (!pwEval.isValid) {
-      Alert.alert(t('error'), t('passwordPolicy.errWeakPassword'));
+      toast.warn(t('error'), t('passwordPolicy.errWeakPassword'));
       return;
     }
     if (pwnedState.pwned) {
-      Alert.alert(t('error'), t('passwordPolicy.pwnedWarning', { count: pwnedState.count }));
+      toast.error(t('error'), t('passwordPolicy.pwnedWarning', { count: pwnedState.count }));
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert(t('error'), t('onboarding.account.passwordsDoNotMatch'));
+      toast.warn(t('error'), t('onboarding.account.passwordsDoNotMatch'));
       return;
     }
 
     if (!otpSent) {
-      Alert.alert(t('error'), t('onboarding.account.otpLabel'));
+      toast.warn(t('error'), t('onboarding.account.otpLabel'));
       return;
     }
 
     if (!cleanOtp || cleanOtp.length !== 6) {
-      Alert.alert(t('error'), t('onboarding.account.otpLabel'));
+      toast.warn(t('error'), t('onboarding.account.otpLabel'));
       return;
     }
 
     if (!acceptedTerms || !acceptedAge) {
-      Alert.alert(t('error'), t('login.acceptTermsRequired'));
+      toast.warn(t('error'), t('login.acceptTermsRequired'));
       return;
     }
 
@@ -151,7 +153,7 @@ export default function OnboardingScreen({ onComplete }) {
       await register(cleanEmail, cleanUsername, password, otpToken);
       handleNext();
     } catch (err) {
-      Alert.alert(t('error'), formatAuthServerError(err, t));
+      toast.error(t('error'), formatAuthServerError(err, t));
     } finally {
       setRegistering(false);
     }

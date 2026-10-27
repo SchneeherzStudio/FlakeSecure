@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure Mobile App - Biometric Unlock Screen (BiometricUnlockScreen)
+ * FlakeSecure Mobile App - Biometric Unlock Screen (BiometricUnlockScreen) v2.1
  * ============================================================================
  */
 
@@ -14,7 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 import { AppIcon } from '../components/CategoryIcons';
 
 export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
-  const { biometricUnlock, switchToPasswordLogin } = useAuth();
+  const { biometricUnlock, switchToPasswordLogin, isOfflineMode } = useAuth();
   const { t } = useLanguage();
   const { colors } = useTheme();
   const [error, setError] = useState(null);
@@ -29,13 +29,13 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
       if (res && res.success) {
         return;
       }
-      
+
       if (res && res.reason === 'invalid_credentials') {
         setError(t('biometricUnlock.accountNotFound'));
       } else if (res && res.reason === 'no_hardware') {
         const usePassFn = onUsePassword || switchToPasswordLogin;
         await usePassFn();
-      } else {
+      } else if (res && res.reason !== 'cancelled') {
         setError(t('biometricUnlock.failed'));
       }
     } catch (e) {
@@ -62,18 +62,49 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <View style={[styles.logoBadge, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}>
+          <View
+            style={[
+              styles.logoBadge,
+              { backgroundColor: colors.goldBg, borderColor: colors.goldBorder },
+            ]}
+          >
             <AppIcon name="snowflake" size={36} color={colors.gold} />
           </View>
           <Text style={[styles.logoText, { color: colors.textMain }]}>
             Flake<Text style={{ color: colors.gold }}>Secure</Text>
           </Text>
-          <Text style={[styles.title, { color: colors.textMain }]}>{t('biometricUnlock.title')}</Text>
-          <Text style={[styles.subtitle, { color: colors.textSub }]}>{t('biometricUnlock.subtitle')}</Text>
+          <Text style={[styles.title, { color: colors.textMain }]}>
+            {t('biometricUnlock.title')}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSub }]}>
+            {t('biometricUnlock.subtitle')}
+          </Text>
         </View>
 
+        {isOfflineMode && (
+          <View
+            style={[
+              styles.offlineHintBox,
+              {
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                borderColor: 'rgba(245, 158, 11, 0.4)',
+              },
+            ]}
+          >
+            <AppIcon name="offline-cloud" size={18} color="#f59e0b" />
+            <Text style={[styles.offlineHintText, { color: colors.textSub }]}>
+              {t('offline.biometricOfflineHint')}
+            </Text>
+          </View>
+        )}
+
         {error ? (
-          <View style={[styles.errorContainer, { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder }]}>
+          <View
+            style={[
+              styles.errorContainer,
+              { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder },
+            ]}
+          >
             <AppIcon name="alert" size={18} color={colors.danger} />
             <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
           </View>
@@ -106,7 +137,10 @@ export function BiometricUnlockScreen({ onUnlock, onUsePassword }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.usePasswordButton, { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+            style={[
+              styles.usePasswordButton,
+              { backgroundColor: colors.cardBg, borderColor: colors.border },
+            ]}
             onPress={handleUsePassword}
             activeOpacity={0.7}
           >
@@ -132,7 +166,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
   logoBadge: {
     width: 72,
@@ -159,6 +193,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     paddingHorizontal: 16,
+  },
+  offlineHintBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 18,
+    width: '100%',
+  },
+  offlineHintText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
   },
   errorContainer: {
     flexDirection: 'row',

@@ -1,13 +1,13 @@
  FlakeSecure
 
-[![Version](https://img.shields.io/badge/version-2.0.3-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](package.json)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Chrome%20%7C%20Firefox%20%7C%20Desktop-success.svg)](#-platform-support)
 [![Security](https://img.shields.io/badge/encryption-AES--256--CTR%20%2B%20HMAC--SHA256-orange.svg)](#-security-architecture--protocols)
 [![Architecture](https://img.shields.io/badge/architecture-Zero--Knowledge%20Decoupled-purple.svg)](ARCHITECTURE.md)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](#)
 
-> **Zero-Knowledge Biometric Cross-Platform Password & 2FA Manager**  
-> Scan QR code on your desktop browser → Confirm via Face ID / Touch ID / Fingerprint on your smartphone → Browser logs in and auto-fills 2FA TOTP codes seamlessly via end-to-end encryption.
+> **Zero-Knowledge Biometric Cross-Platform Password, Bank Card, Code & 2FA Manager**  
+> Scan QR code on your desktop browser or use native Android System Autofill on your phone → Confirm via Face ID / Touch ID / Fingerprint → Auto-fill logins, 2FA TOTP codes, and payment cards seamlessly via end-to-end encryption.
 
 ---
 
@@ -30,6 +30,46 @@
 - [ Scalability & Multi-Region Clustering](#-scalability--multi-region-clustering)
 - [ Dependencies & Tech Stack](#-dependencies--tech-stack)
 - [ License](#-license)
+
+---
+
+ What's New in Version 2.1.0 (System Autofill, Bank Cards, Codes, Offline Mode, Push Suite & Toast UI)
+
+The **v2.1.0** release expands FlakeSecure into a full-featured biometric vault and native mobile autofill provider while introducing full offline resilience, GDPR-compliant regional push notifications, and a unified severity-coded Toast & Confirmation UI across all platforms:
+
+ Highlights & New Features in v2.1.0:
+
+1.  **Native Android System Autofill Service (`FlakeSecureAutofillService`)**:
+    - Custom Expo Config Plugin (`plugins/withFlakeSecureAutofill.js`) generating a native Kotlin Android `AutofillService`, `FlakeSecureAutofillAuthActivity`, and React Native bridge (`FlakeSecureAutofillModule` / `autofillBridge.js`).
+    - Auto-fills **Logins** (matching both web domains in Chrome/browsers and Android package names), **linked 2FA TOTP codes** (auto-computed in Kotlin via RFC 6238 and copied/filled), and **Bank Cards** in checkout forms.
+    - Biometric gate (`BiometricPrompt`) with multi-account selection dialog displaying custom account labels and masked card numbers (`•••• 4821`).
+    - Supports `onSaveRequest` (*"Save to FlakeSecure?"*) when submitting new credentials in third-party apps or browsers, importing them automatically into the hardware-backed vault.
+    - Dedicated Autofill status card & 1-tap system settings shortcut in `SettingsScreen.js` (iOS `ASCredentialProviderViewController` specification documented in `additions.md`).
+2.  **Encrypted Bank Accounts (`Bankkonten`) & Bank Cards Vault (`card`)**:
+    - Group debit and credit cards under **Bank Accounts (`Bankkonten`)** (`flakesecure_bank_acc_<id>`) with **Account Name (`Kontoname`)** and **IBAN** (analogous to how logins are grouped under domains).
+    - **Automatic BIC & Bank Detection (`ibanLookup.js`)**: Live ISO 13616 / Mod 97-10 IBAN checksum validation, 4-block IBAN formatting (`DE89 3704 0044 ...`), and instant offline BLZ/IID directory lookup that automatically populates the **Bank Name** and **BIC / SWIFT** (with non-blocking online fallback for regional Sparkassen/Volksbanken).
+    - Store debit/credit cards in isolated hardware-backed SecureStore keys (`flakesecure_card_<id>`) with automatic brand detection (`Visa`, `Mastercard`, `Amex`, `Maestro`, `Girocard`, `Discover`, `JCB`), Luhn validation, cardholder name, expiry (`MM/YY`), optional `CVV`, optional `PIN` (with security advisory), bank name, `IBAN`, `BIC`, color theme (`Gold`, `Midnight`, `Emerald`, `Crimson`, `Ocean`, `Slate`), and encrypted notes.
+    - Stylized credit card tile UI grouped under each Bank Account with masked IBAN/card numbers, 1-tap biometric reveal & copy for `IBAN`, `BIC`, `Card Number`, `Expiry`, `CVV`, and `PIN`, 30-day expiry warning badges, and 45-second clipboard auto-clear.
+3.  **Encrypted Codes Vault (`code` — Door, Bike Lock, Safe, Alarm, Locker, Garage, Wi-Fi)**:
+    - Dedicated vault tab and item type (`flakesecure_code_<id>`) for physical and digital access codes with custom SVG category icons, optional location field, and notes.
+    - High-contrast large digit/character blocks after biometric unlock for easy reading at a door keypad or bike lock, plus QR sharing support (`ShareImportScreen.js` & `ScanScreen.js`).
+4.  **Full Offline Vault Mode & Live Connectivity Detection**:
+    - Fixed startup & biometric unlock flow in `AuthContext.js` so network timeouts or server unreachability never invalidate local `auth_token` or `auth_credentials`.
+    - Unlock your local vault (Logins, Bank Cards, Codes, and 2FA TOTP codes) offline via biometrics (`BiometricUnlockScreen.js` and the *"Offline-Modus: Lokalen Tresor mit Biometrie öffnen"* action on `LoginScreen.js`).
+    - Create and edit vault items offline with an automatic background sync queue (`flakesecure_pending_vault_sync_v1`) that flushes and notifies via toast as soon as connectivity returns; account deletion is safely blocked while offline.
+    - Rich inline + toast login error presentation (`401` invalid credentials with field highlight, `429` rate-limit countdown, offline fallback, maintenance, and password policy checklist).
+5.  **Severity-Coded Top Toast System with Countdown Timer & Custom Confirmation Sheet**:
+    - Replaced all 109 native `Alert.alert` popups across all 12 mobile screens, the Web Portal (`account.html`, `reset-password.html`, `restore-account.html`), and Browser Extensions (`Chrome` & `Firefox`) with a top-of-screen Toast banner featuring:
+      - Color-coded severities: **Error (Red `#ef4444`, 6s)**, **Warning (Amber `#f59e0b`, 4.5s)**, **Success (Green `#10b981`, 3.2s)**, and **Info (Blue `#3b82f6`, 3.5s)**.
+      - Animated bottom countdown progress bar (pauses on press-and-hold / hover, dismisses on tap or swipe-up) and haptic feedback (`expo-haptics`).
+    - Replaced native confirmation dialogs with a styled FlakeSecure Confirmation Modal / Bottom-Sheet (`toast.confirm` / `showFsConfirmModal`).
+6.  **Push & Local Security Notification Suite + Regional IP Targeting + Desktop-Admin Deep-Links**:
+    - **Server Push Events**: New login alerts (`A`), security alerts on password reset, session revocation & account deletion scheduling (`B`), credential/code sharing alerts (`C`), maintenance & system announcements (`G`), and custom admin notifications (`POST /api/notifications/admin/send`).
+    - **Local On-Device Security Checks (`notifications.js`)**: 30-day card expiry warnings (`D`), periodic k-Anonymity HIBP breach checks for saved passwords (`E`), weekly weak/reused password reports (`F`), and 14-day vault backup/sync reminders (`H`).
+    - **Granular Preferences**: Individual toggles for all server-push and local notification categories in `SettingsScreen.js` (`notification_prefs` table + local prefs).
+    - **Desktop-Admin Custom Notifications & Regional Targeting**: Choose delivery mode (`In-App`, `Push`, or `Both`), deep-link target screen (`Home`, `Home:cards`, `Home:codes`, `Authenticator`, `Scan`, `Settings`, `Logs`, `ShareImport`, `VaultTransfer`), and GDPR-compliant regional targeting (`ALL`, `DE,AT,CH`, `DE`, `FR`, `ES`, `US,GB`, or custom ISO codes) evaluated locally via `geoip-lite` without storing raw IP addresses on push tokens.
+7.  **Strict PM2 Process Log Isolation (`/admin`)**:
+    - Fixed `GET /api/admin/pm2-logs` in `server/routes/admin.js` to read `flakesecure`'s own PM2 log path (`pm_out_log_path` / `pm_err_log_path` or `flakesecure-out*.log` / `flakesecure-error*.log`) instead of picking logs from unrelated PM2 services, displaying the verified process name in `admin.html`.
 
 ---
 
@@ -70,7 +110,7 @@ The **v2.0.3** update introduces the integrated real-time Admin Monitoring Conso
 9.  **Multi-Account Domain Grouping & Custom Account Labels**:
     - Store multiple logins per domain grouped cleanly on `HomeScreen.js`, assign custom display labels (`name`) to distinguish accounts (while keeping shared-login usernames hidden), and choose the desired account in `ConfirmScreen.js` after scanning a login QR code.
 10. **Cross-Platform Client Parity (v2.0.3)**:
-    - 100% source parity across React Native (`FlakeSecure (SDK54)` & `FlakeSecure (SDK57)`), Chrome Extension, Firefox Extension, Web Portal, and Desktop Admin in German (`DE`), English (`EN`), French (`FR`), and Spanish (`ES`).
+    - 100% source parity across React Native (`FlakeSecure (SDK54)` & `FlakeSecure (SDK58)`), Chrome Extension, Firefox Extension, Web Portal, and Desktop Admin in German (`DE`), English (`EN`), French (`FR`), and Spanish (`ES`).
 
 ---
 
@@ -198,21 +238,19 @@ graph TD
 
  Core Features
 
+- ** Native Android System Autofill (`FlakeSecureAutofillService`)**: Fill logins, linked 2FA TOTP codes, and bank cards directly inside Android apps and browsers (Chrome, etc.) via biometric authentication, with automatic *"Save to FlakeSecure?"* capture on new logins.
 - ** Instant QR Login & Multi-Account Selection**: Scan a QR code to sign in without typing passwords; group multiple accounts per domain with custom display labels and choose which account to use upon scanning.
-- ** Embeddable Provider SDK & Auto-Silenced Extension**: Website owners can embed biometric QR login directly into their pages; theFlakeSecure browser extension automatically detects the native embed and pauses itself completely.
+- ** Encrypted Bank Cards & Access Codes**: Dedicated biometric-gated vault tabs for **Bank Cards** (Luhn check, brand detection, expiry alerts, CVV/PIN with 45s auto-clear) and **Codes** (Door, Bike Lock, Safe, Alarm, Locker, Garage, Wi-Fi — with large keypad-friendly digit display and QR sharing).
+- ** Full Offline Vault Mode & Live Connectivity Detection**: Access and edit passwords, cards, codes, and 2FA codes offline via biometric unlock; automatic sync queue flushes changes upon reconnection.
+- ** Severity-Coded Top Toasts & Styled Confirmation Modals**: Color-coded top banners (Red/Amber/Green/Blue) with animated countdown progress bars, press-to-pause, and haptics across Mobile, Web Portal, and Browser Extensions.
+- ** Push & Local Security Notification Suite**: Server pushes (new logins, security events, received shares, maintenance, and custom Desktop-Admin deep-link notifications with GDPR-compliant `geoip-lite` regional targeting) plus local on-device checks (expiring cards, HIBP password breaches, weak/reused passwords, backup reminders).
+- ** Embeddable Provider SDK & Auto-Silenced Extension**: Website owners can embed biometric QR login directly into their pages; the FlakeSecure browser extension automatically detects the native embed and pauses itself completely.
 - ** Advanced 2FA / TOTP Suite**: Supports `SHA1`/`SHA256`/`SHA512`, `6`/`8` digits, `30s`/`60s` periods, per-credential linking (`credId`), QR camera scan, screenshot/gallery import, clipboard detection, and **Google Authenticator bulk migration (`otpauth-migration://`)**.
 - ** Encrypted Credential & 2FA Notes**: Hardware-backed encrypted multiline notes (`flakesecure_note_<credId>`) protected behind biometric authentication, with optional inclusion when sharing credentials via QR.
 - ** Enterprise Password Policy & HIBP Protection**: Enforces 12+ character complexity (or 16+ char passphrases), sequence/personal-info filtering, common-password blocking, and server-proxied **Have I Been Pwned** k-Anonymity breach checks.
 - ** Privacy-First Anti-Enumeration & Account Restore**: Prevents email enumeration on registration and login, sending private account-existence notices or 30-minute single-use account restoration links (`/restore-account`) via email.
 - ** Privacy-Preserving Favicon Proxy & Disk Cache**: Server-proxied domain icon resolution (`/api/favicon/:domain`) with SSRF protection and 30-day disk caching paired with `expo-image` client caching.
-- ** Pulse Skeleton Loading & Spring Tap Animations**: Smooth pulsing placeholders and native spring scale animations across all screens.
-- ** End-to-End Encryption**: AES-256-CTR + HMAC-SHA256 with ephemeral session keys – the server processes only ciphertext.
-- ** Zero-Knowledge Cloud Vault**: Client-side encrypted cloud backup and multi-device synchronization (including credential notes and 2FA metadata).
-- ** Native Biometrics & Hardware Storage**: Face ID, Touch ID, or Android Biometric authentication guarding hardware-backed SecureStore (iOS Keychain / Android Keystore).
-- ** 30-Minute Password Resets**: Single-use, SHA-256 hashed reset links with Zero-Knowledge client re-sync alerts.
-- ** Whitelist Sharing**: Share credentials securely with friends, family, or colleagues with fine-grained permission control and selectable note sharing.
-- ** Admin Telemetry & Backups**: Built-in monitoring dashboard with CPU/Memory telemetry and 1-click JSON database backups.
-- ** Universal Deep Linking**: Seamless recognition via camera scan or direct links (`flakesecure://`, `otpauth://`, `otpauth-migration://`).
+- ** End-to-End Encryption & Zero-Knowledge Cloud Vault**: AES-256-CTR + HMAC-SHA256 with ephemeral session keys and client-side PBKDF2 encrypted cloud synchronization.
 
 ---
 
@@ -303,39 +341,44 @@ flakesecure/
 │           ├── widget.html          # Responsive iframe widget
 │           └── demo.html            # Interactive developer sandbox
 │
-├── FlakeSecure (SDK57)/             # React Native Mobile App (Expo SDK 57 - Primary)
-│   ├── App.js                       # Root Navigator, deep-link handler (flakesecure/otpauth) & unlock gate
-│   ├── app.json / eas.json          # Build configuration & custom URL schemes
+├── FlakeSecure (SDK58)/             # React Native Mobile App (Expo SDK 58 - Primary)
+│   ├── App.js                       # Root Navigator, ToastProvider, push/deep-link handler & unlock gate
+│   ├── app.json / eas.json          # Build configuration, URL schemes & Android Autofill Config Plugin
+│   ├── plugins/
+│   │   └── withFlakeSecureAutofill.js # Expo Config Plugin generating Kotlin FlakeSecureAutofillService
 │   └── app/src/
 │       ├── components/
+│       │   ├── Toast.js             # Severity-coded top Toast with timer bar & Confirmation Bottom-Sheet
 │       │   ├── Skeleton.js          # Pulse skeleton placeholders (cards, rows, fields)
 │       │   ├── TapFeedback.js       # Spring scale-down tap animation wrapper
 │       │   ├── FaviconImage.js      # Server-proxied domain favicon component with expo-image disk cache
 │       │   └── PasswordChecklist.js # Live password rule checklist, 4-level strength bar & HIBP warning
 │       ├── context/
-│       │   ├── AuthContext.js       # Authentication state, auto-sync, biometric unlock
+│       │   ├── AuthContext.js       # Offline-resilient authentication state, auto-sync, biometric unlock
 │       │   └── LanguageContext.js   # Dynamic i18n multi-language provider (DE, EN, FR, ES)
 │       ├── screens/
-│       │   ├── HomeScreen.js        # Domain-grouped vault list, custom labels, note badges & skeletons
-│       │   ├── ScanScreen.js        # Universal QR scanner (Login, Share, Reg, Transfer, otpauth/migration)
+│       │   ├── HomeScreen.js        # Segmented vault (Logins | Bank Cards | Codes), custom labels & skeletons
+│       │   ├── ScanScreen.js        # Universal QR scanner (Login, Share, Code, Reg, Transfer, otpauth)
 │       │   ├── ConfirmScreen.js     # Multi-account selector, biometric confirmation & linked 2FA streaming
 │       │   ├── AuthenticatorScreen.js # RFC 6238 TOTP suite (QR, gallery, clipboard, Google Auth migration, credId link)
-│       │   ├── CredentialsScreen.js # Add/edit credentials with custom labels, notes & 2FA prompt
-│       │   ├── ViewCredentialScreen.js # Biometric-gated detail view with encrypted notes & linked live 2FA
-│       │   ├── SettingsScreen.js    # Active sessions, vault sync, icon cache purge & profile
+│       │   ├── CredentialsScreen.js # Add/edit Logins, Bank Cards & Codes with notes & 2FA prompt
+│       │   ├── ViewCredentialScreen.js # Biometric-gated detail view for Logins, Cards & Codes
+│       │   ├── SettingsScreen.js    # Active sessions, Autofill setup, notification prefs, vault sync & profile
 │       │   ├── LogsScreen.js        # Audit logs with row skeletons & filters
 │       │   ├── VaultTransferScreen.js # Cross-device P2P vault migration
 │       │   ├── RegisterFillScreen.js # Registration autofill & password generator
-│       │   ├── ShareImportScreen.js # Secure credential sharing with selectable notes & expiry
-│       │   ├── LoginScreen.js       # Server login & OTP registration with live password policy
-│       │   ├── BiometricUnlockScreen.js # Instant biometric app unlock
+│       │   ├── ShareImportScreen.js # Secure QR sharing for Logins & Codes with selectable notes & expiry
+│       │   ├── LoginScreen.js       # Server login, inline/toast error states & offline biometric vault unlock
+│       │   ├── BiometricUnlockScreen.js # Online & offline biometric app unlock
 │       │   ├── OnboardingScreen.js  # First-time onboarding wizard with live password policy
 │       │   └── MaintenanceScreen.js # Blocking maintenance & offline screen
 │       └── utils/
-│           ├── api.js               # REST client with dynamic getServerUrl()
+│           ├── api.js               # REST client with dynamic getServerUrl() & live connectivity tracking
+│           ├── autofillBridge.js    # JS bridge to native Android FlakeSecureAutofillService
+│           ├── notifications.js     # Expo push registration, deep-link routing & local security checks
 │           ├── crypto.js            # AES-256-CTR & HMAC-SHA256 with 4-byte UTF-8
 │           ├── vault.js             # PBKDF2 vault key derivation & cloud sync
-│           ├── storage.js           # Hardware-backed SecureStore persistence & isolated note keys
+│           ├── storage.js           # Hardware-backed SecureStore for Logins, Cards, Codes & isolated notes
 │           ├── passwordPolicy.js    # Client password complexity & server-proxied HIBP validator
 │           ├── totp.js              # Pure JS TOTP generator (SHA1/SHA256/SHA512, 6/8 digits, 30/60s)
 │           └── otpMigration.js      # Google Authenticator protobuf decoder (otpauth-migration://)
@@ -457,7 +500,7 @@ This rebuilds `server/public/FlakeSecure_chrome-v<version>.zip` and `server/publ
  5. Mobile App (iOS / Android)
 
 ```bash
-cd "FlakeSecure (SDK57)"
+cd "FlakeSecure (SDK58)"
 npm install
 
  Start development server:
@@ -580,7 +623,7 @@ For large-scale deployments, FlakeSecure supports horizontal scaling and geo-dis
 | **Embed SDK & Iframe** | HTML5, CSS3, Web Crypto API (`crypto.subtle`), `Socket.IO Client`, `qrcode.js`, Cross-Origin `postMessage` |
 | **Chrome Extension** | Manifest V3, Web Crypto API (`crypto.subtle`), `qrcode.js`, `socket.io-client`, Vanilla JS & CSS3 |
 | **Firefox Extension** | Manifest V3 (Gecko WebExtension), `browser.*` API, Web Crypto API, `qrcode.js`, `socket.io-client` |
-| **Mobile App** | `React Native`, `Expo SDK 57` & `Expo SDK 54`, `expo-camera`, `expo-image`, `expo-file-system`, `expo-image-picker`, `expo-local-authentication`, `expo-secure-store`, `expo-crypto`, `expo-clipboard`, `@react-navigation/native-stack`, `i18n-js`, `expo-linear-gradient`, `react-native-qrcode-svg` |
+| **Mobile App** | `React Native`, `Expo SDK 57` & `Expo SDK 54`, `expo-camera`, `expo-image`, `expo-file-system`, `expo-image-picker`, `expo-notifications`, `expo-haptics`, `expo-local-authentication`, `expo-secure-store`, `expo-crypto`, `expo-clipboard`, `@react-navigation/native-stack`, `i18n-js`, `expo-linear-gradient`, `react-native-qrcode-svg`, Custom Kotlin Android `AutofillService` Config Plugin |
 | **Desktop Admin** | `Electron`, Node.js, `electron-builder` (Windows `.exe`, Linux `.AppImage`/`.deb`) |
 
 ---

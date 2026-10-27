@@ -12,7 +12,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +24,7 @@ import * as ExpoCrypto from 'expo-crypto';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
 import { syncVaultFromServer } from '../utils/vault';
 import { decryptCredentials, bytesToHex } from '../utils/crypto';
 import { importFullVault } from '../utils/storage';
@@ -35,6 +35,7 @@ export function VaultTransferScreen({ route, navigation }) {
   const { t } = useLanguage();
   const { colors, isDark } = useTheme();
   const { user, login } = useAuth();
+  const toast = useToast();
   const initialMode = route.params?.mode || 'check_or_receive';
 
   const [checkingLocal, setCheckingLocal] = useState(true);
@@ -90,7 +91,7 @@ export function VaultTransferScreen({ route, navigation }) {
       });
 
       if (!result.success) {
-        Alert.alert(t('error'), t('vaultTransfer.biometricRequired') || 'Biometric authentication required.');
+        toast.warn(t('error'), t('vaultTransfer.biometricRequired') || 'Biometric authentication required.');
         return;
       }
 
@@ -100,16 +101,16 @@ export function VaultTransferScreen({ route, navigation }) {
       const syncResult = await syncVaultFromServer(localCreds.password);
 
       if (syncResult && syncResult.success) {
-        Alert.alert(
+        toast.success(
           t('success'),
-          t('vaultTransfer.restoreSuccess') || 'Vault restored successfully from cloud!',
-          [{ text: t('ok'), onPress: () => navigation.navigate('Home') }]
+          t('vaultTransfer.restoreSuccess') || 'Vault restored successfully from cloud!'
         );
+        setTimeout(() => navigation.navigate('Home'), 1000);
       } else {
         throw new Error(syncResult?.error || 'Could not decrypt remote cloud vault.');
       }
     } catch (err) {
-      Alert.alert(t('error'), err.message || 'Restoration failed.');
+      toast.error(t('error'), err.message || 'Restoration failed.');
     } finally {
       setIsTransferring(false);
     }
@@ -135,7 +136,7 @@ export function VaultTransferScreen({ route, navigation }) {
 
       startPollLoop(sid, keyHex);
     } catch (e) {
-      Alert.alert(t('error'), 'Could not start receiver session');
+      toast.error(t('error'), 'Could not start receiver session');
       setIsTransferring(false);
     }
   };
@@ -155,7 +156,7 @@ export function VaultTransferScreen({ route, navigation }) {
         clearInterval(timer);
         setQrData(null);
         setActiveSid(null);
-        Alert.alert(t('error'), t('vaultTransfer.timeoutMsg') || 'Session expired. Please try again.');
+        toast.warn(t('error'), t('vaultTransfer.timeoutMsg') || 'Session expired. Please try again.');
         return;
       }
 
@@ -202,13 +203,13 @@ export function VaultTransferScreen({ route, navigation }) {
           await syncVaultFromServer(packet.password);
         } catch (syncErr) {}
 
-        Alert.alert(
+        toast.success(
           t('success'),
-          t('vaultTransfer.deviceAuthorizedSuccess') || 'Device successfully authorized and cloud vault restored!',
-          [{ text: t('ok'), onPress: () => navigation.navigate('Home') }]
+          t('vaultTransfer.deviceAuthorizedSuccess') || 'Device successfully authorized and cloud vault restored!'
         );
+        setTimeout(() => navigation.navigate('Home'), 1000);
       } catch (err) {
-        Alert.alert(t('error'), err.message || 'Key reception failed.');
+        toast.error(t('error'), err.message || 'Key reception failed.');
       } finally {
         setIsTransferring(false);
       }

@@ -82,7 +82,8 @@ function createRelayService(options = {}) {
               decoded.id,
               'Login-Anfrage',
               `Anmeldung für ${sessionDomain} auf deinem Computer bestätigen`,
-              { type: 'auth_request', sid, domain: sessionDomain }
+              { type: 'auth_request', sid, domain: sessionDomain, targetScreen: 'Scan' },
+              'login_alerts'
             );
           } catch (_) {}
         }

@@ -39,6 +39,7 @@ const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { searchLimiter } = require('../middleware/rateLimit');
 const { sendDeletionNoticeEmail } = require('../utils/email');
+const { sendPushToUser } = require('./notifications');
 
 const router = express.Router();
 
@@ -81,6 +82,18 @@ router.delete('/delete', authMiddleware, async (req, res) => {
             [req.user.id]
         );
         const user = rows[0];
+
+        try {
+            await sendPushToUser(
+                req.user.id,
+                'Kontolöschung vorgemerkt',
+                'Dein Konto wurde zur Löschung in 30 Tagen vorgemerkt.',
+                { type: 'security_alert', targetScreen: 'Settings' },
+                'security_alerts'
+            );
+        } catch (pushErr) {
+            console.log('[Account] Deletion push skipped:', pushErr.message);
+        }
 
         // Immediately revoke all active sessions and push tokens
         await db.query('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
@@ -252,6 +265,19 @@ router.delete('/sessions/:sessionId', authMiddleware, async (req, res) => {
         if (rowCount === 0) {
             return res.status(404).json({ error: 'Session not found' });
         }
+
+        try {
+            await sendPushToUser(
+                req.user.id,
+                'Sitzung widerrufen',
+                'Eine aktive Gerätesitzung wurde aus deinem Konto entfernt.',
+                { type: 'security_alert', targetScreen: 'Settings' },
+                'security_alerts'
+            );
+        } catch (pushErr) {
+            console.log('[Account] Session revoke push skipped:', pushErr.message);
+        }
+
         res.json({ message: 'Session terminated successfully' });
     } catch (error) {
         console.error('Delete session error:', error);

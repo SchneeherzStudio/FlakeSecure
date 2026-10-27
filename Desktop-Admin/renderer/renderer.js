@@ -148,12 +148,24 @@ function getAdminPriorityTheme(priority = 0) {
 }
 
 function setupFormPreview() {
+  const titleInput = document.getElementById('ann-title');
   const messageInput = document.getElementById('ann-message');
+  const modeInApp = document.getElementById('mode-in-app');
+  const modeBoth = document.getElementById('mode-both');
+  const modePush = document.getElementById('mode-push');
+  const rowInAppOptions = document.getElementById('row-in-app-options');
   const typePopup = document.getElementById('type-popup');
   const typeBanner = document.getElementById('type-banner');
+  const targetScreenSelect = document.getElementById('ann-target-screen');
+  const regionsInput = document.getElementById('ann-regions');
   const priorityInput = document.getElementById('ann-priority');
   const hasExpiryCheckbox = document.getElementById('ann-has-expiry');
   const expiryBox = document.getElementById('box-expiry-options');
+
+  const mockPushBanner = document.getElementById('mock-push-banner');
+  const mockPushTitle = document.getElementById('mock-push-title');
+  const mockPushText = document.getElementById('mock-push-text');
+  const mockTargetBadge = document.getElementById('mock-target-badge');
 
   const mockPopupBackdrop = document.getElementById('mock-popup-backdrop');
   const mockPopupCard = document.getElementById('mock-popup-card');
@@ -168,43 +180,98 @@ function setupFormPreview() {
   const mockBannerClose = document.getElementById('mock-banner-close');
   const previewModeLabel = document.getElementById('preview-mode-label');
 
+  function getSelectedDeliveryMode() {
+    if (modePush && modePush.checked) return 'push';
+    if (modeBoth && modeBoth.checked) return 'both';
+    return 'in_app';
+  }
+
   function updatePreview() {
+    const customTitle = titleInput ? titleInput.value.trim() : '';
     const text = messageInput.value.trim() || 'Vorschautext für deine Nachricht...';
+    const deliveryMode = getSelectedDeliveryMode();
     const isPopup = typePopup.checked;
     const priorityVal = parseInt(priorityInput.value, 10) || 0;
+    const targetScreen = targetScreenSelect ? targetScreenSelect.value : '';
+    const regionsVal = regionsInput ? (regionsInput.value.trim() || 'ALL') : 'ALL';
     const theme = getAdminPriorityTheme(priorityVal);
+
+    if (rowInAppOptions) {
+      rowInAppOptions.style.opacity = deliveryMode === 'push' ? '0.45' : '1';
+    }
+
+    if (mockTargetBadge) {
+      if (targetScreen) {
+        mockTargetBadge.textContent = `Deep-Link Ziel: ${targetScreen} • Region: ${regionsVal}`;
+        mockTargetBadge.classList.remove('hidden');
+      } else if (regionsVal && regionsVal.toUpperCase() !== 'ALL') {
+        mockTargetBadge.textContent = `Region: ${regionsVal}`;
+        mockTargetBadge.classList.remove('hidden');
+      } else {
+        mockTargetBadge.classList.add('hidden');
+      }
+    }
+
+    // Push banner preview
+    if (mockPushBanner) {
+      if (deliveryMode === 'push' || deliveryMode === 'both') {
+        mockPushBanner.classList.remove('hidden');
+        if (mockPushTitle) mockPushTitle.textContent = customTitle || 'FlakeSecure';
+        if (mockPushText) mockPushText.textContent = text;
+      } else {
+        mockPushBanner.classList.add('hidden');
+      }
+    }
+
+    if (deliveryMode === 'push') {
+      mockPopupBackdrop.classList.add('hidden');
+      mockBanner.classList.add('hidden');
+      previewModeLabel.textContent = `Sofort-Push (${regionsVal})`;
+      previewModeLabel.style.color = theme.color;
+      previewModeLabel.style.borderColor = theme.border;
+      return;
+    }
 
     if (isPopup) {
       mockPopupBackdrop.classList.remove('hidden');
       mockBanner.classList.add('hidden');
       mockPopupText.textContent = text;
-      mockPopupTitle.textContent = theme.title;
+      mockPopupTitle.textContent = customTitle || theme.title;
       mockPopupTitle.style.color = theme.color;
       mockPopupIcon.innerHTML = theme.icon;
       mockPopupCard.style.borderColor = theme.border;
       mockPopupBtn.style.background = theme.gradient;
+      mockPopupBtn.textContent = targetScreen ? 'Öffnen' : 'Verstanden';
 
-      previewModeLabel.textContent = `Popup-Modus (${theme.colorName} • Prio ${priorityVal})`;
+      const channelTag = deliveryMode === 'both' ? 'Popup + Push' : 'Popup-Modus';
+      previewModeLabel.textContent = `${channelTag} (${theme.colorName} • Prio ${priorityVal})`;
       previewModeLabel.style.color = theme.color;
       previewModeLabel.style.borderColor = theme.border;
     } else {
       mockPopupBackdrop.classList.add('hidden');
       mockBanner.classList.remove('hidden');
-      mockBannerText.textContent = text;
+      mockBannerText.textContent = customTitle ? `${customTitle}: ${text}` : text;
       mockBannerIcon.innerHTML = theme.icon;
       mockBanner.style.backgroundColor = theme.bg;
       mockBanner.style.borderColor = theme.border;
       if (mockBannerClose) mockBannerClose.style.color = theme.color;
 
-      previewModeLabel.textContent = `Banner-Modus (${theme.colorName} • Prio ${priorityVal})`;
+      const channelTag = deliveryMode === 'both' ? 'Banner + Push' : 'Banner-Modus';
+      previewModeLabel.textContent = `${channelTag} (${theme.colorName} • Prio ${priorityVal})`;
       previewModeLabel.style.color = theme.color;
       previewModeLabel.style.borderColor = theme.border;
     }
   }
 
+  if (titleInput) titleInput.addEventListener('input', updatePreview);
   messageInput.addEventListener('input', updatePreview);
+  if (modeInApp) modeInApp.addEventListener('change', updatePreview);
+  if (modeBoth) modeBoth.addEventListener('change', updatePreview);
+  if (modePush) modePush.addEventListener('change', updatePreview);
   typePopup.addEventListener('change', updatePreview);
   typeBanner.addEventListener('change', updatePreview);
+  if (targetScreenSelect) targetScreenSelect.addEventListener('change', updatePreview);
+  if (regionsInput) regionsInput.addEventListener('input', updatePreview);
   priorityInput.addEventListener('input', updatePreview);
 
   window.__updateAdminPreview = updatePreview;
@@ -229,10 +296,14 @@ function setupFormPreview() {
       return;
     }
 
+    const title = titleInput ? (titleInput.value.trim() || null) : null;
     const message = messageInput.value.trim();
+    const delivery_mode = getSelectedDeliveryMode();
     const type = typePopup.checked ? 'popup' : 'banner';
     const display = document.getElementById('disp-once').checked ? 'once' : 'always';
     const priority = parseInt(document.getElementById('ann-priority').value, 10) || 0;
+    const target_screen = targetScreenSelect ? (targetScreenSelect.value || null) : null;
+    const regions = regionsInput ? (regionsInput.value.trim().toUpperCase() || 'ALL') : 'ALL';
 
     let expires_at = null;
     if (hasExpiryCheckbox.checked) {
@@ -248,16 +319,30 @@ function setupFormPreview() {
 
     try {
       const res = await window.adminAPI.createAnnouncement({
+        title,
         message,
         type,
         display,
         priority,
-        expires_at
+        expires_at,
+        target_screen,
+        regions,
+        delivery_mode
       });
 
       if (res.ok) {
-        showToast('Mitteilung erfolgreich an alle mobilen Apps gesendet!', 'success');
+        const pushCount = res.data?.pushResult?.sentCount;
+        if (delivery_mode === 'push') {
+          showToast(`Sofort-Push gesendet (${pushCount ?? 0} Geräte erreicht)!`, 'success');
+        } else if (delivery_mode === 'both') {
+          showToast(`Mitteilung veröffentlicht & Push gesendet (${pushCount ?? 0} Geräte)!`, 'success');
+        } else {
+          showToast('Mitteilung erfolgreich an alle mobilen Apps gesendet!', 'success');
+        }
+        if (titleInput) titleInput.value = '';
         messageInput.value = '';
+        if (targetScreenSelect) targetScreenSelect.value = '';
+        if (regionsInput) regionsInput.value = 'ALL';
         hasExpiryCheckbox.checked = false;
         expiryBox.classList.add('hidden');
         document.getElementById('ann-expires-at').value = '';
@@ -283,6 +368,14 @@ function setupFormPreview() {
 // Global helper for quick presets
 window.setPriority = function (val) {
   document.getElementById('ann-priority').value = val;
+  if (typeof window.__updateAdminPreview === 'function') {
+    window.__updateAdminPreview();
+  }
+};
+
+window.setRegionsPreset = function (val) {
+  const el = document.getElementById('ann-regions');
+  if (el) el.value = val;
   if (typeof window.__updateAdminPreview === 'function') {
     window.__updateAdminPreview();
   }
@@ -338,13 +431,21 @@ async function loadAnnouncements(showToastOnSuccess = false) {
           const typeLabel = item.type === 'popup' ? 'POPUP' : 'BANNER';
           const typeIcon = item.type === 'popup' ? adminIcons.popup : adminIcons.banner;
           const theme = getAdminPriorityTheme(item.priority);
+          const deliveryLabel = item.delivery_mode === 'both' ? 'In-App + Push' : (item.delivery_mode === 'push' ? 'Push' : 'In-App');
+          const regionLabel = item.regions && item.regions !== 'ALL' ? `Region: ${escapeHtml(item.regions)}` : 'Weltweit (ALL)';
+          const targetBadge = item.target_screen
+            ? `<span class="pill-disp" style="color:#E8B020;border:1px solid rgba(232,176,32,0.35);">Ziel: ${escapeHtml(item.target_screen)}</span>`
+            : '';
 
           return `
             <div class="ann-item-card ${theme.class}" data-id="${item.id}" style="border-left: 4px solid ${theme.color};">
               <div class="ann-item-header">
-                <div class="ann-badges-row">
+                <div class="ann-badges-row" style="flex-wrap:wrap;">
                   <span class="pill-type ${typeClass}">${typeIcon} ${typeLabel}</span>
                   <span class="pill-disp">${item.display === 'once' ? 'Einmalig' : 'Immer'}</span>
+                  <span class="pill-disp">${deliveryLabel}</span>
+                  <span class="pill-disp">${regionLabel}</span>
+                  ${targetBadge}
                   <span class="pill-prio ${theme.class}">${theme.icon} Prio ${item.priority} (${theme.label})</span>
                 </div>
                 <div class="ann-actions">
@@ -353,6 +454,7 @@ async function loadAnnouncements(showToastOnSuccess = false) {
                   </button>
                 </div>
               </div>
+              ${item.title ? `<div style="font-size:13px;font-weight:700;color:${theme.color};margin-bottom:4px;">${escapeHtml(item.title)}</div>` : ''}
               <div class="ann-message-body">${escapeHtml(item.message)}</div>
               <div class="ann-item-footer">
                 <span>Erstellt: ${createdStr}</span>
@@ -535,7 +637,7 @@ async function loadSystemStatus() {
       }
 
       // Update Health Tab versions
-      document.getElementById('metric-version').textContent = `v${data.version || '2.0.3'}`;
+      document.getElementById('metric-version').textContent = `v${data.version || '2.1.0'}`;
       document.getElementById('metric-min-app').textContent = `Mindest-App: v${data.minAppVersion || '2.0.3'}`;
     }
   } catch (err) {
