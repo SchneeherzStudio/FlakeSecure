@@ -1,0 +1,42 @@
+[package]
+name = "flakesecure-desktop-login"
+version = "1.0.0"
+description = "FlakeSecure Desktop Extension — Zero-Knowledge QR Login & AutoFill Daemon for Native Desktop Apps"
+authors = ["SnowyStudio"]
+edition = "2021"
+
+[lib]
+name = "flakesecure_desktop_login_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+aes = "0.8"
+cipher = "0.4"
+ctr = "0.9"
+sha2 = "0.10"
+subtle = "2.5"
+zeroize = { version = "1.8", features = ["derive"] }
+rand = "0.8"
+hex = "0.4"
+dirs = "5"
+tokio = { version = "1", features = ["time", "sync"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-global-shortcut = "2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_System_DataExchange",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging"
+] }

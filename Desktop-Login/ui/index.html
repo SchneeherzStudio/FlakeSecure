@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlakeSecure Desktop Login</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Header -->
+    <header class="topbar">
+      <div class="brand-area">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+            <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Flake<span>Secure</span> <small>Desktop</small></div>
+          <div id="daemon-status-badge" class="daemon-status">
+            <span class="status-dot active"></span>
+            <span id="daemon-status-text">Hintergrund-Wächter aktiv</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="topbar-controls">
+        <select id="lang-select" class="compact-select" aria-label="Language">
+          <option value="de">DE</option>
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+          <option value="es">ES</option>
+        </select>
+        <button id="theme-toggle-btn" class="icon-btn" type="button" title="Theme">
+          <span id="theme-icon">☾</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tab-bar">
+      <button class="tab-btn active" data-tab="quick" type="button" id="tab-btn-quick">Quick-Login</button>
+      <button class="tab-btn" data-tab="mappings" type="button" id="tab-btn-mappings">App-Mappings</button>
+      <button class="tab-btn" data-tab="settings" type="button" id="tab-btn-settings">Account &amp; Setup</button>
+    </nav>
+
+    <!-- Toast Container -->
+    <div id="toast-box" class="toast-box hidden"></div>
+
+    <!-- Main Content -->
+    <main class="content-area">
+      <!-- TAB 1: Quick-Login -->
+      <section id="tab-quick" class="tab-panel active">
+        <div class="search-row">
+          <input id="quick-search-input" type="search" class="text-input" placeholder="App oder Domain suchen (z. B. Riot, Steam, discord.com)..." />
+          <button id="refresh-windows-btn" class="secondary-btn" type="button">↻</button>
+        </div>
+
+        <div class="quick-custom-card">
+          <div class="section-label" id="lbl-manual-domain">Direktes QR-Overlay für Domain</div>
+          <div class="inline-form">
+            <input id="manual-domain-input" type="text" class="text-input" placeholder="z. B. authenticate.riotgames.com" />
+            <button id="manual-domain-launch-btn" class="primary-btn" type="button">QR öffnen</button>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <span class="section-label" id="lbl-running-apps">Laufende Desktop-Apps</span>
+          <span class="badge-count" id="running-count">0</span>
+        </div>
+        <div id="running-apps-list" class="card-list"></div>
+
+        <div class="section-header" style="margin-top: 14px;">
+          <span class="section-label" id="lbl-known-profiles">Konfigurierte App-Profile</span>
+          <span class="badge-count" id="profiles-count">0</span>
+        </div>
+        <div id="quick-profiles-list" class="card-list"></div>
+      </section>
+
+      <!-- TAB 2: App Mappings -->
+      <section id="tab-mappings" class="tab-panel">
+        <div class="mappings-toolbar">
+          <button id="open-add-mapping-btn" class="primary-btn" type="button">+ App-Mapping hinzufügen</button>
+          <button id="scan-running-for-mapping-btn" class="secondary-btn" type="button">Aus laufender App</button>
+        </div>
+
+        <div id="mappings-list" class="card-list"></div>
+      </section>
+
+      <!-- TAB 3: Account & Settings -->
+      <section id="tab-settings" class="tab-panel">
+        <!-- Account Pairing Card -->
+        <div class="panel-card">
+          <div class="card-title-row">
+            <h3 id="lbl-account-title">FlakeSecure App-Kopplung</h3>
+            <span class="hint-chip" id="lbl-push-hint">Für Push-Alarme</span>
+          </div>
+
+          <!-- Paired View -->
+          <div id="paired-account-view" class="paired-box hidden">
+            <div class="paired-avatar" id="paired-avatar">F</div>
+            <div class="paired-meta">
+              <div class="paired-name" id="paired-username">User</div>
+              <div class="paired-sub" id="paired-email">Gekoppelt</div>
+            </div>
+            <button id="logout-account-btn" class="danger-outline-btn" type="button">Abmelden</button>
+          </div>
+
+          <!-- QR Pairing View -->
+          <div id="pair-qr-view" class="pair-box">
+            <div class="pair-qr-wrap">
+              <div id="pair-qrcode" class="pair-qrcode"></div>
+            </div>
+            <div class="pair-info">
+              <p id="pair-desc" class="muted-text">Scanne den QR-Code mit der FlakeSecure App, um automatische Login-Benachrichtigungen am Handy zu erhalten.</p>
+              <div class="pair-status-row">
+                <span id="pair-status-dot" class="status-dot"></span>
+                <span id="pair-status-text">Warte auf Scan…</span>
+              </div>
+              <button id="show-pw-login-btn" class="link-btn" type="button">Klassisch mit Passwort anmelden</button>
+            </div>
+          </div>
+
+          <!-- Fallback Password Login -->
+          <div id="pair-pw-view" class="pw-login-box hidden">
+            <input id="auth-identifier" type="text" class="text-input" placeholder="Benutzername oder E-Mail" />
+            <input id="auth-password" type="password" class="text-input" placeholder="Passwort" />
+            <div class="inline-form">
+              <button id="auth-login-submit-btn" class="primary-btn" type="button">Anmelden</button>
+              <button id="back-to-pair-qr-btn" class="secondary-btn" type="button">Zurück zu QR</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Daemon & Security Settings -->
+        <div class="panel-card">
+          <h3 id="lbl-settings-title">Erkennung &amp; Sicherheit</h3>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-name" id="lbl-set-autodetect">Automatische App-Erkennung</div>
+              <div class="setting-desc" id="lbl-set-autodetect-desc">Überwacht aktive Login-Fenster ressourcensparend im Hintergrund</div>
+            </div>
+            <label class="switch">
+              <input id="set-autodetect" type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-name" id="lbl-set-overlay-mode">Overlay-Verhalten</div>
+              <div class="setting-desc" id="lbl-set-overlay-desc">Wie das Overlay bei erkanntem Login erscheint</div>
+            </div>
+            <select id="set-overlay-mode" class="form-select">
+              <option value="auto_overlay">Direkt QR-Overlay</option>
+              <option value="compact_pill">Kompaktes Pill-Badge</option>
+              <option value="manual_only">Nur manuell / Hotkey</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-name" id="lbl-set-delivery">Eingabe-Modus (Auto-Fill)</div>
+              <div class="setting-desc" id="lbl-set-delivery-desc">Übertragung der entschlüsselten Zugangsdaten</div>
+            </div>
+            <select id="set-delivery-mode" class="form-select">
+              <option value="hybrid_autotype">Hybrid Auto-Type (Direkt)</option>
+              <option value="smart_clipboard">Smart Clipboard (Auto-Clear)</option>
+              <option value="manual_buttons">Manuelle Auswahl</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-name" id="lbl-set-autosubmit">Auto-Submit (Enter)</div>
+              <div class="setting-desc" id="lbl-set-autosubmit-desc">Bestätigt das Login-Formular automatisch nach dem Ausfüllen</div>
+            </div>
+            <label class="switch">
+              <input id="set-autosubmit" type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-name" id="lbl-set-anticapture">Anti-Screenshot-Schutz</div>
+              <div class="setting-desc" id="lbl-set-anticapture-desc">Verbirgt QR-Overlay vor Screen-Recordern &amp; Discord-Streams</div>
+            </div>
+            <label class="switch">
+              <input id="set-anticapture" type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-name" id="lbl-set-hotkey">Globaler Hotkey</div>
+              <div class="setting-desc" id="lbl-set-hotkey-desc">Öffnet QR-Overlay für das aktive Fenster</div>
+            </div>
+            <input id="set-hotkey" type="text" class="text-input compact-input" value="Alt+Shift+F" />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-name" id="lbl-set-server">Relay-Server URL</div>
+              <div class="setting-desc" id="lbl-set-server-desc">Endpunkt für Zero-Knowledge WebSocket-Relay</div>
+            </div>
+            <input id="set-server-url" type="url" class="text-input medium-input" />
+          </div>
+
+          <button id="save-settings-btn" class="primary-btn full-btn" type="button">Einstellungen speichern</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: Add / Edit Mapping -->
+  <div id="mapping-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">App-Mapping hinzufügen</h3>
+        <button id="close-modal-btn" class="icon-btn" type="button">×</button>
+      </div>
+
+      <div id="modal-process-picker" class="process-picker hidden">
+        <div class="section-label">Aktives Fenster auswählen:</div>
+        <div id="modal-process-list" class="process-chip-list"></div>
+      </div>
+
+      <div class="modal-form">
+        <input id="map-id" type="hidden" />
+        <label class="field-label">App-Name
+          <input id="map-app-name" type="text" class="text-input" placeholder="z. B. Riot Client" />
+        </label>
+        <label class="field-label">Prozessname(n) (.exe, kommagetrennt)
+          <input id="map-exes" type="text" class="text-input" placeholder="z. B. RiotClientServices.exe, Riot Client.exe" />
+        </label>
+        <label class="field-label">FlakeSecure Domain
+          <input id="map-domain" type="text" class="text-input" placeholder="z. B. authenticate.riotgames.com" />
+        </label>
+        <label class="field-label">Login-Fenstertitel Keywords (optional, kommagetrennt)
+          <input id="map-login-kw" type="text" class="text-input" placeholder="z. B. sign in, anmelden, login" />
+        </label>
+        <label class="field-label">Ausschluss-Keywords im Titel (optional, kommagetrennt)
+          <input id="map-exclude-kw" type="text" class="text-input" placeholder="z. B. library, shop, settings" />
+        </label>
+        <label class="checkbox-row">
+          <input id="map-twostep" type="checkbox" />
+          <span>2-Schritt-Login (Enter nach Benutzername statt Tab)</span>
+        </label>
+      </div>
+
+      <div class="modal-footer">
+        <button id="cancel-modal-btn" class="secondary-btn" type="button">Abbrechen</button>
+        <button id="save-mapping-btn" class="primary-btn" type="button">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="lib/qrcode.min.js"></script>
+  <script src="lib/socket.io.min.js"></script>
+  <script src="menu.js"></script>
+</body>
+</html>

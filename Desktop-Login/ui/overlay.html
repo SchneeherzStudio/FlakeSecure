@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlakeSecure QR Overlay</title>
+  <link rel="stylesheet" href="overlay.css" />
+</head>
+<body>
+  <div id="overlay-root" class="overlay-root">
+    <!-- Compact Pill Mode -->
+    <div id="pill-view" class="apple-pill hidden">
+      <button id="pill-expand-btn" class="pill-main" type="button">
+        <span class="brand-badge">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+            <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93"/>
+          </svg>
+        </span>
+        <span class="pill-text-group">
+          <span id="pill-app-name" class="pill-title">App</span>
+          <span id="pill-subtitle" class="pill-sub">Mit FlakeSecure anmelden</span>
+        </span>
+      </button>
+      <button id="pill-close-btn" class="icon-close-btn" type="button" aria-label="Close">×</button>
+    </div>
+
+    <!-- Full Apple Pay-Style Sheet -->
+    <div id="sheet-view" class="apple-sheet hidden">
+      <div class="sheet-header" data-tauri-drag-region>
+        <div class="sheet-brand" data-tauri-drag-region>
+          <div class="brand-badge brand-badge-lg" data-tauri-drag-region>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93"/>
+            </svg>
+          </div>
+          <div class="sheet-title-wrap" data-tauri-drag-region>
+            <div class="sheet-brand-row" data-tauri-drag-region>
+              <span class="sheet-brand-name">Flake<span>Secure</span></span>
+              <span id="sheet-app-pill" class="app-pill">App</span>
+            </div>
+            <div class="domain-verified">
+              <span class="domain-dot"></span>
+              <span id="sheet-domain">domain.com</span>
+            </div>
+          </div>
+        </div>
+        <button id="sheet-close-btn" class="icon-close-btn" type="button" aria-label="Close">×</button>
+      </div>
+
+      <!-- QR Stage -->
+      <div id="qr-stage" class="stage-container">
+        <div class="qr-card-frame">
+          <div class="qr-corner tl"></div>
+          <div class="qr-corner tr"></div>
+          <div class="qr-corner bl"></div>
+          <div class="qr-corner br"></div>
+          <div id="overlay-qrcode" class="qr-box"></div>
+          <div id="qr-scanned-veil" class="qr-scanned-veil hidden">
+            <svg viewBox="0 0 100 100" width="52" height="52" class="scanned-lock-svg">
+              <defs>
+                <linearGradient id="fsLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#FCD34D"/>
+                  <stop offset="55%" stop-color="#E8B020"/>
+                  <stop offset="100%" stop-color="#B45309"/>
+                </linearGradient>
+              </defs>
+              <path d="M35 46 V32 A15 15 0 0 1 65 32 V46" fill="none" stroke="url(#fsLockGrad)" stroke-width="9" stroke-linecap="round"/>
+              <rect x="22" y="44" width="56" height="44" rx="10" fill="url(#fsLockGrad)"/>
+              <path d="M36 66 L45 75 L64 54" fill="none" stroke="#080A12" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div id="scanned-title" class="scanned-title">QR-Code gescannt</div>
+            <div id="scanned-sub" class="scanned-sub">Auf Smartphone bestätigen…</div>
+          </div>
+        </div>
+
+        <p id="qr-hint-text" class="qr-hint">Mit FlakeSecure auf dem Handy scannen</p>
+
+        <div id="status-bar" class="status-pill status-waiting">
+          <span class="pulse-dot"></span>
+          <span id="status-text">Warte auf Scan…</span>
+        </div>
+
+        <div class="sheet-footer-actions">
+          <button id="refresh-qr-btn" class="ghost-mini-btn" type="button">Neuer QR-Code</button>
+          <button id="open-menu-btn" class="ghost-mini-btn" type="button">Menü</button>
+        </div>
+      </div>
+
+      <!-- Completion / Delivery Stage -->
+      <div id="done-stage" class="stage-container hidden">
+        <div class="apple-check-wrap">
+          <svg class="apple-check-svg" viewBox="0 0 72 72">
+            <circle class="apple-check-circle" cx="36" cy="36" r="32" fill="none" stroke-width="3.5" />
+            <path class="apple-check-path" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M22 37l9 9 19-20" />
+          </svg>
+        </div>
+
+        <div id="done-title" class="done-title">Bestätigt</div>
+        <div id="done-user-chip" class="user-chip hidden"></div>
+        <div id="delivery-detail" class="delivery-detail">Zugangsdaten werden übertragen…</div>
+
+        <!-- Shown in manual mode or as fallback -->
+        <div id="manual-actions" class="manual-actions hidden">
+          <button id="btn-autotype" class="action-primary-btn" type="button">Auto-Fill starten</button>
+          <div class="action-grid">
+            <button id="btn-copy-user" class="action-secondary-btn" type="button">Username</button>
+            <button id="btn-copy-pass" class="action-secondary-btn" type="button">Passwort</button>
+            <button id="btn-copy-totp" class="action-secondary-btn hidden" type="button">2FA Code</button>
+          </div>
+        </div>
+
+        <div class="sheet-footer-actions">
+          <button id="done-close-btn" class="ghost-mini-btn" type="button">Schließen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="lib/qrcode.min.js"></script>
+  <script src="lib/socket.io.min.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "flakesecure-desktop-login",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FlakeSecure Desktop Extension — Resource-efficient background daemon & Apple Pay-inspired QR login overlay for native desktop apps",
+  "scripts": {
+    "dev": "cargo tauri dev",
+    "build": "cargo tauri build",
+    "cargo:check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "cargo:test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "cargo:build": "cargo build --release --manifest-path src-tauri/Cargo.toml"
+  }
+}
