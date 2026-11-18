@@ -24,6 +24,7 @@ try {
 } catch {
   Notifications = null;
 }
+export { Notifications };
 
 const PUSH_TOKEN_STORAGE_KEY = 'flakesecure_expo_push_token_v1';
 const SERVER_PUSH_PREFS_KEY = 'flakesecure_server_push_prefs_v1';
@@ -32,6 +33,7 @@ const NOTIFIED_CARDS_KEY = 'flakesecure_notified_cards_v1';
 const LAST_WEEKLY_REPORT_KEY = 'flakesecure_last_weekly_security_report_v1';
 const LAST_BREACH_CHECK_KEY = 'flakesecure_last_breach_check_v1';
 const LAST_BACKUP_REMINDER_KEY = 'flakesecure_last_backup_reminder_v1';
+export const BREACHED_CREDENTIALS_STORAGE_KEY = 'flakesecure_breached_credentials_v1';
 
 export const DEFAULT_SERVER_PUSH_PREFS = {
   new_device_login: true,
@@ -136,9 +138,13 @@ export async function registerDeviceForPushNotifications(language = 'de') {
   if (!Notifications || Platform.OS === 'web') return null;
 
   try {
+    const declined = await AsyncStorage.getItem('user_declined_notifications');
     const existingPerm = await Notifications.getPermissionsAsync();
     let finalStatus = existingPerm?.status;
     if (finalStatus !== 'granted') {
+      if (declined === 'true') {
+        return null;
+      }
       const requested = await Notifications.requestPermissionsAsync();
       finalStatus = requested?.status;
     }
@@ -274,52 +280,92 @@ export async function runLocalSecurityNotificationsCheck(tFn, options = {}) {
       const lastBreachRaw = await AsyncStorage.getItem(LAST_BREACH_CHECK_KEY);
       const lastBreachTs = lastBreachRaw ? parseInt(lastBreachRaw, 10) : 0;
       if (force || now - lastBreachTs > ONE_DAY_MS) {
-        const uniquePasswords = [
-          ...new Set(
-            credentials
-              .map((c) => c.password)
-              .filter((pw) => typeof pw === 'string' && pw.length > 0)
-          ),
-        ].slice(0, 25);
+        const credsWithPasswords = credentials.filter(
+          (c) => typeof c.password === 'string' && c.password.length > 0
+        );
 
+        const pwHashMap = new Map();
         const prefixMap = new Map();
-        for (const pw of uniquePasswords) {
-          const sha1 = (
-            await ExpoCrypto.digestStringAsync(
-              ExpoCrypto.CryptoDigestAlgorithm.SHA1,
-              pw
-            )
-          ).toUpperCase();
-          const prefix = sha1.slice(0, 5);
-          const suffix = sha1.slice(5);
-          if (!prefixMap.has(prefix)) prefixMap.set(prefix, []);
-          prefixMap.get(prefix).push(suffix);
+
+        for (const cred of credsWithPasswords) {
+          const pw = cred.password;
+          if (!pwHashMap.has(pw)) {
+            const sha1 = (
+              await ExpoCrypto.digestStringAsync(
+                ExpoCrypto.CryptoDigestAlgorithm.SHA1,
+                pw
+              )
+            ).toUpperCase();
+            const prefix = sha1.slice(0, 5);
+            const suffix = sha1.slice(5);
+            pwHashMap.set(pw, { prefix, suffix });
+            if (!prefixMap.has(prefix)) prefixMap.set(prefix, new Set());
+            prefixMap.get(prefix).add(suffix);
+          }
         }
 
-        let breachedPasswords = 0;
-        for (const [prefix, suffixes] of prefixMap.entries()) {
+        const breachedPrefixSuffixMap = new Map();
+        for (const [prefix, suffixesSet] of prefixMap.entries()) {
           try {
             const rangeText = await fetchPwnedRange(prefix);
             const lines = String(rangeText || '').split(/\r?\n/);
-            const suffixSet = new Set(
+            const rangeSuffixSet = new Set(
               lines.map((line) => line.split(':')[0]?.trim()?.toUpperCase()).filter(Boolean)
             );
-            for (const sfx of suffixes) {
-              if (suffixSet.has(sfx)) {
-                breachedPasswords++;
+            const breachedSet = new Set();
+            for (const sfx of suffixesSet) {
+              if (rangeSuffixSet.has(sfx)) {
+                breachedSet.add(sfx);
               }
+            }
+            if (breachedSet.size > 0) {
+              breachedPrefixSuffixMap.set(prefix, breachedSet);
             }
           } catch {}
         }
 
-        summary.breachCount = breachedPasswords;
-        await AsyncStorage.setItem(LAST_BREACH_CHECK_KEY, String(now));
+        const breachedCredentials = [];
+        for (const cred of credsWithPasswords) {
+          const hashInfo = pwHashMap.get(cred.password);
+          if (hashInfo) {
+            const breachedSet = breachedPrefixSuffixMap.get(hashInfo.prefix);
+            if (breachedSet && breachedSet.has(hashInfo.suffix)) {
+              breachedCredentials.push({
+                id: cred.id,
+                domain: cred.domain || cred.name || '',
+                username: cred.username || '',
+                name: cred.name || '',
+              });
+            }
+          }
+        }
 
-        if (breachedPasswords > 0) {
+        summary.breachCount = breachedCredentials.length;
+        await AsyncStorage.setItem(LAST_BREACH_CHECK_KEY, String(now));
+        await AsyncStorage.setItem(
+          BREACHED_CREDENTIALS_STORAGE_KEY,
+          JSON.stringify(breachedCredentials)
+        );
+
+        if (breachedCredentials.length > 0) {
+          const uniqueDomains = [
+            ...new Set(breachedCredentials.map((c) => c.domain).filter(Boolean)),
+          ];
+          let body = tr('notifications.breachFoundBody', {
+            count: breachedCredentials.length,
+          });
+          if (uniqueDomains.length === 1 || uniqueDomains.length === 2) {
+            body = `${body} Betrifft: ${uniqueDomains.join(', ')}`;
+          }
+
           await scheduleLocalSecurityNotification(
             tr('notifications.breachFoundTitle'),
-            tr('notifications.breachFoundBody', { count: breachedPasswords }),
-            { targetScreen: 'Home' }
+            body,
+            {
+              targetScreen: 'Home',
+              showBreachedModal: true,
+              breachedCount: breachedCredentials.length,
+            }
           );
         }
       }

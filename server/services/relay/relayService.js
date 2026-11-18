@@ -153,6 +153,54 @@ function createRelayService(options = {}) {
     res.json({ success: true, message: 'Login data relayed successfully' });
   });
 
+  // POST /send-pairing
+  router.post('/send-pairing', async (req, res) => {
+    const { sid, payload } = req.body;
+
+    if (!isValidSid(sid)) {
+      return res.status(400).json({ error: 'Invalid or missing session ID' });
+    }
+
+    if (!isValidEncryptedPayload(payload)) {
+      return res.status(400).json({ error: 'Invalid or missing encrypted payload' });
+    }
+
+    const session = activeSessions.get(sid);
+    if (!session) {
+      return res.status(404).json({ error: 'Session expired or invalid' });
+    }
+
+    if (io) {
+      io.to(sid).emit('pairing-data', payload);
+      io.to(sid).emit('login-data', payload);
+    }
+
+    session.loginFulfilled = true;
+    setTimeout(() => {
+      if (activeSessions.has(sid) && !activeSessions.get(sid).totpActive) {
+        activeSessions.delete(sid);
+      }
+    }, 2 * 60 * 1000);
+
+    // Optional audit log
+    try {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const jwt = require('jsonwebtoken');
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim();
+        const geo = geoip.lookup(ip);
+        await db.query(
+          'INSERT INTO login_logs (user_id, ip_address, city, region, country, device_info, action, domain) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [decoded.id, ip, geo?.city, geo?.region, geo?.country, req.headers['user-agent'], 'pairing_send', null]
+        );
+      }
+    } catch (_) {}
+
+    res.json({ success: true, message: 'Pairing data relayed successfully' });
+  });
+
   // POST /send-totp
   router.post('/send-totp', async (req, res) => {
     const { sid, payload } = req.body;

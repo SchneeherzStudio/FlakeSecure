@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FlakeSecure - Browser Extension Content Script (Chrome / Chromium) v2.0.3
+ * FlakeSecure - Browser Extension Content Script (Chrome / Chromium MV3) v2.0.3
  * ============================================================================
  * 
  * FUNCTION OVERVIEW & ARCHITECTURE:
@@ -18,14 +18,14 @@
  *    - findUsernameFields(): Searches for authentic username/email fields.
  * 
  * 3. MULTI-STEP LOGIN & PERSISTENT DOMAIN CREDENTIAL CACHING:
- *    - setCachedCredentials(data): Stores credentials in isolated chrome.storage.local with 10-minute TTL.
+ *    - setCachedCredentials(data): Stores credentials in isolated chrome.storage.local with 2-minute TTL.
  *    - getCachedCredentials(): Retrieves cached credentials across page reloads and step transitions.
  *    - checkAndAutoFillCachedCredentials(): Automatically applies username, password, or TOTP as soon as fields appear.
- *    - startPersistentStepWatcher(): High-frequency polling window (15s) ensuring multi-step forms auto-fill immediately.
+ *    - startPersistentStepWatcher(): High-frequency polling window ensuring multi-step forms auto-fill immediately.
  * 
  * 4. OVERLAY & UI:
- *    - createOverlay(): Mounts pixel-perfect FlakeSecure QR modal with stylesheet and smooth CSS animations.
- *    - removeOverlay(): Dismisses overlay and cleans up socket connection.
+ *    - createOverlay(): Mounts FlakeSecure QR modal with stylesheet and smooth CSS animations (no innerHTML).
+ *    - removeOverlay(): Dismisses overlay and disconnects background port / relay socket.
  * ============================================================================
  */
 
@@ -34,17 +34,90 @@
 
   const SERVER_URL = 'https://flakesecure.snowystudio.dev';
   const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes retention for multi-step flows
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const ext =
+    typeof browser !== 'undefined' && browser.runtime
+      ? browser
+      : typeof chrome !== 'undefined' && chrome.runtime
+        ? chrome
+        : null;
 
   let uiInjected = false;
   let userCancelled = false;
-  let socket = null;
   let currentSessionId = null;
   let currentOverlayLang = 'de';
   let isAutoFilling = false;
   let watcherTimer = null;
   let watcherEndTime = 0;
+  let activePort = null;
+  let portHeartbeat = null;
+  let socket = null;
   let embedDetected = false;
   let scheduleCheckTimeout = null;
+
+  function storageCall(area, method, arg) {
+    return new Promise((resolve) => {
+      try {
+        const store = ext && ext.storage && ext.storage[area];
+        if (!store || typeof store[method] !== 'function') {
+          resolve(method === 'get' ? {} : undefined);
+          return;
+        }
+        if (typeof browser !== 'undefined' && ext === browser) {
+          store[method](arg)
+            .then((res) => resolve(res || (method === 'get' ? {} : undefined)))
+            .catch(() => resolve(method === 'get' ? {} : undefined));
+        } else {
+          store[method](arg, (res) => {
+            if (ext.runtime && ext.runtime.lastError) {
+              resolve(method === 'get' ? {} : undefined);
+            } else {
+              resolve(res || (method === 'get' ? {} : undefined));
+            }
+          });
+        }
+      } catch (e) {
+        resolve(method === 'get' ? {} : undefined);
+      }
+    });
+  }
+
+  const storageGet = (area, keys) => storageCall(area, 'get', keys);
+  const storageSet = (area, items) => storageCall(area, 'set', items);
+  const storageRemove = (area, keys) => storageCall(area, 'remove', keys);
+
+  function createEl(tag, attrs, children) {
+    const node = document.createElement(tag);
+    if (attrs) {
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'textContent') node.textContent = v;
+        else if (k === 'style') node.style.cssText = v;
+        else if (v !== undefined && v !== null) node.setAttribute(k, String(v));
+      }
+    }
+    if (Array.isArray(children)) {
+      for (const ch of children) {
+        if (ch == null) continue;
+        node.appendChild(typeof ch === 'string' ? document.createTextNode(ch) : ch);
+      }
+    }
+    return node;
+  }
+
+  function createSvgEl(tag, attrs, children) {
+    const node = document.createElementNS(SVG_NS, tag);
+    if (attrs) {
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v !== undefined && v !== null) node.setAttribute(k, String(v));
+      }
+    }
+    if (Array.isArray(children)) {
+      for (const ch of children) {
+        if (ch) node.appendChild(ch);
+      }
+    }
+    return node;
+  }
 
   const EMBED_SELECTOR = [
     'html[data-flakesecure-embed]',
@@ -55,6 +128,34 @@
     '#flakesecure-modal-backdrop',
     '.flakesecure-auto-container'
   ].join(',');
+
+  function disconnectRelay(hadSession = false) {
+    if (portHeartbeat) {
+      clearInterval(portHeartbeat);
+      portHeartbeat = null;
+    }
+    if (activePort) {
+      try {
+        activePort.postMessage({ type: 'DISCONNECT' });
+        activePort.disconnect();
+      } catch (e) {}
+      activePort = null;
+    }
+    if (socket) {
+      try {
+        socket.disconnect();
+      } catch (e) {}
+      socket = null;
+    }
+    if (hadSession && ext && ext.runtime && ext.runtime.sendMessage) {
+      try {
+        const res = ext.runtime.sendMessage({ type: 'DISCONNECT' }, () => {
+          void ext.runtime.lastError;
+        });
+        if (res && typeof res.catch === 'function') res.catch(() => {});
+      } catch (e) {}
+    }
+  }
 
   function silenceForEmbed() {
     if (scheduleCheckTimeout) {
@@ -69,15 +170,12 @@
     if (btn) btn.remove();
 
     const overlay = document.getElementById('flakesecure-overlay');
-    if (overlay || socket || currentSessionId) {
-      if (overlay) overlay.remove();
-      if (socket) {
-        try { socket.disconnect(); } catch (e) {}
-        socket = null;
-      }
-      uiInjected = false;
-      currentSessionId = null;
-    }
+    const hadSession = !!(overlay || activePort || socket || currentSessionId);
+    if (overlay) overlay.remove();
+
+    disconnectRelay(hadSession);
+    uiInjected = false;
+    currentSessionId = null;
   }
 
   function isEmbedPresent() {
@@ -199,43 +297,27 @@
       expiresAt: Date.now() + CACHE_TTL_MS
     };
 
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({
-          [`fs_cache_${domain}`]: payload,
-          fs_active_creds: payload
-        });
-      }
-    } catch (e) {}
+    await storageSet('local', {
+      [`fs_cache_${domain}`]: payload,
+      fs_active_creds: payload
+    });
   }
 
   function clearCachedCredentials() {
     const domain = getEffectiveDomain();
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.remove([`fs_cache_${domain}`, 'fs_active_creds']);
-      }
-    } catch (e) {}
+    storageRemove('local', [`fs_cache_${domain}`, 'fs_active_creds']);
   }
 
   async function getCachedCredentials() {
     const domain = getEffectiveDomain();
-
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        const domainKey = `fs_cache_${domain}`;
-        const stored = await new Promise(resolve => {
-          chrome.storage.local.get([domainKey, 'fs_active_creds'], res => resolve(res || {}));
-        });
-
-        const entry = stored[domainKey] || stored.fs_active_creds;
-        if (entry && entry.expiresAt && entry.expiresAt > Date.now()) {
-          return entry;
-        } else if (entry && entry.expiresAt && entry.expiresAt <= Date.now()) {
-          chrome.storage.local.remove([domainKey, 'fs_active_creds']);
-        }
-      }
-    } catch (e) {}
+    const domainKey = `fs_cache_${domain}`;
+    const stored = await storageGet('local', [domainKey, 'fs_active_creds']);
+    const entry = stored ? (stored[domainKey] || stored.fs_active_creds) : null;
+    if (entry && entry.expiresAt && entry.expiresAt > Date.now()) {
+      return entry;
+    } else if (entry && entry.expiresAt && entry.expiresAt <= Date.now()) {
+      storageRemove('local', [domainKey, 'fs_active_creds']);
+    }
 
     return null;
   }
@@ -592,7 +674,6 @@
             clearCachedCredentials();
           }, 500);
         } else {
-          // Even without auto-submit, clear cache after password was filled
           clearCachedCredentials();
         }
       }
@@ -644,9 +725,115 @@
     }
   }
 
-  function connectSocket(sessionId, keyHex, onData) {
+  function handleQrScanned(msg) {
+    const step1 = document.getElementById('fs-step-1');
+    const step2 = document.getElementById('fs-step-2');
+    if (step1) step1.classList.add('active');
+    if (step2) step2.classList.add('active');
+
+    const t = OVERLAY_I18N[currentOverlayLang] || OVERLAY_I18N.de || OVERLAY_I18N.en;
+    const rawUser =
+      msg && msg.username && String(msg.username).trim().toLowerCase() !== 'user'
+        ? String(msg.username).trim()
+        : '';
+
+    const qrContainer = document.getElementById('flakesecure-qrcode');
+    if (qrContainer && qrContainer.parentElement) {
+      const parent = qrContainer.parentElement;
+      parent.classList.add('is-scanned');
+      parent.style.setProperty('background', '#080a12', 'important');
+
+      if (!document.getElementById('fs-scanned-overlay')) {
+        const scanTitleText = rawUser
+          ? t.scannedBy.replace('{user}', rawUser)
+          : t.scanned;
+        const scanSubText = t.confirmOnPhone;
+
+        const grad = createSvgEl(
+          'linearGradient',
+          { id: 'fsScannedLockGrad', x1: '0%', y1: '0%', x2: '100%', y2: '100%' },
+          [
+            createSvgEl('stop', { offset: '0%', 'stop-color': '#FCD34D' }),
+            createSvgEl('stop', { offset: '50%', 'stop-color': '#E8B020' }),
+            createSvgEl('stop', { offset: '100%', 'stop-color': '#B45309' })
+          ]
+        );
+        const lockSvg = createSvgEl(
+          'svg',
+          {
+            viewBox: '0 0 100 100',
+            width: '58',
+            height: '58',
+            style: 'display:block;margin:0 auto 10px auto;filter:drop-shadow(0 4px 14px rgba(232,176,32,0.35));'
+          },
+          [
+            createSvgEl('defs', null, [grad]),
+            createSvgEl('path', {
+              d: 'M35 46 V32 A15 15 0 0 1 65 32 V46',
+              fill: 'none',
+              stroke: 'url(#fsScannedLockGrad)',
+              'stroke-width': '9',
+              'stroke-linecap': 'round'
+            }),
+            createSvgEl('rect', {
+              x: '22',
+              y: '44',
+              width: '56',
+              height: '44',
+              rx: '9',
+              fill: 'url(#fsScannedLockGrad)'
+            }),
+            createSvgEl('path', {
+              d: 'M36 66 L45 75 L64 54',
+              fill: 'none',
+              stroke: '#080A12',
+              'stroke-width': '6.5',
+              'stroke-linecap': 'round',
+              'stroke-linejoin': 'round'
+            })
+          ]
+        );
+
+        const scannedOverlay = createEl('div', { id: 'fs-scanned-overlay' }, [
+          lockSvg,
+          createEl('div', {
+            id: 'fs-scanned-title',
+            textContent: scanTitleText,
+            style: 'color:#ffffff;font-size:14px;font-weight:700;font-family:system-ui,-apple-system,sans-serif;letter-spacing:0.2px;margin-bottom:4px;text-align:center;'
+          }),
+          createEl('div', {
+            id: 'fs-scanned-sub',
+            textContent: scanSubText,
+            style: 'color:#94a3b8;font-size:11.5px;font-weight:500;font-family:system-ui,-apple-system,sans-serif;text-align:center;'
+          })
+        ]);
+        parent.appendChild(scannedOverlay);
+      }
+    }
+
+    const statusMsg = rawUser
+      ? t.userConfirming.replace('{user}', rawUser)
+      : t.confirmOnPhone;
+    updateOverlayStatus('waiting', statusMsg);
+  }
+
+  function connectDirectSocket(sessionId, keyHex, onData) {
+    if (typeof io !== 'function') {
+      updateOverlayStatus('error', 'Server nicht erreichbar');
+      return;
+    }
+
+    if (portHeartbeat) {
+      clearInterval(portHeartbeat);
+      portHeartbeat = null;
+    }
+    if (activePort) {
+      try { activePort.disconnect(); } catch (e) {}
+      activePort = null;
+    }
     if (socket) {
-      socket.disconnect();
+      try { socket.disconnect(); } catch (e) {}
+      socket = null;
     }
 
     socket = io(SERVER_URL, {
@@ -655,29 +842,20 @@
       timeout: 10000
     });
 
-    socket.on('connect', () => {
+    socket.on('connect', async () => {
       const domain = window.location.hostname;
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.local.get(['authToken'], (res) => {
-          socket.emit('join-session', { sid: sessionId, token: res ? res.authToken : null, domain });
-        });
-      } else {
-        socket.emit('join-session', { sid: sessionId, domain });
-      }
+      const res = await storageGet('local', ['authToken']);
+      socket.emit('join-session', { sid: sessionId, token: res?.authToken || null, domain });
     });
 
     socket.on('login-data', async (payload) => {
       const decrypted = await decryptData(payload, keyHex);
-      if (decrypted) {
-        onData(decrypted);
-      }
+      if (decrypted) onData(decrypted);
     });
 
     socket.on('totp-data', async (payload) => {
       const decrypted = await decryptData(payload, keyHex);
-      if (decrypted && decrypted.code) {
-        fillTotpCode(decrypted.code);
-      }
+      if (decrypted && decrypted.code) fillTotpCode(decrypted.code);
     });
 
     socket.on('session-expired', () => {
@@ -685,75 +863,79 @@
     });
 
     socket.on('qr-scanned', (data) => {
-      const step1 = document.getElementById('fs-step-1');
-      const step2 = document.getElementById('fs-step-2');
-      if (step1) step1.classList.add('active');
-      if (step2) step2.classList.add('active');
-      
-      const qrContainer = document.getElementById('flakesecure-qrcode');
-      if (qrContainer) {
-        const parent = qrContainer.parentElement;
-        if (parent) {
-          parent.classList.add('is-scanned');
-          parent.style.setProperty('background', '#080a12', 'important');
-          
-          if (!document.getElementById('fs-scanned-overlay')) {
-            const rawUser = (data && data.username && String(data.username).trim().toLowerCase() !== 'user') 
-              ? String(data.username).trim() 
-              : '';
-            const t = (typeof OVERLAY_I18N !== 'undefined' && currentOverlayLang && OVERLAY_I18N[currentOverlayLang])
-              ? OVERLAY_I18N[currentOverlayLang]
-              : (OVERLAY_I18N?.de || OVERLAY_I18N?.en);
-
-            const isDe = !currentOverlayLang || currentOverlayLang === 'de';
-            const scanTitleText = rawUser
-              ? (t.scannedBy ? t.scannedBy.replace('{user}', rawUser) : (isDe ? `Gescannt von ${rawUser}` : `Scanned by ${rawUser}`))
-              : (t.scanned || (isDe ? 'Gescannt' : 'Scanned'));
-            const scanSubText = t.confirmOnPhone || (isDe ? 'Auf Smartphone bestätigen…' : 'Confirm on phone…');
-
-            const overlay = document.createElement('div');
-            overlay.id = 'fs-scanned-overlay';
-            overlay.innerHTML = `
-              <svg viewBox="0 0 100 100" width="58" height="58" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 10px auto;filter:drop-shadow(0 4px 14px rgba(232,176,32,0.35));">
-                <defs>
-                  <linearGradient id="fsScannedLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#FCD34D"/>
-                    <stop offset="50%" stop-color="#E8B020"/>
-                    <stop offset="100%" stop-color="#B45309"/>
-                  </linearGradient>
-                </defs>
-                <path d="M35 46 V32 A15 15 0 0 1 65 32 V46" fill="none" stroke="url(#fsScannedLockGrad)" stroke-width="9" stroke-linecap="round"/>
-                <rect x="22" y="44" width="56" height="44" rx="9" fill="url(#fsScannedLockGrad)"/>
-                <path d="M36 66 L45 75 L64 54" fill="none" stroke="#080A12" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <div id="fs-scanned-title" style="color:#ffffff;font-size:14px;font-weight:700;font-family:system-ui,-apple-system,sans-serif;letter-spacing:0.2px;margin-bottom:4px;text-align:center;"></div>
-              <div id="fs-scanned-sub" style="color:#94a3b8;font-size:11.5px;font-weight:500;font-family:system-ui,-apple-system,sans-serif;text-align:center;"></div>
-            `;
-            
-            parent.appendChild(overlay);
-            
-            const titleEl = overlay.querySelector('#fs-scanned-title');
-            if (titleEl) titleEl.textContent = scanTitleText;
-            const subEl = overlay.querySelector('#fs-scanned-sub');
-            if (subEl) subEl.textContent = scanSubText;
-          }
-        }
-      }
-      
-      const t = OVERLAY_I18N[currentOverlayLang] || OVERLAY_I18N.de;
-      const rawUser = (data && data.username && String(data.username).trim().toLowerCase() !== 'user') 
-        ? String(data.username).trim() 
-        : '';
-      const statusMsg = rawUser
-        ? (t.userConfirming ? t.userConfirming.replace('{user}', rawUser) : `${rawUser} bestätigt…`)
-        : (t.confirmOnPhone || 'Auf Smartphone bestätigen…');
-      updateOverlayStatus('waiting', statusMsg);
+      handleQrScanned(data);
     });
 
-    socket.on('disconnect', () => {});
     socket.on('connect_error', () => {
       updateOverlayStatus('error', 'Server nicht erreichbar');
     });
+  }
+
+  function connectSocket(sessionId, keyHex, onData) {
+    disconnectRelay(false);
+
+    if (ext && ext.runtime && ext.runtime.connect) {
+      let fellBackToDirect = false;
+      try {
+        activePort = ext.runtime.connect({ name: 'fs-socket-port' });
+
+        storageGet('local', ['authToken']).then((res) => {
+          if (activePort) {
+            activePort.postMessage({
+              type: 'CONNECT',
+              sessionId,
+              token: res?.authToken || null,
+              domain: window.location.hostname
+            });
+          }
+        });
+
+        activePort.onMessage.addListener(async (msg) => {
+          if (!msg || !msg.type) return;
+          if (msg.type === 'LOGIN_DATA') {
+            const decrypted = await decryptData(msg.payload, keyHex);
+            if (decrypted) onData(decrypted);
+          } else if (msg.type === 'TOTP_DATA') {
+            const decrypted = await decryptData(msg.payload, keyHex);
+            if (decrypted && decrypted.code) fillTotpCode(decrypted.code);
+          } else if (msg.type === 'SESSION_EXPIRED') {
+            removeOverlay();
+          } else if (msg.type === 'QR_SCANNED') {
+            handleQrScanned(msg);
+          } else if (msg.type === 'SOCKET_ERROR' && !fellBackToDirect) {
+            fellBackToDirect = true;
+            connectDirectSocket(sessionId, keyHex, onData);
+          }
+        });
+
+        activePort.onDisconnect.addListener(() => {
+          const hadError = !!(ext.runtime && ext.runtime.lastError);
+          activePort = null;
+          if (portHeartbeat) {
+            clearInterval(portHeartbeat);
+            portHeartbeat = null;
+          }
+          if (hadError && !fellBackToDirect && currentSessionId === sessionId) {
+            fellBackToDirect = true;
+            connectDirectSocket(sessionId, keyHex, onData);
+          }
+        });
+
+        // 10-second heartbeat to keep Chrome MV3 Service Worker active during session
+        portHeartbeat = setInterval(() => {
+          if (activePort) {
+            try {
+              activePort.postMessage({ type: 'PING' });
+            } catch (e) {}
+          }
+        }, 10000);
+        return;
+      } catch (err) {
+        console.log('[FlakeSecure] Port connection fallback:', err.message);
+      }
+    }
+
+    connectDirectSocket(sessionId, keyHex, onData);
   }
 
   function updateOverlayStatus(type, message) {
@@ -777,10 +959,8 @@
         overlay.remove();
       }, 300);
     }
-    if (socket) {
-      socket.disconnect();
-      socket = null;
-    }
+
+    disconnectRelay(true);
     uiInjected = false;
     currentSessionId = null;
   }
@@ -789,8 +969,8 @@
     en: {
       regSubtitle: 'Secure Account Creation',
       loginSubtitle: 'Secure Biometric Login',
-      regInstructions: 'Scan the QR code with the <strong>FlakeSecure App</strong> to automatically fill and securely save your account details.',
-      loginInstructions: 'Scan the QR code with the <strong>FlakeSecure App</strong> and confirm with Face ID / Fingerprint.',
+      regInstructions: 'Scan the QR code with the FlakeSecure App to automatically fill and securely save your account details.',
+      loginInstructions: 'Scan the QR code with the FlakeSecure App and confirm with Face ID / Fingerprint.',
       step1: 'Scan',
       step2Reg: 'Customize',
       step2Login: 'Confirm',
@@ -807,8 +987,8 @@
     de: {
       regSubtitle: 'Account sicher erstellen',
       loginSubtitle: 'Sichere biometrische Anmeldung',
-      regInstructions: 'Scanne den QR-Code mit der <strong>FlakeSecure App</strong>, um deine Account-Daten automatisch auszufüllen und sicher zu speichern.',
-      loginInstructions: 'Scanne den QR-Code mit der <strong>FlakeSecure App</strong> und bestätige mit Face ID / Fingerabdruck.',
+      regInstructions: 'Scanne den QR-Code mit der FlakeSecure App, um deine Account-Daten automatisch auszufüllen und sicher zu speichern.',
+      loginInstructions: 'Scanne den QR-Code mit der FlakeSecure App und bestätige mit Face ID / Fingerabdruck.',
       step1: 'Scannen',
       step2Reg: 'Anpassen',
       step2Login: 'Bestätigen',
@@ -825,8 +1005,8 @@
     fr: {
       regSubtitle: 'Création sécurisée de compte',
       loginSubtitle: 'Connexion biométrique sécurisée',
-      regInstructions: 'Scannez le code QR avec l\'<strong>Application FlakeSecure</strong> pour remplir vos accès.',
-      loginInstructions: 'Scannez le code QR avec l\'<strong>Application FlakeSecure</strong> et confirmez avec Face ID / Empreinte.',
+      regInstructions: 'Scannez le code QR avec l\'Application FlakeSecure pour remplir vos accès.',
+      loginInstructions: 'Scannez le code QR avec l\'Application FlakeSecure et confirmez avec Face ID / Empreinte.',
       step1: 'Scanner',
       step2Reg: 'Personnaliser',
       step2Login: 'Confirmer',
@@ -843,8 +1023,8 @@
     es: {
       regSubtitle: 'Creación segura de cuenta',
       loginSubtitle: 'Inicio de sesión biométrico seguro',
-      regInstructions: 'Escanea el código QR con la <strong>App FlakeSecure</strong> para rellenar tus credenciales.',
-      loginInstructions: 'Escanea el código QR con la <strong>App FlakeSecure</strong> y confirma con Face ID / Huella.',
+      regInstructions: 'Escanea el código QR con la App FlakeSecure para rellenar tus credenciales.',
+      loginInstructions: 'Escanea el código QR con la App FlakeSecure y confirma con Face ID / Huella.',
       step1: 'Escanear',
       step2Reg: 'Personalizar',
       step2Login: 'Confirmar',
@@ -865,62 +1045,116 @@
 
     currentOverlayLang = lang || 'de';
     const t = OVERLAY_I18N[currentOverlayLang] || OVERLAY_I18N.en;
-    const overlay = document.createElement('div');
-    overlay.id = 'flakesecure-overlay';
+    const cssUrl = ext && ext.runtime ? ext.runtime.getURL('styles/content.css') : '';
 
-    const cssUrl = (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : browser.runtime).getURL('styles/content.css');
+    const logoSvg = createSvgEl(
+      'svg',
+      { viewBox: '0 0 100 100', style: 'width:20px;height:20px;' },
+      [
+        createSvgEl('path', {
+          d: 'M35 46 V34 A15 15 0 0 1 65 34 V46',
+          fill: 'none',
+          stroke: '#ffffff',
+          'stroke-width': '9',
+          'stroke-linecap': 'round'
+        }),
+        createSvgEl('rect', {
+          x: '22',
+          y: '44',
+          width: '56',
+          height: '44',
+          rx: '8',
+          fill: '#ffffff'
+        })
+      ]
+    );
 
-    overlay.innerHTML = `
-      <link rel="stylesheet" href="${cssUrl}">
-      <div class="fs-card" role="dialog" aria-modal="true">
-        <button id="fs-close" class="fs-close-btn" aria-label="Schließen">&times;</button>
-        <div class="fs-logo">
-          <div class="fs-logo-icon">
-            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;">
-              <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round"/>
-              <rect x="22" y="44" width="56" height="44" rx="8" fill="#ffffff"/>
-            </svg>
-          </div>
-          <h2 class="fs-logo-text">Flake<span>Secure</span></h2>
-        </div>
-        <p class="fs-subtitle">${isRegister ? t.regSubtitle : t.loginSubtitle}</p>
-        <div class="fs-domain-badge">
-          <span class="fs-domain-dot"></span>
-          <span class="fs-domain-text">${domain}</span>
-        </div>
-        <div class="fs-qr-container">
-          <div class="fs-qr-corner fs-qr-corner--tl"></div>
-          <div class="fs-qr-corner fs-qr-corner--tr"></div>
-          <div class="fs-qr-corner fs-qr-corner--bl"></div>
-          <div class="fs-qr-corner fs-qr-corner--br"></div>
-          <div id="flakesecure-qrcode"></div>
-        </div>
-        <p class="fs-instructions">
-          ${isRegister ? t.regInstructions : t.loginInstructions}
-        </p>
-        <ul class="fs-steps">
-          <li class="fs-step active" id="fs-step-1">
-            <span class="fs-step-num">1</span>
-            <span class="fs-step-label">${t.step1}</span>
-          </li>
-          <li class="fs-step" id="fs-step-2">
-            <span class="fs-step-num">2</span>
-            <span class="fs-step-label">${isRegister ? t.step2Reg : t.step2Login}</span>
-          </li>
-          <li class="fs-step" id="fs-step-3">
-            <span class="fs-step-num">3</span>
-            <span class="fs-step-label">${isRegister ? t.step3Reg : t.step3Login}</span>
-          </li>
-        </ul>
-        <div class="fs-status-wrap">
-          <div id="flakesecure-status" class="fs-status fs-status--waiting">${t.waiting}</div>
-        </div>
-        <p class="fs-fallback-link">
-          ${t.fallback} <a href="${deepLink}" target="_blank">${t.openDirectly}</a>
-        </p>
-      </div>
-    `;
+    const closeBtn = createEl('button', {
+      id: 'fs-close',
+      class: 'fs-close-btn',
+      'aria-label': 'Schließen',
+      textContent: '\u00d7'
+    });
 
+    const card = createEl(
+      'div',
+      { class: 'fs-card', role: 'dialog', 'aria-modal': 'true' },
+      [
+        closeBtn,
+        createEl('div', { class: 'fs-logo' }, [
+          createEl('div', { class: 'fs-logo-icon' }, [logoSvg]),
+          createEl('h2', { class: 'fs-logo-text' }, [
+            'Flake',
+            createEl('span', { textContent: 'Secure' })
+          ])
+        ]),
+        createEl('p', {
+          class: 'fs-subtitle',
+          textContent: isRegister ? t.regSubtitle : t.loginSubtitle
+        }),
+        createEl('div', { class: 'fs-domain-badge' }, [
+          createEl('span', { class: 'fs-domain-dot' }),
+          createEl('span', { class: 'fs-domain-text', textContent: domain })
+        ]),
+        createEl('div', { class: 'fs-qr-container' }, [
+          createEl('div', { class: 'fs-qr-corner fs-qr-corner--tl' }),
+          createEl('div', { class: 'fs-qr-corner fs-qr-corner--tr' }),
+          createEl('div', { class: 'fs-qr-corner fs-qr-corner--bl' }),
+          createEl('div', { class: 'fs-qr-corner fs-qr-corner--br' }),
+          createEl('div', { id: 'flakesecure-qrcode' })
+        ]),
+        createEl('p', {
+          class: 'fs-instructions',
+          textContent: isRegister ? t.regInstructions : t.loginInstructions
+        }),
+        createEl('ul', { class: 'fs-steps' }, [
+          createEl('li', { class: 'fs-step active', id: 'fs-step-1' }, [
+            createEl('span', { class: 'fs-step-num', textContent: '1' }),
+            createEl('span', { class: 'fs-step-label', textContent: t.step1 })
+          ]),
+          createEl('li', { class: 'fs-step', id: 'fs-step-2' }, [
+            createEl('span', { class: 'fs-step-num', textContent: '2' }),
+            createEl('span', {
+              class: 'fs-step-label',
+              textContent: isRegister ? t.step2Reg : t.step2Login
+            })
+          ]),
+          createEl('li', { class: 'fs-step', id: 'fs-step-3' }, [
+            createEl('span', { class: 'fs-step-num', textContent: '3' }),
+            createEl('span', {
+              class: 'fs-step-label',
+              textContent: isRegister ? t.step3Reg : t.step3Login
+            })
+          ])
+        ]),
+        createEl('div', { class: 'fs-status-wrap' }, [
+          createEl('div', {
+            id: 'flakesecure-status',
+            class: 'fs-status fs-status--waiting',
+            textContent: t.waiting
+          })
+        ]),
+        createEl('p', { class: 'fs-fallback-link' }, [
+          createEl('span', { id: 'fs-fallback-prefix', textContent: t.fallback }),
+          ' ',
+          createEl('a', {
+            id: 'fs-fallback-a',
+            href: deepLink,
+            target: '_blank',
+            rel: 'noopener',
+            textContent: t.openDirectly
+          })
+        ])
+      ]
+    );
+
+    const children = [];
+    if (cssUrl) {
+      children.push(createEl('link', { rel: 'stylesheet', href: cssUrl }));
+    }
+    children.push(card);
+
+    const overlay = createEl('div', { id: 'flakesecure-overlay' }, children);
     document.body.appendChild(overlay);
 
     const qrContainer = document.getElementById('flakesecure-qrcode');
@@ -935,7 +1169,7 @@
       });
     }
 
-    document.getElementById('fs-close')?.addEventListener('click', () => {
+    closeBtn.addEventListener('click', () => {
       removeOverlay(true);
     });
 
@@ -958,27 +1192,57 @@
     if (isEmbedPresent()) return;
     if (document.getElementById('fs-login-btn') || !targetField || !targetField.parentNode) return;
 
-    const btn = document.createElement('button');
-    btn.id = 'fs-login-btn';
-    btn.type = 'button';
-    btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#07090e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93"/></svg><span style="vertical-align:middle;font-weight:700;">FlakeSecure</span>';
-    btn.style.cssText = `
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: #E8B020;
-      color: #07090e;
-      border: 1px solid #C9930A;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      margin-top: 6px;
-      box-shadow: 0 3px 10px rgba(232, 176, 32, 0.3);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      z-index: 9999;
-    `;
+    const iconSvg = createSvgEl(
+      'svg',
+      {
+        viewBox: '0 0 24 24',
+        width: '14',
+        height: '14',
+        fill: 'none',
+        stroke: '#07090e',
+        'stroke-width': '2.5',
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        style: 'display:inline-block;vertical-align:middle;margin-right:6px;'
+      },
+      [
+        createSvgEl('path', {
+          d: 'M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93'
+        })
+      ]
+    );
+
+    const btn = createEl(
+      'button',
+      {
+        id: 'fs-login-btn',
+        type: 'button',
+        style: `
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: #E8B020;
+          color: #07090e;
+          border: 1px solid #C9930A;
+          border-radius: 6px;
+          padding: 6px 12px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          margin-top: 6px;
+          box-shadow: 0 3px 10px rgba(232, 176, 32, 0.3);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          z-index: 9999;
+        `
+      },
+      [
+        iconSvg,
+        createEl('span', {
+          textContent: 'FlakeSecure',
+          style: 'vertical-align:middle;font-weight:700;'
+        })
+      ]
+    );
 
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -990,25 +1254,14 @@
   }
 
   async function getSettings() {
-    return new Promise(resolve => {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-        chrome.storage.sync.get(['displayMode', 'autoLogin', 'autoOverlay', 'app_language'], res => {
-          resolve({
-            displayMode: res?.displayMode || 'popup',
-            autoLogin: res?.autoLogin !== false,
-            autoOverlay: res?.autoOverlay !== false,
-            app_language: res?.app_language || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en')
-          });
-        });
-      } else {
-        resolve({
-          displayMode: 'popup',
-          autoLogin: true,
-          autoOverlay: true,
-          app_language: navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en'
-        });
-      }
-    });
+    const defaultLang = navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en';
+    const res = await storageGet('sync', ['displayMode', 'autoLogin', 'autoOverlay', 'app_language']);
+    return {
+      displayMode: res?.displayMode || 'popup',
+      autoLogin: res?.autoLogin !== false,
+      autoOverlay: res?.autoOverlay !== false,
+      app_language: res?.app_language || defaultLang
+    };
   }
 
   async function handlePasswordField(field, settings) {
@@ -1151,8 +1404,9 @@
     silenceForEmbed();
   });
 
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  const runtimeAPI = ext && ext.runtime ? ext.runtime : null;
+  if (runtimeAPI && runtimeAPI.onMessage) {
+    runtimeAPI.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg && msg.type === 'FS_CHECK_EMBED') {
         sendResponse({ embedPresent: isEmbedPresent() });
       }

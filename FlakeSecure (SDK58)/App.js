@@ -25,6 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ThemeProvider, useTheme } from './app/src/context/ThemeContext';
 import { AuthProvider, useAuth } from './app/src/context/AuthContext';
 import { LanguageProvider, useLanguage } from './app/src/context/LanguageContext';
+import { TutorialProvider, useTutorial } from './app/src/context/TutorialContext';
 import { ToastProvider, toast } from './app/src/components/Toast';
 import { i18n } from './app/src/i18n';
 import {
@@ -70,7 +71,7 @@ try {
 
 const APP_VERSION = '2.1.0';
 
-const prefix = Linking.createURL('/');
+const prefix = Linking.createURL('/', { scheme: 'flakesecure' });
 const linking = {
   prefixes: [prefix, 'flakesecure://', 'https://flakesecure.snowystudio.dev'],
   config: {
@@ -113,7 +114,7 @@ const Stack = createNativeStackNavigator();
 
 function AppContent() {
   const { colors } = useTheme();
-  const { t, language } = useLanguage();
+  const { t, locale: language } = useLanguage();
   const {
     isAuthenticated,
     isLoading: authLoading,
@@ -451,6 +452,7 @@ function AppContent() {
               bannerAnnouncements={bannerAnnouncements}
               onDismissBanner={handleDismissBanner}
               isOffline={systemState.isOffline || isOfflineMode}
+              hasBlockingPopup={!!activePopupAnnouncement}
             />
           )}
         </Stack.Screen>
@@ -459,6 +461,7 @@ function AppContent() {
         <Stack.Screen name="RegisterFill" component={RegisterFillScreen} />
         <Stack.Screen name="Authenticator" component={AuthenticatorScreen} />
         <Stack.Screen name="Credentials" component={CredentialsScreen} />
+        <Stack.Screen name="CredentialsScreen" component={CredentialsScreen} />
         <Stack.Screen name="ViewCredential" component={ViewCredentialScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Logs" component={LogsScreen} />
@@ -520,6 +523,7 @@ function AppContent() {
 function NavigationRoot() {
   const { colors } = useTheme();
   const { isAuthenticated, needsBiometricUnlock } = useAuth();
+  const { dismissActiveTour } = useTutorial();
   const navigationRef = useNavigationContainerRef();
   const [pendingOtpUri, setPendingOtpUri] = useState(null);
   const [pendingNotifTarget, setPendingNotifTarget] = useState(null);
@@ -527,13 +531,15 @@ function NavigationRoot() {
 
   useEffect(() => {
     const handleUrl = (url) => {
-      if (
-        url &&
-        typeof url === 'string' &&
-        (url.toLowerCase().startsWith('otpauth://') ||
-          url.toLowerCase().startsWith('otpauth-migration://'))
-      ) {
-        setPendingOtpUri(url);
+      if (url && typeof url === 'string') {
+        const trimmed = url.trim();
+        const lower = trimmed.toLowerCase();
+        if (
+          lower.startsWith('otpauth://') ||
+          lower.startsWith('otpauth-migration://')
+        ) {
+          setPendingOtpUri(trimmed);
+        }
       }
     };
 
@@ -586,6 +592,12 @@ function NavigationRoot() {
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated || needsBiometricUnlock) {
+      dismissActiveTour();
+    }
+  }, [isAuthenticated, needsBiometricUnlock, dismissActiveTour]);
+
+  useEffect(() => {
     if (
       pendingOtpUri &&
       navReady &&
@@ -595,9 +607,10 @@ function NavigationRoot() {
     ) {
       const uriToOpen = pendingOtpUri;
       setPendingOtpUri(null);
-      navigationRef.navigate('Authenticator', { otpauthUri: uriToOpen });
+      dismissActiveTour();
+      navigationRef.navigate('Authenticator', { otpauthUri: uriToOpen, fromExternalQr: true });
     }
-  }, [pendingOtpUri, navReady, isAuthenticated, needsBiometricUnlock, navigationRef]);
+  }, [pendingOtpUri, navReady, isAuthenticated, needsBiometricUnlock, navigationRef, dismissActiveTour]);
 
   useEffect(() => {
     if (
@@ -664,7 +677,9 @@ export default function App() {
         <LanguageProvider>
           <ToastProvider>
             <AuthProvider>
-              <NavigationRoot />
+              <TutorialProvider>
+                <NavigationRoot />
+              </TutorialProvider>
             </AuthProvider>
           </ToastProvider>
         </LanguageProvider>

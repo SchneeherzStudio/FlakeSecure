@@ -79,10 +79,49 @@
     "done": {
       "title": "You're All Set!",
       "subtitle": "FlakeSecure is ready. Add your first credentials and start logging in securely.",
-      "button": "Get Started"
+      "button": "Get Started",
+      "startTourButton": "Start Vault Tour with Yuki",
+      "skipTourButton": "Skip tour (available anytime in Settings)"
     },
     "next": "Next",
-    "skip": "Skip"
+    "skip": "Skip",
+    "notifications": {
+      "title": "Notifications & Security Alerts",
+      "subtitle": "Essential for real-time security and instant approvals",
+      "reason1Title": "Real-Time Login Approvals",
+      "reason1Desc": "Lightning-fast desktop login approvals without typing any master password.",
+      "reason2Title": "Breach Alerts",
+      "reason2Desc": "Immediate warnings if one of your saved passwords appears in a known data breach.",
+      "reason3Title": "Card Expiration Reminders",
+      "reason3Desc": "Timely alerts 30 days before your stored payment cards expire.",
+      "enableBtn": "Enable Notifications",
+      "declineBtn": "Not Now / Decline",
+      "note": "Note: You can enable notifications anytime later in Settings (under Settings → Notifications)."
+    },
+    "yuki": {
+      "welcome": "Hi! I'm Yuki. Let me quickly show you how FlakeSecure protects your passwords, cards, and 2FA codes.",
+      "howItWorks": "Everything runs on a zero-knowledge architecture: your data is encrypted locally on your device – not even our servers can read it.",
+      "requirements": "For full transparency, here is an overview of which smartphone permissions we use and what each one does.",
+      "extension": "With the browser extension you log in via QR code on desktop – and automatically generate strong passwords when registering on websites!",
+      "notifications": "Notifications keep you informed about instant login approvals and data breaches. Your OS only prompts if you agree here first.",
+      "account": "Almost done! Create your encrypted account now or sign in to your existing vault.",
+      "done": "All set! Let me give you a quick step-by-step tour of the main screen so you know where every button lives."
+    },
+    "requirements": {
+      "title": "What FlakeSecure Needs",
+      "subtitle": "Full transparency on permissions & system features",
+      "badgeOnDemand": "On demand",
+      "badgeOptional": "Optional",
+      "cameraTitle": "Camera (QR Scanner)",
+      "cameraDesc": "Pair browser extensions, approve logins, auto-generate strong passwords when scanning registration QR codes, and scan 2FA QR codes.",
+      "notifTitle": "Notifications",
+      "notifDesc": "Real-time desktop login approvals, instant password breach alerts (HaveIBeenPwned), and card expiration reminders.",
+      "bioTitle": "Biometrics (Fingerprint / Face ID)",
+      "bioDesc": "Quickly and securely unlock your vault, approve logins, and protect sensitive clipboard copies.",
+      "autofillTitle": "System Autofill & Camera Links",
+      "autofillDesc": "Autofills logins & cards directly in other apps and lets your camera app suggest \"Open in FlakeSecure\" on 2FA QR codes.",
+      "footerNote": "Don't worry: your operating system will only request permissions when you actively use each feature."
+    }
   },
   "home": {
     "title": "Home",
@@ -113,7 +152,12 @@
     "searchPlaceholder": "Search logins, cards, IBAN, or codes…",
     "segmentLogins": "Credentials",
     "segmentCards": "Cards",
-    "segmentCodes": "Codes"
+    "segmentCodes": "Codes",
+    "breachAlertTitle": "Security Alert: %{count} compromised password(s) detected",
+    "breachAlertSubtitle": "The following credentials were found in known data breaches (HaveIBeenPwned):",
+    "breachChangeNowBtn": "Change now",
+    "breachDismissBtn": "Dismiss",
+    "breachedBadge": "Compromised"
   },
   "categories": {
     "all": "All",
@@ -364,7 +408,10 @@
     "themeSection": "APPEARANCE & THEME",
     "themeSystem": "System Default",
     "themeDark": "Dark Mode (Deep Navy)",
-    "themeLight": "Light Mode (Clean Slate)"
+    "themeLight": "Light Mode (Clean Slate)",
+    "tutorialSection": "HELP & ONBOARDING",
+    "showTutorial": "Replay App Tutorial",
+    "showTutorialSub": "Yuki guides you through all buttons & features step by step"
   },
   "logs": {
     "title": "Activity Logs",
@@ -481,6 +528,11 @@
     "hideFromRecipientDesc": "Credentials will auto-fill but remain hidden",
     "autoDeleteAfter": "Auto-delete after",
     "expiryNever": "Never"
+  },
+  "pair": {
+    "biometricPrompt": "Pair Browser Extension",
+    "success": "Browser extension successfully paired!",
+    "notLoggedIn": "Please log in to the app first to pair a browser extension."
   },
   "vaultTransfer": {
     "title": "Cloud Vault Restore",
@@ -715,6 +767,7 @@
     "cardExpiringBody": "Your card \"%{label}\" expires on %{expiry}.",
     "breachFoundTitle": "Password Breach Alert",
     "breachFoundBody": "%{count} password(s) appeared in known data breaches. Please update them!",
+    "breachAffectsPrefix": "Affects",
     "weakPasswordsTitle": "Weekly Password Health Report",
     "weakPasswordsBody": "%{weak} weak and %{reused} reused password(s) detected in your vault.",
     "backupReminderTitle": "Vault Backup Recommended",
@@ -740,5 +793,58 @@
     "importedPendingToast": "Imported %{count} new credential(s) saved via Android Autofill",
     "iosHint": "On iOS, FlakeSecure uses Associated Domains and system AutoFill integration."
   },
-  "loading": "Loading..."
+  "loading": "Loading...",
+  "tutorial": {
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip tour",
+    "done": "Done!",
+    "stepOf": "%{current} / %{total}",
+    "home": {
+      "introTitle": "Welcome to Your Vault!",
+      "intro": "I'm Yuki and I'll walk you through the main screen in one minute. You can skip anytime or replay this tour later in Settings.",
+      "scanTitle": "Scan QR Code (All-in-One)",
+      "scan": "Your main action button: pairs the browser extension, approves desktop logins, auto-generates strong passwords on browser registration QR codes, and scans 2FA codes.",
+      "quick2faTitle": "2FA Authenticator",
+      "quick2fa": "Generates your 6-digit one-time codes. Tip: scanning a 2FA QR code in your phone Camera app now suggests \"Open in FlakeSecure\"!",
+      "quickLogsTitle": "Activity Logs",
+      "quickLogs": "Inspect every login approval, transfer, and share with device and timestamp for complete security visibility.",
+      "quickNewTitle": "Create New Entry",
+      "quickNew": "Quickly add a new login, bank card, or secret code matching the currently selected tab.",
+      "quickShareTitle": "Encrypted Sharing",
+      "quickShare": "Share selected logins end-to-end encrypted with other devices or trusted users – optionally with an expiry timer.",
+      "segmentsTitle": "Logins, Cards & Codes",
+      "segments": "Switch here between website logins, bank cards (with IBAN & expiry alerts), and secret codes like PINs or recovery keys.",
+      "searchTitle": "Instant Search",
+      "search": "Filters the active section instantly by domain, title, account name, or notes.",
+      "sortTitle": "Custom Reordering",
+      "sort": "Reorder your vault entries using arrow controls – or simply long-press any card to rearrange.",
+      "categoriesTitle": "Categories & Filters",
+      "categories": "Filter your logins by category (like Work or Finance) or create custom ones with the \"+\" chip on the right.",
+      "breachTitle": "Breach Alert",
+      "breach": "Heads up! Whenever a saved password appears in a known data breach (HaveIBeenPwned), I warn you right here with a quick change link.",
+      "emptyAddTitle": "Your Vault Entries",
+      "emptyAdd": "Add your first login here, or tap any saved card to view details, copy safely, or edit.",
+      "restoreTitle": "Restore Cloud Vault",
+      "restore": "Already used FlakeSecure on another device? Pull and decrypt your encrypted cloud backup right here.",
+      "userBadgeTitle": "Connection & Settings",
+      "userBadge": "The dot shows your status (green = online, amber = offline). Tap to open Settings – you can replay this tour there anytime!"
+    },
+    "authenticator": {
+      "addTitle": "Add 2FA Code",
+      "add": "Add a 2FA account via QR camera, image from your gallery, or URI link – or scan directly from your native Camera app!",
+      "timerTitle": "30-Second Countdown",
+      "timer": "Shows how many seconds remain before all codes automatically refresh. Turns red right before rotation.",
+      "listTitle": "Copy & Stream Codes",
+      "list": "Tap any card to copy the code (clipboard clears after 45s). When connected to a browser session, it streams directly!"
+    },
+    "credentials": {
+      "typeSwitcherTitle": "Choose Entry Type",
+      "typeSwitcher": "Pick what to save at the top: Login, Bank Card (with live preview & IBAN lookup), or Secret Code.",
+      "categoryTitle": "Assign Category",
+      "category": "Group entries by category so you can find them faster – tap \"+ New\" to create your own.",
+      "saveTitle": "Encrypted Save",
+      "save": "When saving, everything is encrypted directly on your device before syncing to the cloud."
+    }
+  }
 }

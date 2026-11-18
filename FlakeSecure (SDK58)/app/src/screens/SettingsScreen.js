@@ -39,6 +39,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
@@ -46,6 +47,8 @@ import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTutorial } from '../context/TutorialContext';
+import { YUKI } from '../components/yuki/yukiPoses';
 import { useToast } from '../components/Toast';
 import {
   updateAccount,
@@ -86,7 +89,13 @@ export default function SettingsScreen({ navigation, route }) {
   const { user, logout, updateUser, isOfflineMode } = useAuth();
   const { locale, changeLanguage, t } = useLanguage();
   const { themeMode, setThemeMode, colors } = useTheme();
+  const { resetAllTours } = useTutorial();
   const toast = useToast();
+
+  const handleReplayTutorial = async () => {
+    await resetAllTours();
+    navigation.navigate('Home', { startTutorial: true });
+  };
 
   // null = Main Settings overview (Submenu links + App Info)
   // 'account' | 'autofill' | 'notifications' | 'security' | 'appearance' | 'data'
@@ -783,6 +792,64 @@ export default function SettingsScreen({ navigation, route }) {
                   />
                 </TouchableOpacity>
               ))}
+            </View>
+
+            {/* Help & Yuki Interactive Tutorial */}
+            <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>
+              {t('settings.tutorialSection')}
+            </Text>
+            <View
+              style={[
+                styles.menuCard,
+                { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={handleReplayTutorial}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.menuIconBox,
+                    {
+                      backgroundColor: colors.goldDim,
+                      borderColor: colors.goldBorder,
+                      overflow: 'hidden',
+                    },
+                  ]}
+                >
+                  <Image
+                    source={YUKI.head}
+                    style={{ width: 28, height: 28 }}
+                    contentFit="contain"
+                  />
+                </View>
+
+                <View style={styles.menuTextCol}>
+                  <Text
+                    style={[styles.menuRowTitle, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {t('settings.showTutorial')}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.menuRowSubtitle,
+                      { color: colors.textMuted },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {t('settings.showTutorialSub')}
+                  </Text>
+                </View>
+
+                <AppIcon
+                  name="chevronRight"
+                  size={16}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
             </View>
 
             {/* System & Security Information (App Info) */}
@@ -2159,6 +2226,31 @@ export default function SettingsScreen({ navigation, route }) {
                     style={[styles.dataItemText, { color: colors.text }]}
                   >
                     {t('settings.logsShortcut')}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <View
+                style={[
+                  styles.divider,
+                  { backgroundColor: colors.borderSubtle },
+                ]}
+              />
+              <TouchableOpacity
+                style={styles.dataItem}
+                onPress={handleReplayTutorial}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <AppIcon name="info" size={16} color={colors.gold} />
+                  <Text
+                    style={[styles.dataItemText, { color: colors.text }]}
+                  >
+                    {t('settings.showTutorial')}
                   </Text>
                 </View>
               </TouchableOpacity>

@@ -17,8 +17,11 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  getAllCredentials,
   saveCredentials,
   getCategories,
   saveCategory,
@@ -40,6 +43,8 @@ import {
 } from '../utils/storage';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTutorial } from '../context/TutorialContext';
+import TutorialTarget from '../components/tutorial/TutorialTarget';
 import { useToast } from '../components/Toast';
 import {
   AppIcon,
@@ -50,12 +55,17 @@ import {
 export default function CredentialsScreen({ route, navigation }) {
   const { t } = useLanguage();
   const { colors } = useTheme();
+  const { startTour } = useTutorial();
+  const isFocused = useIsFocused();
   const toast = useToast();
 
   const prefillDomain = route.params?.prefillDomain || '';
   const initialType = route.params?.initialType || 'login';
   const prefillBankAccountId = route.params?.prefillBankAccountId || null;
   const initialCardSubMode = route.params?.cardSubMode || 'card'; // 'card' | 'accountOnly'
+  const mode = route.params?.mode || 'create';
+  const editCredentialId = route.params?.credentialId || null;
+  const isEditMode = mode === 'edit' && !!editCredentialId;
 
   const [entryType, setEntryType] = useState(
     ['login', 'card', 'code'].includes(initialType) ? initialType : 'login'
@@ -110,9 +120,39 @@ export default function CredentialsScreen({ route, navigation }) {
   const [newCategoryIcon, setNewCategoryIcon] = useState('tag');
 
   useEffect(() => {
+    if (!isFocused || isEditMode || showCategoryModal) return;
+    const timer = setTimeout(() => {
+      startTour('credentials');
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [isFocused, isEditMode, showCategoryModal, startTour]);
+
+  useEffect(() => {
     loadCategories();
     loadBankAccountsList();
   }, []);
+
+  useEffect(() => {
+    if (isEditMode) {
+      (async () => {
+        try {
+          const all = await getAllCredentials();
+          const target = all.find((c) => c.id === editCredentialId);
+          if (target) {
+            setEntryType('login');
+            setDomain(target.domain || '');
+            setUsername(target.username || '');
+            setPassword(target.password || '');
+            setAccountName(target.name || '');
+            if (target.category) setSelectedCategory(target.category);
+            if (target.notes) setNotes(target.notes);
+          }
+        } catch (err) {
+          console.log('[CredentialsScreen] load edit credential error:', err);
+        }
+      })();
+    }
+  }, [isEditMode, editCredentialId]);
 
   const loadBankAccountsList = async () => {
     try {
@@ -257,11 +297,25 @@ export default function CredentialsScreen({ route, navigation }) {
           username.trim(),
           password,
           {
+            id: isEditMode ? editCredentialId : undefined,
             name: accountName.trim(),
             category: selectedCategory,
             notes: notes.slice(0, 1000),
           }
         );
+        if (isEditMode) {
+          try {
+            const rawBreached = await AsyncStorage.getItem('flakesecure_breached_credentials_v1');
+            if (rawBreached) {
+              const list = JSON.parse(rawBreached);
+              const updated = list.filter((item) => item.id !== editCredentialId);
+              await AsyncStorage.setItem('flakesecure_breached_credentials_v1', JSON.stringify(updated));
+            }
+          } catch {}
+          toast.success(t('toast.saved') || 'Gespeichert');
+          navigation.goBack();
+          return;
+        }
         toast.confirm({
           title: t('credentials.savedTitle'),
           message: t('credentials.savedMsg', { domain: normalizedDomain }),
@@ -425,6 +479,8 @@ export default function CredentialsScreen({ route, navigation }) {
                 ? t('cards.newCardTitle')
                 : entryType === 'code'
                 ? t('codes.newCodeTitle')
+                : isEditMode
+                ? (t('viewCredential.viewAndEdit') || 'Zugangsdaten bearbeiten')
                 : t('credentials.title')}
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSub }]}>
@@ -433,45 +489,47 @@ export default function CredentialsScreen({ route, navigation }) {
           </View>
 
           {/* 3-Type Switcher: Login | Bankkarte | Code */}
-          <View
-            style={[
-              styles.typeSwitcher,
-              { backgroundColor: colors.cardBg, borderColor: colors.border },
-            ]}
-          >
-            {[
-              { key: 'login', label: 'Login', icon: 'lock' },
-              { key: 'card', label: t('cards.typeLabel'), icon: 'card' },
-              { key: 'code', label: t('codes.typeLabel'), icon: 'keypad' },
-            ].map((item) => {
-              const selected = entryType === item.key;
-              return (
-                <TouchableOpacity
-                  key={item.key}
-                  style={[
-                    styles.typeTab,
-                    selected && { backgroundColor: colors.gold },
-                  ]}
-                  onPress={() => setEntryType(item.key)}
-                  activeOpacity={0.8}
-                >
-                  <CategoryIcon
-                    name={item.icon}
-                    size={15}
-                    color={selected ? '#ffffff' : colors.gold}
-                  />
-                  <Text
+          <TutorialTarget id="cred.typeSwitcher">
+            <View
+              style={[
+                styles.typeSwitcher,
+                { backgroundColor: colors.cardBg, borderColor: colors.border },
+              ]}
+            >
+              {[
+                { key: 'login', label: 'Login', icon: 'lock' },
+                { key: 'card', label: t('cards.typeLabel'), icon: 'card' },
+                { key: 'code', label: t('codes.typeLabel'), icon: 'keypad' },
+              ].map((item) => {
+                const selected = entryType === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
                     style={[
-                      styles.typeTabText,
-                      { color: selected ? '#ffffff' : colors.textSub },
+                      styles.typeTab,
+                      selected && { backgroundColor: colors.gold },
                     ]}
+                    onPress={() => setEntryType(item.key)}
+                    activeOpacity={0.8}
                   >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <CategoryIcon
+                      name={item.icon}
+                      size={15}
+                      color={selected ? '#ffffff' : colors.gold}
+                    />
+                    <Text
+                      style={[
+                        styles.typeTabText,
+                        { color: selected ? '#ffffff' : colors.textSub },
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </TutorialTarget>
 
           <View
             style={[
@@ -657,113 +715,115 @@ export default function CredentialsScreen({ route, navigation }) {
                 />
               </View>
 
-              <View style={styles.fieldGroup}>
-                <Text style={[styles.label, { color: colors.textMuted }]}>
-                  {t('credentials.categoryLabel')}
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.categoryScroll}
-                >
-                  <TouchableOpacity
-                    style={[
-                      styles.categoryChip,
-                      {
-                        backgroundColor: colors.cardBg,
-                        borderColor: colors.border,
-                      },
-                      !selectedCategory && {
-                        backgroundColor: colors.goldBg,
-                        borderColor: colors.gold,
-                      },
-                    ]}
-                    onPress={() => setSelectedCategory(null)}
-                    activeOpacity={0.7}
+              <TutorialTarget id="cred.category">
+                <View style={styles.fieldGroup}>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>
+                    {t('credentials.categoryLabel')}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.categoryScroll}
                   >
-                    <AppIcon
-                      name="close"
-                      size={12}
-                      color={!selectedCategory ? colors.gold : colors.textMuted}
-                    />
-                    <Text
+                    <TouchableOpacity
                       style={[
-                        styles.categoryChipText,
+                        styles.categoryChip,
                         {
-                          color: !selectedCategory
-                            ? colors.gold
-                            : colors.textSub,
+                          backgroundColor: colors.cardBg,
+                          borderColor: colors.border,
+                        },
+                        !selectedCategory && {
+                          backgroundColor: colors.goldBg,
+                          borderColor: colors.gold,
                         },
                       ]}
+                      onPress={() => setSelectedCategory(null)}
+                      activeOpacity={0.7}
                     >
-                      {t('credentials.categoryNone')}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {categories.map((cat) => {
-                    const isSelected = selectedCategory === cat.id;
-                    const displayName = cat.isDefault
-                      ? t(`categories.${cat.id}`) || cat.name
-                      : cat.name;
-                    return (
-                      <TouchableOpacity
-                        key={cat.id}
+                      <AppIcon
+                        name="close"
+                        size={12}
+                        color={!selectedCategory ? colors.gold : colors.textMuted}
+                      />
+                      <Text
                         style={[
-                          styles.categoryChip,
+                          styles.categoryChipText,
                           {
-                            backgroundColor: colors.cardBg,
-                            borderColor: colors.border,
-                          },
-                          isSelected && {
-                            backgroundColor: colors.goldBg,
-                            borderColor: colors.gold,
+                            color: !selectedCategory
+                              ? colors.gold
+                              : colors.textSub,
                           },
                         ]}
-                        onPress={() => setSelectedCategory(cat.id)}
-                        activeOpacity={0.7}
                       >
-                        <CategoryIcon
-                          name={cat.icon || 'tag'}
-                          size={14}
-                          color={isSelected ? colors.gold : colors.textSub}
-                        />
-                        <Text
+                        {t('credentials.categoryNone')}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {categories.map((cat) => {
+                      const isSelected = selectedCategory === cat.id;
+                      const displayName = cat.isDefault
+                        ? t(`categories.${cat.id}`) || cat.name
+                        : cat.name;
+                      return (
+                        <TouchableOpacity
+                          key={cat.id}
                           style={[
-                            styles.categoryChipText,
+                            styles.categoryChip,
                             {
-                              color: isSelected ? colors.gold : colors.textSub,
+                              backgroundColor: colors.cardBg,
+                              borderColor: colors.border,
+                            },
+                            isSelected && {
+                              backgroundColor: colors.goldBg,
+                              borderColor: colors.gold,
                             },
                           ]}
+                          onPress={() => setSelectedCategory(cat.id)}
+                          activeOpacity={0.7}
                         >
-                          {displayName}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                          <CategoryIcon
+                            name={cat.icon || 'tag'}
+                            size={14}
+                            color={isSelected ? colors.gold : colors.textSub}
+                          />
+                          <Text
+                            style={[
+                              styles.categoryChipText,
+                              {
+                                color: isSelected ? colors.gold : colors.textSub,
+                              },
+                            ]}
+                          >
+                            {displayName}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
 
-                  <TouchableOpacity
-                    style={[
-                      styles.newCategoryChip,
-                      {
-                        backgroundColor: colors.goldBg,
-                        borderColor: colors.goldBorder,
-                      },
-                    ]}
-                    onPress={() => setShowCategoryModal(true)}
-                    activeOpacity={0.7}
-                  >
-                    <AppIcon name="plus" size={12} color={colors.gold} />
-                    <Text
+                    <TouchableOpacity
                       style={[
-                        styles.newCategoryChipText,
-                        { color: colors.gold },
+                        styles.newCategoryChip,
+                        {
+                          backgroundColor: colors.goldBg,
+                          borderColor: colors.goldBorder,
+                        },
                       ]}
+                      onPress={() => setShowCategoryModal(true)}
+                      activeOpacity={0.7}
                     >
-                      {t('credentials.addCategoryBtn')}
-                    </Text>
-                  </TouchableOpacity>
-                </ScrollView>
-              </View>
+                      <AppIcon name="plus" size={12} color={colors.gold} />
+                      <Text
+                        style={[
+                          styles.newCategoryChipText,
+                          { color: colors.gold },
+                        ]}
+                      >
+                        {t('credentials.addCategoryBtn')}
+                      </Text>
+                    </TouchableOpacity>
+                  </ScrollView>
+                </View>
+              </TutorialTarget>
             </View>
           )}
 
@@ -1764,23 +1824,25 @@ export default function CredentialsScreen({ route, navigation }) {
             </View>
           )}
 
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={saving ? ['#333', '#444'] : colors.goldGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.saveGradient}
+          <TutorialTarget id="cred.save">
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.85}
             >
-              <Text style={styles.saveBtnText}>
-                {saving ? t('credentials.saving') : t('credentials.saveButton')}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={saving ? ['#333', '#444'] : colors.goldGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.saveGradient}
+              >
+                <Text style={styles.saveBtnText}>
+                  {saving ? t('credentials.saving') : t('credentials.saveButton')}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </TutorialTarget>
         </ScrollView>
       </KeyboardAvoidingView>
 

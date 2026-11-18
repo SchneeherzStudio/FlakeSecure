@@ -904,7 +904,7 @@
     const cssUrl = (typeof browser !== 'undefined' && browser.runtime ? browser.runtime : chrome.runtime).getURL('styles/content.css');
 
     overlay.innerHTML = `
-      <link rel="stylesheet" href="${cssUrl}">
+      <link rel="stylesheet">
       <div class="fs-card" role="dialog" aria-modal="true">
         <button id="fs-close" class="fs-close-btn" aria-label="Schließen">&times;</button>
         <div class="fs-logo">
@@ -916,10 +916,10 @@
           </div>
           <h2 class="fs-logo-text">Flake<span>Secure</span></h2>
         </div>
-        <p class="fs-subtitle">${isRegister ? t.regSubtitle : t.loginSubtitle}</p>
+        <p class="fs-subtitle"></p>
         <div class="fs-domain-badge">
           <span class="fs-domain-dot"></span>
-          <span class="fs-domain-text">${domain}</span>
+          <span class="fs-domain-text"></span>
         </div>
         <div class="fs-qr-container">
           <div class="fs-qr-corner fs-qr-corner--tl"></div>
@@ -928,31 +928,62 @@
           <div class="fs-qr-corner fs-qr-corner--br"></div>
           <div id="flakesecure-qrcode"></div>
         </div>
-        <p class="fs-instructions">
-          ${isRegister ? t.regInstructions : t.loginInstructions}
-        </p>
+        <p class="fs-instructions"></p>
         <ul class="fs-steps">
           <li class="fs-step active" id="fs-step-1">
             <span class="fs-step-num">1</span>
-            <span class="fs-step-label">${t.step1}</span>
+            <span class="fs-step-label"></span>
           </li>
           <li class="fs-step" id="fs-step-2">
             <span class="fs-step-num">2</span>
-            <span class="fs-step-label">${isRegister ? t.step2Reg : t.step2Login}</span>
+            <span class="fs-step-label"></span>
           </li>
           <li class="fs-step" id="fs-step-3">
             <span class="fs-step-num">3</span>
-            <span class="fs-step-label">${isRegister ? t.step3Reg : t.step3Login}</span>
+            <span class="fs-step-label"></span>
           </li>
         </ul>
         <div class="fs-status-wrap">
-          <div id="flakesecure-status" class="fs-status fs-status--waiting">${t.waiting}</div>
+          <div id="flakesecure-status" class="fs-status fs-status--waiting"></div>
         </div>
         <p class="fs-fallback-link">
-          ${t.fallback} <a href="${deepLink}" target="_blank">${t.openDirectly}</a>
+          <span id="fs-fallback-prefix"></span> <a id="fs-fallback-a" target="_blank" rel="noopener"></a>
         </p>
       </div>
     `;
+
+    const linkEl = overlay.querySelector('link');
+    if (linkEl) linkEl.href = cssUrl;
+
+    const subEl = overlay.querySelector('.fs-subtitle');
+    if (subEl) subEl.textContent = isRegister ? t.regSubtitle : t.loginSubtitle;
+
+    const domainEl = overlay.querySelector('.fs-domain-text');
+    if (domainEl) domainEl.textContent = domain;
+
+    const instEl = overlay.querySelector('.fs-instructions');
+    if (instEl) instEl.textContent = isRegister ? t.regInstructions : t.loginInstructions;
+
+    const step1El = overlay.querySelector('#fs-step-1 .fs-step-label');
+    if (step1El) step1El.textContent = t.step1;
+
+    const step2El = overlay.querySelector('#fs-step-2 .fs-step-label');
+    if (step2El) step2El.textContent = isRegister ? t.step2Reg : t.step2Login;
+
+    const step3El = overlay.querySelector('#fs-step-3 .fs-step-label');
+    if (step3El) step3El.textContent = isRegister ? t.step3Reg : t.step3Login;
+
+    const statusEl = overlay.querySelector('#flakesecure-status');
+    if (statusEl) statusEl.textContent = t.waiting;
+
+    const fallbackPrefix = overlay.querySelector('#fs-fallback-prefix');
+    if (fallbackPrefix) fallbackPrefix.textContent = t.fallback;
+
+    const fallbackA = overlay.querySelector('#fs-fallback-a');
+    if (fallbackA) {
+      fallbackA.href = deepLink;
+      fallbackA.textContent = t.openDirectly;
+    }
 
     document.body.appendChild(overlay);
 

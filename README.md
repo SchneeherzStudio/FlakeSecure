@@ -383,7 +383,8 @@ flakesecure/
 │           ├── totp.js              # Pure JS TOTP generator (SHA1/SHA256/SHA512, 6/8 digits, 30/60s)
 │           └── otpMigration.js      # Google Authenticator protobuf decoder (otpauth-migration://)
 │
-├── FlakeSecure (SDK54)/             # React Native Mobile App (Expo SDK 54 - 100% Mirrored)
+├── archiv/
+│   └── FlakeSecure (SDK54)/         # [ARCHIVED] Legacy Expo SDK 54 Mobile App (no longer needed)
 │
 ├── browser-extension/               # Chrome / Edge / Chromium Extension (Manifest V3)
 │   ├── pack-extensions.ps1          # Cross-platform POSIX ZIP packager for Chrome & Firefox

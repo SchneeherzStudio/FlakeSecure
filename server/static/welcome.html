@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlakeSecure – Erste Schritte &amp; Onboarding</title>
+  <meta name="description" content="Offizielle FlakeSecure Einrichtungsseite für Browser-Erweiterung, Mobile App und Biometrie-Kopplung." />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/images/splash-icon.png" />
+
+  <style>
+    :root, [data-theme="dark"] {
+      --bg-primary: #07090e;
+      --bg-body: #090b14;
+      --bg-surface: #0c101b;
+      --bg-card: rgba(15, 20, 34, 0.85);
+      --bg-card-hover: rgba(22, 30, 50, 0.95);
+      --border-color: #1e293b;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: #E8B020;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-gold: #E8B020;
+      --accent-gold-hover: #F5D070;
+      --accent-gold-dim: rgba(232, 176, 32, 0.12);
+      --accent-gold-border: rgba(232, 176, 32, 0.35);
+      --accent-green: #4ADE80;
+      --btn-primary-bg: #E8B020;
+      --btn-primary-text: #07090e;
+      --btn-primary-border: #C9930A;
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f1f5f9;
+      --bg-body: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8fafc;
+      --border-color: #cbd5e1;
+      --border-subtle: #e2e8f0;
+      --border-focus: #D97706;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --accent-gold: #D97706;
+      --accent-gold-hover: #B45309;
+      --accent-gold-dim: rgba(217, 119, 6, 0.1);
+      --accent-gold-border: rgba(217, 119, 6, 0.3);
+      --accent-green: #16A34A;
+      --btn-primary-bg: #D97706;
+      --btn-primary-text: #ffffff;
+      --btn-primary-border: #B45309;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 24px;
+      width: 100%;
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .brand-logo-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+    }
+
+    .brand-logo-wrap svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .brand-name {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .brand-name span {
+      color: var(--accent-gold);
+    }
+
+    .brand-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+      color: var(--accent-gold);
+      margin-left: 6px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-toggle-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .theme-toggle-btn:hover {
+      border-color: var(--accent-gold);
+      color: var(--text-primary);
+    }
+
+    .lang-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      font-family: inherit;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 48px 0 36px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-gold);
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      line-height: 1.25;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    /* Steps Grid */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    @media (max-width: 768px) {
+      .steps-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 24px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .step-card:hover {
+      border-color: var(--accent-gold-border);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .step-num {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--accent-gold);
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+      padding: 2px 10px;
+      border-radius: 6px;
+    }
+
+    .step-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent-gold-dim);
+      display: grid;
+      place-items: center;
+      color: var(--accent-gold);
+    }
+
+    .step-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .step-desc {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 18px;
+      flex-grow: 1;
+    }
+
+    .qr-container-box {
+      background: #ffffff;
+      padding: 12px;
+      border-radius: 10px;
+      border: 2px solid var(--accent-gold-border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      min-width: 164px;
+      min-height: 164px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .qr-container-box canvas,
+    .qr-container-box img {
+      display: block;
+    }
+
+    .download-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
+      border: 1px solid var(--btn-primary-border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13.5px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+    }
+
+    .feature-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: auto;
+    }
+
+    .pill {
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    .pin-banner {
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .pin-icon {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .pin-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .pin-desc {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Modal */
+    .guide-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .guide-modal-backdrop.active {
+      display: flex;
+    }
+
+    .guide-modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--accent-gold-border);
+      border-radius: 14px;
+      max-width: 480px;
+      width: 100%;
+      padding: 26px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .guide-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .guide-modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .guide-modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .guide-modal-body {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      margin-bottom: 20px;
+    }
+
+    .guide-modal-body ol {
+      padding-left: 20px;
+      margin-top: 10px;
+    }
+
+    .guide-modal-body li {
+      margin-bottom: 8px;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: auto;
+      border-top: 1px solid var(--border-subtle);
+      padding: 24px 0;
+      text-align: center;
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      margin-bottom: 8px;
+    }
+
+    .footer-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover {
+      color: var(--accent-gold);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-content">
+      <a href="/" class="brand">
+        <div class="brand-logo-wrap">
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="welcomeLockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#E8B020"/>
+                <stop offset="100%" stop-color="#A07010"/>
+              </linearGradient>
+            </defs>
+            <path d="M35 46 V34 A15 15 0 0 1 65 34 V46" fill="none" stroke="url(#welcomeLockGrad)" stroke-width="9" stroke-linecap="round"/>
+            <rect x="22" y="44" width="56" height="44" rx="8" fill="url(#welcomeLockGrad)"/>
+          </svg>
+        </div>
+        <div class="brand-name">Flake<span>Secure</span> <span class="brand-badge" id="t-badge-guide">Erste Schritte</span></div>
+      </a>
+
+      <div class="header-actions">
+        <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle light/dark theme" title="Design wechseln">
+          <svg id="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg id="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+
+        <select id="lang-select" class="lang-select" aria-label="Sprache">
+          <option value="de">DE</option>
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+          <option value="es">ES</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-badge" id="t-hero-badge">Erfolgreich installiert</div>
+      <h1 id="t-hero-title">Willkommen bei FlakeSecure</h1>
+      <p id="t-hero-subtitle">Dein sicherer Zero-Knowledge Passwort-Manager für den Browser. In nur 4 Schritten bist du startklar.</p>
+    </section>
+
+    <!-- 4 Onboarding Steps -->
+    <div class="steps-grid">
+      <!-- Step 1: Mobile App herunterladen -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-num">01</span>
+          <div class="step-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+          </div>
+        </div>
+        <h2 class="step-title" id="t-step1-title">Mobile App herunterladen</h2>
+        <p class="step-desc" id="t-step1-desc">Scanne den QR-Code mit deiner Smartphone-Kamera, um zur Download-Seite zu gelangen, oder lade die Android APK direkt herunter.</p>
+        
+        <div style="text-align: center;">
+          <div id="download-qr-code" class="qr-container-box"></div>
+        </div>
+
+        <div class="download-buttons">
+          <a href="/download/android" class="btn-primary" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span id="t-step1-btn-apk">Android APK herunterladen</span>
+          </a>
+          <a href="/downloads" class="btn-secondary" target="_blank" rel="noopener">
+            <span id="t-step1-btn-all">Alle Versionen &amp; Downloads</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Step 2: Tresor einrichten & Biometrie -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-num">02</span>
+          <div class="step-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+        </div>
+        <h2 class="step-title" id="t-step2-title">Tresor einrichten &amp; Biometrie</h2>
+        <p class="step-desc" id="t-step2-desc">Öffne die FlakeSecure Mobile App und erstelle deinen Account. Aktiviere Face ID oder deinen Fingerabdruck für sichere Freigaben ohne Tippen von Master-Passwörtern.</p>
+
+        <div class="feature-pills">
+          <span class="pill" id="t-step2-pill1">Zero-Knowledge AES-256</span>
+          <span class="pill" id="t-step2-pill2">Face ID / Fingerabdruck</span>
+          <span class="pill" id="t-step2-pill3">Lokale Schlüsselerzeugung</span>
+        </div>
+      </div>
+
+      <!-- Step 3: Browser-Erweiterung koppeln -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-num">03</span>
+          <div class="step-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+          </div>
+        </div>
+        <h2 class="step-title" id="t-step3-title">Browser-Erweiterung koppeln</h2>
+        <p class="step-desc" id="t-step3-desc">Klicke oben rechts auf das FlakeSecure-Symbol in der Browser-Toolbar. Es erscheint ein QR-Code. Scanne ihn mit deiner FlakeSecure Mobile App – schon sind Browser und Smartphone Ende-zu-Ende gekoppelt.</p>
+
+        <button type="button" class="btn-primary" id="start-pairing-btn" style="margin-top: auto;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span id="t-step3-btn">Jetzt koppeln</span>
+        </button>
+      </div>
+
+      <!-- Step 4: Automatisches Ausfüllen -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-num">04</span>
+          <div class="step-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+        </div>
+        <h2 class="step-title" id="t-step4-title">Automatisches Ausfüllen im Web</h2>
+        <p class="step-desc" id="t-step4-desc">Wenn du Anmeldeseiten besuchst, erkennt FlakeSecure die Formulare automatisch. Bestätige den Login einfach per Fingertipp auf deinem Smartphone – Passwörter werden automatisch sicher eingetragen.</p>
+
+        <div class="feature-pills">
+          <span class="pill" id="t-step4-pill1">1-Klick Auto-Fill</span>
+          <span class="pill" id="t-step4-pill2">TOTP Authenticator Unterstützung</span>
+          <span class="pill" id="t-step4-pill3">Phishing-Schutz</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pin Callout Banner -->
+    <div class="pin-banner">
+      <div class="pin-icon">📌</div>
+      <div>
+        <div class="pin-title" id="t-pin-title">Tipp: FlakeSecure an die Toolbar pinnen</div>
+        <div class="pin-desc" id="t-pin-desc">Klicke oben rechts im Browser auf das Puzzleteil-Symbol (Erweiterungen) und aktiviere die Stecknadel neben FlakeSecure, damit du jederzeit mit einem Klick darauf zugreifen kannst.</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal for "Jetzt koppeln" -->
+  <div class="guide-modal-backdrop" id="guide-modal-backdrop">
+    <div class="guide-modal">
+      <div class="guide-modal-header">
+        <h3 class="guide-modal-title" id="t-modal-title">So koppelst du die Erweiterung</h3>
+        <button class="guide-modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="guide-modal-body" id="t-modal-body">
+        <p>Folge diesen einfachen Schritten:</p>
+        <ol>
+          <li>Klicke oben rechts auf das <strong>FlakeSecure-Icon</strong> in deiner Browserleiste.</li>
+          <li>Ein sicherer Kopplungs-QR-Code wird im Popup angezeigt.</li>
+          <li>Öffne die <strong>FlakeSecure Mobile App</strong> auf deinem Smartphone.</li>
+          <li>Tippe auf das <strong>Scan-Symbol</strong> und halte deine Kamera auf den QR-Code.</li>
+          <li>Bestätige kurz mit deinem Fingerabdruck / Face ID – fertig!</li>
+        </ol>
+      </div>
+      <button class="btn-primary" id="modal-gotit-btn" style="width: 100%;">
+        <span id="t-modal-btn">Verstanden</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-links">
+        <a href="/">Website</a>
+        <a href="/downloads" id="t-footer-downloads">Downloads</a>
+        <a href="/account" id="t-footer-account">Web Vault</a>
+        <a href="/legal" id="t-footer-legal">Datenschutz</a>
+        <a href="/terms" id="t-footer-terms">AGB</a>
+      </div>
+      <div>&copy; 2026 FlakeSecure. Zero-Knowledge Biometric Authentication.</div>
+    </div>
+  </footer>
+
+  <script src="/js/qrcode.min.js"></script>
+  <script>
+    const WELCOME_I18N = {
+      de: {
+        badgeGuide: "Erste Schritte",
+        heroBadge: "Erfolgreich installiert",
+        heroTitle: "Willkommen bei FlakeSecure",
+        heroSubtitle: "Dein sicherer Zero-Knowledge Passwort-Manager für den Browser. In nur 4 Schritten bist du startklar.",
+        step1Title: "Mobile App herunterladen",
+        step1Desc: "Scanne den QR-Code mit deiner Smartphone-Kamera, um zur Download-Seite zu gelangen, oder lade die Android APK direkt herunter.",
+        step1BtnApk: "Android APK herunterladen",
+        step1BtnAll: "Alle Versionen & Downloads",
+        step2Title: "Tresor einrichten & Biometrie",
+        step2Desc: "Öffne die FlakeSecure Mobile App und erstelle deinen Account. Aktiviere Face ID oder deinen Fingerabdruck für sichere Freigaben ohne Tippen von Master-Passwörtern.",
+        step2Pill1: "Zero-Knowledge AES-256",
+        step2Pill2: "Face ID / Fingerabdruck",
+        step2Pill3: "Lokale Schlüsselerzeugung",
+        step3Title: "Browser-Erweiterung koppeln",
+        step3Desc: "Klicke oben rechts auf das FlakeSecure-Symbol in der Browser-Toolbar. Es erscheint ein QR-Code. Scanne ihn mit deiner FlakeSecure Mobile App – schon sind Browser und Smartphone Ende-zu-Ende gekoppelt.",
+        step3Btn: "Jetzt koppeln",
+        step4Title: "Automatisches Ausfüllen im Web",
+        step4Desc: "Wenn du Anmeldeseiten besuchst, erkennt FlakeSecure die Formulare automatisch. Bestätige den Login einfach per Fingertipp auf deinem Smartphone – Passwörter werden automatisch sicher eingetragen.",
+        step4Pill1: "1-Klick Auto-Fill",
+        step4Pill2: "TOTP Authenticator Unterstützung",
+        step4Pill3: "Phishing-Schutz",
+        pinTitle: "Tipp: FlakeSecure an die Toolbar pinnen",
+        pinDesc: "Klicke oben rechts im Browser auf das Puzzleteil-Symbol (Erweiterungen) und aktiviere die Stecknadel neben FlakeSecure, damit du jederzeit mit einem Klick darauf zugreifen kannst.",
+        modalTitle: "So koppelst du die Erweiterung",
+        modalBody: "<p>Folge diesen einfachen Schritten:</p><ol><li>Klicke oben rechts auf das <strong>FlakeSecure-Icon</strong> in deiner Browserleiste.</li><li>Ein sicherer Kopplungs-QR-Code wird im Popup angezeigt.</li><li>Öffne die <strong>FlakeSecure Mobile App</strong> auf deinem Smartphone.</li><li>Tippe auf das <strong>Scan-Symbol</strong> und halte deine Kamera auf den QR-Code.</li><li>Bestätige kurz mit deinem Fingerabdruck / Face ID – fertig!</li></ol>",
+        modalBtn: "Verstanden",
+        footerDownloads: "Downloads",
+        footerAccount: "Web Vault",
+        footerLegal: "Datenschutz",
+        footerTerms: "AGB"
+      },
+      en: {
+        badgeGuide: "Getting Started",
+        heroBadge: "Successfully Installed",
+        heroTitle: "Welcome to FlakeSecure",
+        heroSubtitle: "Your secure Zero-Knowledge password manager for the browser. Get ready in just 4 simple steps.",
+        step1Title: "Download Mobile App",
+        step1Desc: "Scan the QR code with your phone camera to reach the downloads page, or download the Android APK directly.",
+        step1BtnApk: "Download Android APK",
+        step1BtnAll: "All Versions & Downloads",
+        step2Title: "Setup Vault & Biometrics",
+        step2Desc: "Open the FlakeSecure mobile app and create your account. Enable Face ID or fingerprint unlock for instant approvals without typing master passwords.",
+        step2Pill1: "Zero-Knowledge AES-256",
+        step2Pill2: "Face ID / Fingerprint",
+        step2Pill3: "Local Key Derivation",
+        step3Title: "Pair Browser Extension",
+        step3Desc: "Click the FlakeSecure icon in your browser toolbar. A pairing QR code will appear. Scan it with your FlakeSecure mobile app – and you're paired end-to-end.",
+        step3Btn: "Pair Now",
+        step4Title: "Auto-Fill Across the Web",
+        step4Desc: "When visiting login pages, FlakeSecure automatically detects login forms. Confirm on your phone with a single tap – credentials are autofilled securely.",
+        step4Pill1: "1-Click Auto-Fill",
+        step4Pill2: "TOTP Authenticator Support",
+        step4Pill3: "Anti-Phishing Protection",
+        pinTitle: "Tip: Pin FlakeSecure to your toolbar",
+        pinDesc: "Click the puzzle piece icon (Extensions) at the top right of your browser and pin FlakeSecure so you can access it anytime with a single click.",
+        modalTitle: "How to pair the extension",
+        modalBody: "<p>Follow these simple steps:</p><ol><li>Click the <strong>FlakeSecure icon</strong> in your browser toolbar.</li><li>A secure pairing QR code will be displayed in the popup.</li><li>Open the <strong>FlakeSecure mobile app</strong> on your phone.</li><li>Tap the <strong>Scan icon</strong> and point your camera at the QR code.</li><li>Confirm with your fingerprint or Face ID – that's it!</li></ol>",
+        modalBtn: "Got it",
+        footerDownloads: "Downloads",
+        footerAccount: "Web Vault",
+        footerLegal: "Privacy Policy",
+        footerTerms: "Terms"
+      },
+      fr: {
+        badgeGuide: "Premiers pas",
+        heroBadge: "Installé avec succès",
+        heroTitle: "Bienvenue sur FlakeSecure",
+        heroSubtitle: "Votre gestionnaire de mots de passe Zero-Knowledge pour le navigateur. Soyez prêt en 4 étapes simples.",
+        step1Title: "Télécharger l'application mobile",
+        step1Desc: "Scannez le code QR avec l'appareil photo de votre smartphone pour accéder aux téléchargements ou téléchargez l'APK Android.",
+        step1BtnApk: "Télécharger l'APK Android",
+        step1BtnAll: "Toutes les versions",
+        step2Title: "Configurer le coffre & la biométrie",
+        step2Desc: "Ouvrez l'application mobile FlakeSecure et créez votre compte. Activez Face ID ou votre empreinte digitale pour des validations sécurisées.",
+        step2Pill1: "Zero-Knowledge AES-256",
+        step2Pill2: "Face ID / Empreinte digitale",
+        step2Pill3: "Génération locale des clés",
+        step3Title: "Associer l'extension de navigateur",
+        step3Desc: "Cliquez sur l'icône FlakeSecure dans la barre d'outils du navigateur. Un code QR s'affiche. Scannez-le avec votre application mobile pour associer vos appareils.",
+        step3Btn: "Associer maintenant",
+        step4Title: "Remplissage automatique sur le web",
+        step4Desc: "Lorsque vous visitez des pages de connexion, FlakeSecure détecte automatiquement les formulaires. Confirmez sur votre smartphone et les identifiants sont renseignés.",
+        step4Pill1: "Remplissage en 1 clic",
+        step4Pill2: "Support Authenticator TOTP",
+        step4Pill3: "Protection anti-hameçonnage",
+        pinTitle: "Astuce : Épinglez FlakeSecure à votre barre d'outils",
+        pinDesc: "Cliquez sur l'icône en forme de puzzle (Extensions) en haut à droite du navigateur et épinglez FlakeSecure pour y accéder facilement.",
+        modalTitle: "Comment associer l'extension",
+        modalBody: "<p>Suivez ces étapes simples :</p><ol><li>Cliquez sur l'<strong>icône FlakeSecure</strong> dans la barre de votre navigateur.</li><li>Un code QR d'association s'affiche dans le popup.</li><li>Ouvrez l'<strong>application mobile FlakeSecure</strong> sur votre smartphone.</li><li>Appuyez sur l'icône <strong>Scanner</strong> et visez le code QR.</li><li>Confirmez avec votre empreinte ou Face ID – c'est fait !</li></ol>",
+        modalBtn: "Compris",
+        footerDownloads: "Téléchargements",
+        footerAccount: "Web Vault",
+        footerLegal: "Confidentialité",
+        footerTerms: "Conditions"
+      },
+      es: {
+        badgeGuide: "Primeros pasos",
+        heroBadge: "Instalado con éxito",
+        heroTitle: "Bienvenido a FlakeSecure",
+        heroSubtitle: "Tu gestor de contraseñas Zero-Knowledge para el navegador. Listo en solo 4 sencillos pasos.",
+        step1Title: "Descargar la app móvil",
+        step1Desc: "Escanea el código QR con la cámara de tu smartphone para acceder a las descargas, o descarga directamente el APK de Android.",
+        step1BtnApk: "Descargar APK para Android",
+        step1BtnAll: "Todas las versiones",
+        step2Title: "Configurar bóveda & biometría",
+        step2Desc: "Abre la aplicación móvil FlakeSecure y crea tu cuenta. Activa Face ID o huella dactilar para autorizaciones instantáneas sin escribir contraseñas maestras.",
+        step2Pill1: "Zero-Knowledge AES-256",
+        step2Pill2: "Face ID / Huella dactilar",
+        step2Pill3: "Generación de claves local",
+        step3Title: "Vincular extensión del navegador",
+        step3Desc: "Haz clic en el icono de FlakeSecure en la barra del navegador. Aparecerá un código QR. Escanéalo con tu app móvil para vincular tus dispositivos.",
+        step3Btn: "Vincular ahora",
+        step4Title: "Autorrelleno automático en la web",
+        step4Desc: "Al visitar páginas de inicio de sesión, FlakeSecure detecta los formularios automáticamente. Confirma en tu smartphone con un solo toque y listo.",
+        step4Pill1: "Autorrelleno en 1 clic",
+        step4Pill2: "Soporte TOTP Authenticator",
+        step4Pill3: "Protección contra phishing",
+        pinTitle: "Consejo: Fija FlakeSecure en la barra de herramientas",
+        pinDesc: "Haz clic en el icono de la pieza de puzzle (Extensiones) en la esquina superior derecha y fija FlakeSecure para tenerla siempre accesible.",
+        modalTitle: "Cómo vincular la extensión",
+        modalBody: "<p>Sigue estos sencillos pasos:</p><ol><li>Haz clic en el <strong>icono de FlakeSecure</strong> en la barra de herramientas.</li><li>Aparecerá un código QR seguro de vinculación en el popup.</li><li>Abre la <strong>app móvil FlakeSecure</strong> en tu smartphone.</li><li>Toca el icono de <strong>Escanear</strong> y apunta tu cámara al código QR.</li><li>Confirma con tu huella dactilar o Face ID – ¡y listo!</li></ol>",
+        modalBtn: "Entendido",
+        footerDownloads: "Descargas",
+        footerAccount: "Web Vault",
+        footerLegal: "Privacidad",
+        footerTerms: "Términos"
+      }
+    };
+
+    let currentLang = 'de';
+
+    function applyWelcomeTranslations(lang) {
+      currentLang = ['de', 'en', 'fr', 'es'].includes(lang) ? lang : 'de';
+      const t = WELCOME_I18N[currentLang];
+
+      const map = {
+        't-badge-guide': t.badgeGuide,
+        't-hero-badge': t.heroBadge,
+        't-hero-title': t.heroTitle,
+        't-hero-subtitle': t.heroSubtitle,
+        't-step1-title': t.step1Title,
+        't-step1-desc': t.step1Desc,
+        't-step1-btn-apk': t.step1BtnApk,
+        't-step1-btn-all': t.step1BtnAll,
+        't-step2-title': t.step2Title,
+        't-step2-desc': t.step2Desc,
+        't-step2-pill1': t.step2Pill1,
+        't-step2-pill2': t.step2Pill2,
+        't-step2-pill3': t.step2Pill3,
+        't-step3-title': t.step3Title,
+        't-step3-desc': t.step3Desc,
+        't-step3-btn': t.step3Btn,
+        't-step4-title': t.step4Title,
+        't-step4-desc': t.step4Desc,
+        't-step4-pill1': t.step4Pill1,
+        't-step4-pill2': t.step4Pill2,
+        't-step4-pill3': t.step4Pill3,
+        't-pin-title': t.pinTitle,
+        't-pin-desc': t.pinDesc,
+        't-modal-title': t.modalTitle,
+        't-modal-btn': t.modalBtn,
+        't-footer-downloads': t.footerDownloads,
+        't-footer-account': t.footerAccount,
+        't-footer-legal': t.footerLegal,
+        't-footer-terms': t.footerTerms
+      };
+
+      for (const [id, text] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+      }
+
+      const modalBody = document.getElementById('t-modal-body');
+      if (modalBody) modalBody.innerHTML = t.modalBody;
+
+      const langSelect = document.getElementById('lang-select');
+      if (langSelect) langSelect.value = currentLang;
+      document.documentElement.lang = currentLang;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. QR Code for Downloads
+      const qrContainer = document.getElementById('download-qr-code');
+      if (qrContainer && typeof QRCode !== 'undefined') {
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+          text: 'https://flakesecure.snowystudio.dev/downloads',
+          width: 140,
+          height: 140,
+          colorDark: '#080a12',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
+
+      // 2. Theme Management
+      const themeToggleBtn = document.getElementById('theme-toggle-btn');
+      const sunIcon = document.getElementById('theme-icon-sun');
+      const moonIcon = document.getElementById('theme-icon-moon');
+
+      function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        if (theme === 'light') {
+          if (sunIcon) sunIcon.style.display = 'block';
+          if (moonIcon) moonIcon.style.display = 'none';
+        } else {
+          if (sunIcon) sunIcon.style.display = 'none';
+          if (moonIcon) moonIcon.style.display = 'block';
+        }
+      }
+
+      const savedTheme = localStorage.getItem('fs_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      applyTheme(savedTheme);
+
+      if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-theme') || 'dark';
+          const nextTheme = current === 'dark' ? 'light' : 'dark';
+          applyTheme(nextTheme);
+          localStorage.setItem('fs_theme', nextTheme);
+        });
+      }
+
+      // 3. Language Selector
+      const savedLang = localStorage.getItem('fs_lang') || (navigator.language?.toLowerCase().startsWith('de') ? 'de' : (navigator.language?.toLowerCase().startsWith('fr') ? 'fr' : (navigator.language?.toLowerCase().startsWith('es') ? 'es' : 'en')));
+      applyWelcomeTranslations(savedLang);
+
+      const langSelect = document.getElementById('lang-select');
+      if (langSelect) {
+        langSelect.addEventListener('change', (e) => {
+          const newLang = e.target.value;
+          localStorage.setItem('fs_lang', newLang);
+          applyWelcomeTranslations(newLang);
+        });
+      }
+
+      // 4. Modal for "Jetzt koppeln"
+      const startPairingBtn = document.getElementById('start-pairing-btn');
+      const modalBackdrop = document.getElementById('guide-modal-backdrop');
+      const modalCloseBtn = document.getElementById('modal-close-btn');
+      const modalGotItBtn = document.getElementById('modal-gotit-btn');
+
+      function openModal() {
+        if (modalBackdrop) modalBackdrop.classList.add('active');
+      }
+
+      function closeModal() {
+        if (modalBackdrop) modalBackdrop.classList.remove('active');
+      }
+
+      if (startPairingBtn) startPairingBtn.addEventListener('click', openModal);
+      if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+      if (modalGotItBtn) modalGotItBtn.addEventListener('click', closeModal);
+      if (modalBackdrop) {
+        modalBackdrop.addEventListener('click', (e) => {
+          if (e.target === modalBackdrop) closeModal();
+        });
+      }
+    });
+  </script>
+</body>
+</html>

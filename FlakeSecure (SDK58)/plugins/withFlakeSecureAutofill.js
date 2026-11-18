@@ -7,7 +7,7 @@ const path = require('path');
 
 const AUTOFILL_XML = `<?xml version="1.0" encoding="utf-8"?>
 <autofill-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:settingsActivity="com.snowy.studio.FlakeSecure.MainActivity"
+    android:settingsActivity="dev.snowystudio.flakesecure.MainActivity"
     android:supportsInlineSuggestions="true" />
 `;
 
@@ -672,6 +672,62 @@ function withFlakeSecureAutofill(config) {
       });
     }
 
+    const mainActivity = app.activity.find(
+      (a) =>
+        a.$?.['android:name'] === '.MainActivity' ||
+        a.$?.['android:name']?.endsWith('.MainActivity')
+    );
+    if (mainActivity) {
+      mainActivity['intent-filter'] = mainActivity['intent-filter'] || [];
+      const hasOtpFilter = mainActivity['intent-filter'].some(
+        (f) =>
+          !f.$?.['android:autoVerify'] &&
+          Array.isArray(f.data) &&
+          f.data.some(
+            (d) =>
+              d.$?.['android:scheme'] === 'otpauth' && !d.$?.['android:host']
+          )
+      );
+      if (!hasOtpFilter) {
+        mainActivity['intent-filter'].push({
+          $: {
+            'android:label': 'FlakeSecure',
+          },
+          action: [
+            {
+              $: {
+                'android:name': 'android.intent.action.VIEW',
+              },
+            },
+          ],
+          category: [
+            {
+              $: {
+                'android:name': 'android.intent.category.DEFAULT',
+              },
+            },
+            {
+              $: {
+                'android:name': 'android.intent.category.BROWSABLE',
+              },
+            },
+          ],
+          data: [
+            {
+              $: {
+                'android:scheme': 'otpauth',
+              },
+            },
+            {
+              $: {
+                'android:scheme': 'otpauth-migration',
+              },
+            },
+          ],
+        });
+      }
+    }
+
     return modConfig;
   });
 
@@ -680,14 +736,17 @@ function withFlakeSecureAutofill(config) {
     async (modConfig) => {
       const projectRoot = modConfig.modRequest.platformProjectRoot;
       const pkg =
-        modConfig.android?.package || 'com.snowy.studio.FlakeSecure';
+        modConfig.android?.package || 'dev.snowystudio.flakesecure';
       const pkgPath = pkg.replace(/\./g, '/');
 
       const xmlDir = path.join(projectRoot, 'app/src/main/res/xml');
       fs.mkdirSync(xmlDir, { recursive: true });
       fs.writeFileSync(
         path.join(xmlDir, 'flakesecure_autofill_service.xml'),
-        AUTOFILL_XML,
+        AUTOFILL_XML.replace(
+          'dev.snowystudio.flakesecure.MainActivity',
+          `${pkg}.MainActivity`
+        ),
         'utf8'
       );
 

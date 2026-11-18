@@ -100,19 +100,15 @@
       padding-bottom: 12px;
       border-bottom: 1px solid var(--border-subtle);
     }
-    .logo-icon {
-      width: 32px; height: 32px;
-      background: var(--accent-gold);
+    .logo-img {
+      width: 32px;
+      height: 32px;
       border-radius: 8px;
-      display: grid;
-      place-items: center;
+      object-fit: contain;
       box-shadow: 0 2px 8px var(--accent-gold-dim);
       flex-shrink: 0;
-    }
-    .logo-icon svg {
-      width: 18px;
-      height: 18px;
-      stroke: var(--btn-primary-text);
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
     }
     .logo-text {
       font-size: 16px;
@@ -238,6 +234,117 @@
       margin-top: 8px;
       display: none;
       line-height: 1.4;
+    }
+
+    /* Pair Card (QR Pairing) */
+    .pair-card {
+      text-align: center;
+      padding: 16px 14px 14px;
+      margin-bottom: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+    }
+    .pair-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .pair-subtitle {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      line-height: 1.35;
+    }
+    .pair-qr-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .pair-qr-container {
+      padding: 8px;
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1.5px solid var(--accent-gold-border);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 156px;
+      min-height: 156px;
+    }
+    .pair-qr-container canvas,
+    .pair-qr-container img {
+      display: block;
+      margin: 0 auto;
+    }
+    .pair-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+    .pair-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-gold);
+      box-shadow: 0 0 6px var(--accent-gold);
+      animation: fs-pair-pulse 1.8s infinite ease-in-out;
+    }
+    .pair-status-dot.scanned {
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: none;
+    }
+    @keyframes fs-pair-pulse {
+      0%, 100% { opacity: 0.5; transform: scale(0.92); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+    .pair-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pair-help-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      background: var(--accent-gold-dim);
+      border: 1px solid var(--accent-gold-border);
+      color: var(--accent-gold);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .pair-help-btn:hover {
+      background: var(--accent-gold);
+      color: var(--btn-primary-text);
+    }
+    .pair-fallback {
+      margin-top: 10px;
+      font-size: 11px;
+    }
+    .fallback-link {
+      color: var(--text-muted);
+      text-decoration: underline;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .fallback-link:hover {
+      color: var(--accent-gold);
     }
 
     /* Logged in User Card */
@@ -421,11 +528,7 @@
 <body>
   <!-- Header -->
   <div class="header">
-    <div class="logo-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93"></path>
-      </svg>
-    </div>
+    <img src="icons/icon48.png" alt="FlakeSecure Logo" class="logo-img">
     <div class="logo-text">Flake<span>Secure</span></div>
     
     <div class="header-actions">
@@ -454,7 +557,39 @@
 
   <!-- Account / Auth Section -->
   <div id="auth-section">
-    <!-- Logged out: Login Card -->
+    <!-- Logged out: QR Pairing View (Default) -->
+    <div class="pair-card" id="pair-view">
+      <div class="pair-title" id="t-pair-title">Mit FlakeSecure App koppeln</div>
+      <div class="pair-subtitle" id="t-pair-subtitle">Scan mit deiner FlakeSecure Mobile App</div>
+      
+      <div class="pair-qr-wrapper">
+        <div id="pair-qr-code" class="pair-qr-container"></div>
+      </div>
+      
+      <div class="pair-status" id="pair-status">
+        <span class="pair-status-dot" id="pair-status-dot"></span>
+        <span id="pair-status-text">Warte auf Scan...</span>
+      </div>
+
+      <div class="pair-actions">
+        <button type="button" class="pair-help-btn" id="open-welcome-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span id="t-pair-help">Hilfe / App herunterladen</span>
+        </button>
+      </div>
+
+      <div class="pair-fallback">
+        <a href="#" id="toggle-password-login" class="fallback-link">
+          <span id="t-fallback-password">Klassische Anmeldung mit Passwort</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Logged out: Manual Login Card (Fallback) -->
     <div class="auth-card" id="login-view" style="display: none;">
       <div class="auth-title" id="t-auth-title">Account Anmeldung</div>
       <div class="form-group">
@@ -465,6 +600,11 @@
       </div>
       <button class="auth-btn" id="login-btn">Anmelden</button>
       <div class="auth-error" id="login-error"></div>
+      <div class="pair-fallback" style="margin-top: 10px; text-align: center;">
+        <a href="#" id="toggle-qr-pairing" class="fallback-link">
+          <span id="t-back-to-qr">Zurück zur QR-Code Kopplung</span>
+        </a>
+      </div>
     </div>
     
     <!-- Logged in: User Info Card -->
@@ -614,6 +754,8 @@
   </style>
   <div id="ext-toast-container" class="fs-ext-toast-container" aria-live="polite"></div>
 
+  <script src="lib/qrcode.min.js"></script>
+  <script src="lib/socket.io.min.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

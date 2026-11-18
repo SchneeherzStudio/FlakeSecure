@@ -6,12 +6,12 @@
     "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "flakesecure",
+    "scheme": ["flakesecure", "otpauth", "otpauth-migration"],
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#090b14",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.snowy.studio.FlakeSecure",
+      "bundleIdentifier": "dev.snowystudio.flakesecure",
       "associatedDomains": [
         "applinks:flakesecure.snowystudio.dev"
       ],
@@ -33,7 +33,7 @@
         "backgroundColor": "#090b14"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.snowy.studio.FlakeSecure",
+      "package": "dev.snowystudio.flakesecure",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -50,13 +50,57 @@
               "pathPrefix": "/auth"
             },
             {
-              "scheme": "flakesecure"
-            },
+              "scheme": "https",
+              "host": "flakesecure.snowystudio.dev",
+              "pathPrefix": "/register"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
             {
               "scheme": "otpauth"
             },
             {
               "scheme": "otpauth-migration"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "otpauth",
+              "host": "totp"
+            },
+            {
+              "scheme": "otpauth",
+              "host": "hotp"
+            },
+            {
+              "scheme": "otpauth-migration",
+              "host": "offline"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "flakesecure"
             }
           ],
           "category": [

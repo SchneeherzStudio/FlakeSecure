@@ -27,7 +27,7 @@ const FRAME_SIZE = 250;
 
 export default function ScanScreen() {
   const navigation = useNavigation();
-  const { user, isOfflineMode } = useAuth();
+  const { user, token, isOfflineMode } = useAuth();
   const { t } = useLanguage();
   const { colors } = useTheme();
   const toast = useToast();
@@ -125,8 +125,9 @@ export default function ScanScreen() {
       }
 
       const isVaultTransfer = action === 'vault_key_transfer' || action === 'vault-transfer' || data.includes('vault-transfer');
-      const isRegister = !isVaultTransfer && (action === 'register' || action === 'r' || data.includes('register') || !!fieldsParam);
-      const isShare = !isVaultTransfer && (data.includes('share') || !domain) && !isRegister;
+      const isPairing = !isVaultTransfer && (action === 'pair' || data.includes('pair?') || data.includes('action=pair'));
+      const isRegister = !isVaultTransfer && !isPairing && (action === 'register' || action === 'r' || data.includes('register') || !!fieldsParam);
+      const isShare = !isVaultTransfer && !isPairing && (data.includes('share') || !domain) && !isRegister;
 
       if (isVaultTransfer) {
         setImporting(true);
@@ -193,6 +194,68 @@ export default function ScanScreen() {
           t('vaultTransfer.authorizeSentSuccess') || 'Schlüssel erfolgreich übertragen! Das andere Gerät stellt den Tresor nun wieder her.'
         );
         setTimeout(() => navigation.navigate('Home'), 1000);
+        return;
+      } else if (isPairing) {
+        setImporting(true);
+        const authToken = token || await SecureStore.getItemAsync('auth_token');
+        if (!user || !authToken) {
+          toast.warn(
+            t('common.info') || 'Hinweis',
+            t('pair.notLoggedIn') || 'Bitte melde dich zuerst in der App an, um eine Browser-Erweiterung zu koppeln.'
+          );
+          setScanned(false);
+          setImporting(false);
+          return;
+        }
+
+        notifyQrScanned(sid, user?.username || '').catch(() => {});
+
+        const authResult = await LocalAuthentication.authenticateAsync({
+          promptMessage: t('pair.biometricPrompt') || 'Browser-Erweiterung koppeln',
+          fallbackLabel: 'PIN verwenden',
+          disableDeviceFallback: false,
+        });
+
+        if (!authResult.success) {
+          setScanned(false);
+          setImporting(false);
+          return;
+        }
+
+        const pairingPayload = {
+          token: authToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username
+          },
+          pairedAt: new Date().toISOString()
+        };
+
+        const encrypted = await encryptCredentials(pairingPayload, key);
+        const serverUrl = await getServerUrl();
+
+        const response = await fetch(`${serverUrl}/send-pairing`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ sid, payload: encrypted })
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || 'Fehler beim Senden der Kopplungsdaten.');
+        }
+
+        toast.success(
+          t('common.success') || 'Erfolg',
+          t('pair.success') || 'Browser-Erweiterung erfolgreich gekoppelt!'
+        );
+        setTimeout(() => {
+          navigation.navigate('Home');
+        }, 1000);
         return;
       } else if (isRegister && domain) {
         notifyQrScanned(sid, user?.username || '').catch(() => {});

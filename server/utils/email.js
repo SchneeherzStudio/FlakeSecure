@@ -47,7 +47,7 @@ const EMAIL_I18N = {
     deletionDesc: (username, dateStr) => `Hello <strong>${username}</strong>,<br><br>We have received and processed your request to delete your FlakeSecure account.<br><br><strong>Security & Compliance Retention Period:</strong><br>In accordance with security guidelines and compliance regulations, your account has been immediately deactivated and all active login sessions have been terminated. Your data is scheduled for final, permanent deletion on <strong>${dateStr}</strong> (30 days from now).`,
     deletionNote: 'If this deletion request was made in error or without your authorization, please contact our support team immediately.',
     
-    footer: '© 2026 FlakeSecure by SchneeherzStudio. Zero-Knowledge Biometric Security.',
+    footer: '© 2026 FlakeSecure by SnowyStudio. Zero-Knowledge Biometric Vault.',
     resetSubject: 'FlakeSecure: Password Reset Link',
     resetHeading: 'Reset Your Password',
     resetDesc: (username) => `Hello <strong>${username}</strong>,<br><br>We received a request to reset your FlakeSecure password. This link is valid for <strong>30 minutes</strong>.<br><br><strong>Zero-Knowledge Security Note:</strong><br>Your cloud vault is encrypted client-side with a key derived from your master password. Resetting your account password requires unlocking your local app to re-encrypt and synchronize your cloud vault.`,
@@ -86,7 +86,7 @@ const EMAIL_I18N = {
     deletionDesc: (username, dateStr) => `Hallo <strong>${username}</strong>,<br><br>wir haben deine Anfrage zur Löschung deines FlakeSecure Accounts erhalten und bestätigt.<br><br><strong>30-tägige Sicherheits- und Compliance-Aufbewahrungsfrist:</strong><br>Gemäß gesetzlichen Sicherheitsvorschriften wurde dein Account sofort deaktiviert und alle aktiven Sitzungen wurden beendet. Deine Daten werden für 30 Tage im Soft-Delete-Status gesichert und am <strong>${dateStr}</strong> endgültig und unwiderruflich von unseren Servern gelöscht.`,
     deletionNote: 'Falls du diese Löschung nicht selbst veranlasst hast, kontaktiere bitte umgehend unseren Support.',
     
-    footer: '© 2026 FlakeSecure von SchneeherzStudio. Zero-Knowledge Biometrische Sicherheit.',
+    footer: '© 2026 FlakeSecure von SnowyStudio. Zero-Knowledge Biometrischer Tresor.',
     resetSubject: 'FlakeSecure: Passwort zurücksetzen',
     resetHeading: 'Passwort zurücksetzen',
     resetDesc: (username) => `Hallo <strong>${username}</strong>,<br><br>wir haben eine Anfrage zum Zurücksetzen deines FlakeSecure Passworts erhalten. Dieser Link ist <strong>30 Minuten</strong> gültig.<br><br><strong>Zero-Knowledge Sicherheitshinweis:</strong><br>Dein Cloud-Tresor ist Ende-zu-Ende mit deinem bisherigen Master-Passwort verschlüsselt. Nach dem Zurücksetzen musst du deine Mobile App öffnen, um deinen Tresor mit dem neuen Passwort neu zu verschlüsseln und zu synchronisieren.`,
@@ -125,7 +125,7 @@ const EMAIL_I18N = {
     deletionDesc: (username, dateStr) => `Bonjour <strong>${username}</strong>,<br><br>Nous avons bien reçu votre demande de suppression de compte FlakeSecure.<br><br><strong>Période de rétention de sécurité (30 jours):</strong><br>Conformément aux normes de conformité et de sécurité, votre compte a été immédiatement désactivé. Vos données seront définitivement effacées le <strong>${dateStr}</strong>.`,
     deletionNote: 'Si vous n\'êtes pas à l\'origine de cette demande, veuillez contacter immédiatement notre support.',
     
-    footer: '© 2026 FlakeSecure par SchneeherzStudio. Sécurité Biométrique Zero-Knowledge.',
+    footer: '© 2026 FlakeSecure par SnowyStudio. Sécurité Biométrique Zero-Knowledge.',
     resetSubject: 'FlakeSecure: Réinitialisation du mot de passe',
     resetHeading: 'Réinitialiser votre mot de passe',
     resetDesc: (username) => `Bonjour <strong>${username}</strong>,<br><br>Nous avons reçu une demande de réinitialisation de votre mot de passe FlakeSecure. Ce lien est valide pendant <strong>30 minutes</strong>.<br><br><strong>Remarque de sécurité Zero-Knowledge:</strong><br>Votre coffre est chiffré de bout en bout. Après réinitialisation, vous devrez déverrouiller votre application mobile pour ré-encrypter vos données.`,
@@ -164,7 +164,7 @@ const EMAIL_I18N = {
     deletionDesc: (username, dateStr) => `Hola <strong>${username}</strong>,<br><br>Hemos recibido y procesado tu solicitud para eliminar tu cuenta de FlakeSecure.<br><br><strong>Periodo de retención de seguridad (30 días):</strong><br>Conforme a las normativas de seguridad y cumplimiento, tu cuenta ha sido desactivada de inmediato y todas las sesiones cerradas. Tus datos se eliminarán permanentemente el <strong>${dateStr}</strong>.`,
     deletionNote: 'Si no realizaste esta solicitud, por favor ponte en contacto con nuestro equipo de soporte de inmediato.',
     
-    footer: '© 2026 FlakeSecure por SchneeherzStudio. Seguridad Biométrica Zero-Knowledge.',
+    footer: '© 2026 FlakeSecure por SnowyStudio. Seguridad Biométrica Zero-Knowledge.',
     resetSubject: 'FlakeSecure: Restablecer contraseña',
     resetHeading: 'Restablecer contraseña',
     resetDesc: (username) => `Hola <strong>${username}</strong>,<br><br>Hemos recibido una solicitud para restablecer tu contraseña de FlakeSecure. Este enlace es válido por <strong>30 minutos</strong>.<br><br><strong>Nota de seguridad Zero-Knowledge:</strong><br>Tu bóveda está cifrada en tu dispositivo. Deberás desbloquear tu app móvil para re-sincronizarla.`,
@@ -203,28 +203,36 @@ function buildHtmlTemplate({ heading, bodyContent, highlightBox, note, footerTex
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(heading)}</title>
 </head>
-<body style="margin:0;padding:0;background:#090b14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#090b14;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#07090e;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#07090e;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#0f1422;border:1px solid #1e293b;border-radius:8px;padding:36px 30px;box-shadow:0 12px 32px rgba(0,0,0,0.5);">
+        <!-- Main Card Container -->
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:540px;background:#0c101b;border:1px solid rgba(232,176,32,0.18);border-radius:12px;padding:36px 32px;box-shadow:0 16px 40px rgba(0,0,0,0.65);">
+          <!-- Logo Header -->
           <tr>
-            <td align="center" style="padding-bottom:16px;">
-              <div style="display:inline-block;width:44px;height:44px;background:rgba(232,176,32,0.12);border:1px solid rgba(232,176,32,0.35);border-radius:6px;line-height:44px;text-align:center;color:#E8B020;font-weight:800;font-size:16px;font-family:monospace;">FS</div>
+            <td align="center" style="padding-bottom:20px;">
+              <a href="https://flakesecure.snowystudio.dev" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">
+                <img src="https://flakesecure.snowystudio.dev/favicon.png" width="48" height="48" alt="FlakeSecure" style="display:block;margin:0 auto;border-radius:10px;box-shadow:0 4px 12px rgba(232,176,32,0.2);">
+              </a>
             </td>
           </tr>
+          <!-- Heading -->
           <tr>
-            <td align="center" style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.3px;padding-bottom:14px;">
+            <td align="center" style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;line-height:1.3;padding-bottom:16px;">
               ${heading}
             </td>
           </tr>
+          <!-- Body Content -->
           <tr>
-            <td align="left" style="color:rgba(255,255,255,0.75);font-size:14px;line-height:1.6;padding-bottom:24px;">
+            <td align="left" style="color:#cbd5e1;font-size:14px;line-height:1.65;padding-bottom:24px;">
               ${bodyContent}
             </td>
           </tr>
           ${highlightBox ? `
+          <!-- Highlight / Action Box -->
           <tr>
             <td align="center" style="padding-bottom:24px;">
               ${highlightBox}
@@ -232,15 +240,37 @@ function buildHtmlTemplate({ heading, bodyContent, highlightBox, note, footerTex
           </tr>
           ` : ''}
           ${note ? `
+          <!-- Context Note -->
           <tr>
-            <td align="left" style="color:rgba(255,255,255,0.45);font-size:12px;line-height:1.5;padding-bottom:24px;border-top:1px solid rgba(255,255,255,0.06);padding-top:16px;">
+            <td align="left" style="color:#94a3b8;font-size:12px;line-height:1.55;padding-bottom:24px;border-top:1px solid rgba(255,255,255,0.08);padding-top:16px;">
               ${note}
             </td>
           </tr>
           ` : ''}
+          <!-- Legal / GDPR Footer -->
           <tr>
-            <td align="center" style="color:rgba(255,255,255,0.25);font-size:11px;line-height:1.4;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
-              ${footerText}
+            <td align="center" style="border-top:1px solid rgba(232,176,32,0.15);padding-top:20px;">
+              <div style="color:#E8B020;font-size:12px;font-weight:700;letter-spacing:0.3px;margin-bottom:8px;">
+                FlakeSecure — Zero-Knowledge Biometric Vault
+              </div>
+              <div style="color:#64748b;font-size:11px;line-height:1.5;margin-bottom:10px;">
+                Diese Sicherheits-E-Mail wurde automatisch im Auftrag Ihres FlakeSecure-Kontos generiert.
+              </div>
+              <div style="font-size:11px;line-height:1.6;color:#94a3b8;margin-bottom:10px;">
+                <a href="https://flakesecure.snowystudio.dev/imprint" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:none;">Impressum</a>
+                <span style="color:#475569;margin:0 6px;">•</span>
+                <a href="https://flakesecure.snowystudio.dev/legal" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:none;">Datenschutz</a>
+                <span style="color:#475569;margin:0 6px;">•</span>
+                <a href="https://flakesecure.snowystudio.dev/terms" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:none;">AGB</a>
+              </div>
+              <div style="color:#64748b;font-size:11px;line-height:1.5;">
+                SnowyStudio (<a href="https://snowystudio.dev" target="_blank" rel="noopener" style="color:#E8B020;text-decoration:none;">snowystudio.dev</a>) • Support: <a href="mailto:snowy@snowystudio.dev" style="color:#E8B020;text-decoration:none;">snowy@snowystudio.dev</a>
+              </div>
+              ${footerText ? `
+              <div style="color:#475569;font-size:10px;line-height:1.4;margin-top:10px;">
+                ${footerText}
+              </div>
+              ` : ''}
             </td>
           </tr>
         </table>

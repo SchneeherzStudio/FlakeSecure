@@ -19,7 +19,7 @@ import {
   LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -28,6 +28,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTutorial } from '../context/TutorialContext';
+import { TOUR_STORAGE_KEYS } from '../tutorial/tours';
+import TutorialTarget from '../components/tutorial/TutorialTarget';
 import { useToast } from '../components/Toast';
 import {
   getAllCredentials,
@@ -70,11 +73,14 @@ export default function HomeScreen({
   bannerAnnouncements = [],
   onDismissBanner = null,
   isOffline = false,
+  hasBlockingPopup = false,
 }) {
   const { user, isOfflineMode } = useAuth();
   const { t } = useLanguage();
   const { colors } = useTheme();
+  const { registerHelpers, startTour } = useTutorial();
   const toast = useToast();
+  const isFocused = useIsFocused();
 
   const effectiveOffline = !!(isOffline || isOfflineMode);
 
@@ -98,11 +104,62 @@ export default function HomeScreen({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState('tag');
 
+  const [breachedCredentials, setBreachedCredentials] = useState([]);
+  const [isBreachedBannerDismissed, setIsBreachedBannerDismissed] = useState(false);
+
   // Cloud Vault Pull Prompt directly after login
   const [showVaultPullModal, setShowVaultPullModal] = useState(false);
   const [isPullingVault, setIsPullingVault] = useState(false);
+  const [vaultPromptChecked, setVaultPromptChecked] = useState(false);
 
   const clipboardTimerRef = useRef(null);
+
+  useEffect(() => {
+    registerHelpers({ setSegment: setActiveSegment });
+  }, [registerHelpers]);
+
+  useEffect(() => {
+    if (!isFocused || isLoadingData || !vaultPromptChecked || showVaultPullModal || hasBlockingPopup) {
+      return;
+    }
+    let cancelled = false;
+    let timer = null;
+
+    const checkAndRunTour = async () => {
+      if (route?.params?.startTutorial) {
+        navigation.setParams({ startTutorial: undefined });
+        setActiveSegment('logins');
+        timer = setTimeout(() => {
+          if (!cancelled) startTour('home', { force: true });
+        }, 450);
+        return;
+      }
+      try {
+        const pending = await AsyncStorage.getItem(TOUR_STORAGE_KEYS.homePending);
+        const done = await AsyncStorage.getItem(TOUR_STORAGE_KEYS.homeDone);
+        if (pending === 'true' || done !== 'true') {
+          timer = setTimeout(() => {
+            if (!cancelled) startTour('home', { force: pending === 'true' });
+          }, 500);
+        }
+      } catch {}
+    };
+
+    checkAndRunTour();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [
+    isFocused,
+    isLoadingData,
+    vaultPromptChecked,
+    showVaultPullModal,
+    hasBlockingPopup,
+    route?.params?.startTutorial,
+    navigation,
+    startTour,
+  ]);
 
   useEffect(() => {
     const seg = route?.params?.initialSegment;
@@ -130,6 +187,8 @@ export default function HomeScreen({
         }
       } catch (err) {
         console.log('[Home] Vault pull prompt check error:', err.message);
+      } finally {
+        setVaultPromptChecked(true);
       }
     })();
   }, []);
@@ -194,11 +253,46 @@ export default function HomeScreen({
     }
   };
 
+  const checkBreachedCredentials = async () => {
+    try {
+      const raw = await AsyncStorage.getItem('flakesecure_breached_credentials_v1');
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          setBreachedCredentials(list);
+          if (route?.params?.showBreachedModal) {
+            setActiveSegment('logins');
+            setIsBreachedBannerDismissed(false);
+          }
+        } else {
+          setBreachedCredentials([]);
+        }
+      } else {
+        setBreachedCredentials([]);
+      }
+    } catch {
+      setBreachedCredentials([]);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+      checkBreachedCredentials();
+    }, [route?.params?.showBreachedModal])
   );
+
+  const breachedCredIds = useMemo(() => {
+    return new Set(breachedCredentials.map((c) => c.id).filter(Boolean));
+  }, [breachedCredentials]);
+
+  const breachedDomains = useMemo(() => {
+    return new Set(
+      breachedCredentials
+        .map((c) => (c.domain || c.name || '').toLowerCase().trim())
+        .filter(Boolean)
+    );
+  }, [breachedCredentials]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -740,6 +834,93 @@ export default function HomeScreen({
     </View>
   );
 
+  const renderBreachedWarningCard = () => {
+    if (isBreachedBannerDismissed || breachedCredentials.length === 0) return null;
+    return (
+      <TutorialTarget id="home.breach">
+        <View
+          style={[
+            styles.breachWarningCard,
+            {
+              backgroundColor: 'rgba(239, 68, 68, 0.08)',
+              borderColor: '#EF4444',
+            },
+          ]}
+        >
+        <View style={styles.breachWarningHeader}>
+          <View style={styles.breachWarningTitleRow}>
+            <View style={styles.breachIconCircle}>
+              <AppIcon name="alert" size={20} color="#EF4444" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.breachWarningTitle}>
+                {t('home.breachAlertTitle', { count: breachedCredentials.length }) ||
+                  `Sicherheitswarnung: ${breachedCredentials.length} kompromittierte Passwörter entdeckt`}
+              </Text>
+              <Text style={[styles.breachWarningSubtitle, { color: colors.textSecondary }]}>
+                {t('home.breachAlertSubtitle') ||
+                  'Folgende Zugangsdaten wurden in bekannten Datenpannen (HaveIBeenPwned) gefunden:'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.breachDismissBtn}
+            onPress={() => setIsBreachedBannerDismissed(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <AppIcon name="close" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.breachItemsList}>
+          {breachedCredentials.map((item, idx) => (
+            <View
+              key={item.id || `breached_${idx}`}
+              style={[
+                styles.breachItemRow,
+                { borderTopColor: 'rgba(239, 68, 68, 0.15)' },
+              ]}
+            >
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={[styles.breachItemDomain, { color: colors.text }]} numberOfLines={1}>
+                  {item.domain || item.name || 'Unbekannt'}
+                </Text>
+                {!!item.username && (
+                  <Text style={[styles.breachItemUser, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {item.username}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.breachChangeBtn}
+                onPress={() =>
+                  navigation.navigate('CredentialsScreen', {
+                    mode: 'edit',
+                    credentialId: item.id,
+                  })
+                }
+              >
+                <Text style={styles.breachChangeBtnText}>
+                  {t('home.breachChangeNowBtn') || 'Jetzt ändern'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={styles.breachDismissFullBtn}
+          onPress={() => setIsBreachedBannerDismissed(true)}
+        >
+          <Text style={[styles.breachDismissFullText, { color: colors.textSecondary }]}>
+            {t('home.breachDismissBtn') || 'Schließen'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      </TutorialTarget>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* Header */}
@@ -751,25 +932,27 @@ export default function HomeScreen({
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.userBadge,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
-          ]}
-          onPress={() => navigation.navigate('Settings')}
-          activeOpacity={0.7}
-        >
-          <View
+        <TutorialTarget id="home.userBadge">
+          <TouchableOpacity
             style={[
-              styles.userDot,
-              { backgroundColor: effectiveOffline ? '#f59e0b' : colors.green },
+              styles.userBadge,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
             ]}
-          />
-          <Text style={[styles.userBadgeText, { color: colors.text }]} numberOfLines={1}>
-            {user?.username || t('common.account')}
-          </Text>
-          <AppIcon name="gear" size={13} color={colors.textSecondary} />
-        </TouchableOpacity>
+            onPress={() => navigation.navigate('Settings')}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.userDot,
+                { backgroundColor: effectiveOffline ? '#f59e0b' : colors.green },
+              ]}
+            />
+            <Text style={[styles.userBadgeText, { color: colors.text }]} numberOfLines={1}>
+              {user?.username || t('common.account')}
+            </Text>
+            <AppIcon name="gear" size={13} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </TutorialTarget>
       </View>
 
       {effectiveOffline && (
@@ -823,111 +1006,122 @@ export default function HomeScreen({
       })}
 
       {/* Hero Scan Action Button */}
-      <TapFeedback
-        style={styles.heroScanBtn}
-        onPress={() => navigation.navigate('Scan')}
-      >
-        <LinearGradient
-          colors={colors.goldGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.heroScanGradient}
+      <TutorialTarget id="home.scan">
+        <TapFeedback
+          style={styles.heroScanBtn}
+          onPress={() => navigation.navigate('Scan')}
         >
-          <View
-            style={[
-              styles.heroScanIconBg,
-              { backgroundColor: 'rgba(255, 255, 255, 0.22)' },
-            ]}
+          <LinearGradient
+            colors={colors.goldGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.heroScanGradient}
           >
-            <AppIcon name="scan" size={22} color="#ffffff" />
-          </View>
-          <View style={styles.heroScanInfo}>
-            <Text style={[styles.heroScanTitle, { color: '#ffffff' }]}>
-              {t('home.scanQr')}
-            </Text>
-            <Text
+            <View
               style={[
-                styles.heroScanSubtitle,
-                { color: 'rgba(255, 255, 255, 0.85)' },
+                styles.heroScanIconBg,
+                { backgroundColor: 'rgba(255, 255, 255, 0.22)' },
               ]}
             >
-              {t('home.scanQrSub')}
-            </Text>
-          </View>
-          <AppIcon name="chevronRight" size={18} color="#ffffff" />
-        </LinearGradient>
-      </TapFeedback>
+              <AppIcon name="scan" size={22} color="#ffffff" />
+            </View>
+            <View style={styles.heroScanInfo}>
+              <Text style={[styles.heroScanTitle, { color: '#ffffff' }]}>
+                {t('home.scanQr')}
+              </Text>
+              <Text
+                style={[
+                  styles.heroScanSubtitle,
+                  { color: 'rgba(255, 255, 255, 0.85)' },
+                ]}
+              >
+                {t('home.scanQrSub')}
+              </Text>
+            </View>
+            <AppIcon name="chevronRight" size={18} color="#ffffff" />
+          </LinearGradient>
+        </TapFeedback>
+      </TutorialTarget>
 
       {/* Quick Action Navigation Bar */}
       <View style={styles.quickBar}>
-        <TapFeedback
-          style={[
-            styles.quickBarItem,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
-          ]}
-          onPress={() => navigation.navigate('Authenticator')}
-        >
-          <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
-            <AppIcon name="totp" size={18} color={colors.gold} />
-          </View>
-          <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>
-            {t('home.quick2fa')}
-          </Text>
-        </TapFeedback>
+        <TutorialTarget id="home.quick.2fa" style={{ flex: 1, flexDirection: 'row' }}>
+          <TapFeedback
+            style={[
+              styles.quickBarItem,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+            onPress={() => navigation.navigate('Authenticator')}
+          >
+            <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
+              <AppIcon name="totp" size={18} color={colors.gold} />
+            </View>
+            <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>
+              {t('home.quick2fa')}
+            </Text>
+          </TapFeedback>
+        </TutorialTarget>
 
-        <TapFeedback
-          style={[
-            styles.quickBarItem,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
-          ]}
-          onPress={() => navigation.navigate('Logs')}
-        >
-          <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
-            <AppIcon name="logs" size={18} color={colors.gold} />
-          </View>
-          <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>
-            {t('home.quickLogs')}
-          </Text>
-        </TapFeedback>
+        <TutorialTarget id="home.quick.logs" style={{ flex: 1, flexDirection: 'row' }}>
+          <TapFeedback
+            style={[
+              styles.quickBarItem,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+            onPress={() => navigation.navigate('Logs')}
+          >
+            <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
+              <AppIcon name="logs" size={18} color={colors.gold} />
+            </View>
+            <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>
+              {t('home.quickLogs')}
+            </Text>
+          </TapFeedback>
+        </TutorialTarget>
 
-        <TapFeedback
-          style={[
-            styles.quickBarItem,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
-          ]}
-          onPress={handleQuickNewPress}
-        >
-          <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
-            <AppIcon name="plus" size={18} color={colors.gold} />
-          </View>
-          <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>
-            {t('home.quickNew')}
-          </Text>
-        </TapFeedback>
+        <TutorialTarget id="home.quick.new" style={{ flex: 1, flexDirection: 'row' }}>
+          <TapFeedback
+            style={[
+              styles.quickBarItem,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+            onPress={handleQuickNewPress}
+          >
+            <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
+              <AppIcon name="plus" size={18} color={colors.gold} />
+            </View>
+            <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>
+              {t('home.quickNew')}
+            </Text>
+          </TapFeedback>
+        </TutorialTarget>
 
-        <TapFeedback
-          style={[
-            styles.quickBarItem,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
-          ]}
-          onPress={() => navigation.navigate('ShareImport', { mode: 'share' })}
-        >
-          <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
-            <AppIcon name="share" size={18} color={colors.gold} />
-          </View>
-          <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>
-            {t('home.quickShare')}
-          </Text>
-        </TapFeedback>
+        <TutorialTarget id="home.quick.share" style={{ flex: 1, flexDirection: 'row' }}>
+          <TapFeedback
+            style={[
+              styles.quickBarItem,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+            onPress={() => navigation.navigate('ShareImport', { mode: 'share' })}
+          >
+            <View style={[styles.quickBarIconCircle, { backgroundColor: colors.goldDim }]}>
+              <AppIcon name="share" size={18} color={colors.gold} />
+            </View>
+            <Text style={[styles.quickBarLabel, { color: colors.textSecondary }]}>
+              {t('home.quickShare')}
+            </Text>
+          </TapFeedback>
+        </TutorialTarget>
       </View>
 
       {/* 3-Segment Switcher: Logins | Karten | Codes */}
-      <View
-        style={[
-          styles.segmentContainer,
-          { backgroundColor: colors.card, borderColor: colors.cardBorder },
-        ]}
-      >
+      <TutorialTarget id="home.segments">
+        <View
+          style={[
+            styles.segmentContainer,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+          ]}
+        >
         {[
           {
             key: 'logins',
@@ -1002,62 +1196,67 @@ export default function HomeScreen({
           );
         })}
       </View>
+      </TutorialTarget>
 
       {/* Search Bar + Reorder Toggle */}
       <View style={styles.searchRow}>
-        <View
-          style={[
-            styles.searchBar,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
-          ]}
-        >
-          <AppIcon name="search" size={15} color={colors.textMuted} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t('home.searchPlaceholder') || 'Tresor durchsuchen…'}
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <AppIcon name="close" size={14} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.reorderToggleBtn,
-            {
-              backgroundColor: isReordering ? colors.gold : colors.card,
-              borderColor: isReordering ? colors.gold : colors.cardBorder,
-            },
-          ]}
-          onPress={() => {
-            triggerSmoothOrderAnim();
-            setIsReordering((prev) => !prev);
-          }}
-          activeOpacity={0.8}
-        >
-          <AppIcon
-            name={isReordering ? 'check' : 'reorder'}
-            size={15}
-            color={isReordering ? '#ffffff' : colors.gold}
-          />
-          <Text
+        <TutorialTarget id="home.search" style={{ flex: 1, flexDirection: 'row' }}>
+          <View
             style={[
-              styles.reorderToggleText,
-              { color: isReordering ? '#ffffff' : colors.textSecondary },
+              styles.searchBar,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
             ]}
-            numberOfLines={1}
           >
-            {isReordering
-              ? t('home.reorderDoneBtn') || 'Fertig'
-              : t('home.reorderBtn') || 'Sortieren'}
-          </Text>
-        </TouchableOpacity>
+            <AppIcon name="search" size={15} color={colors.textMuted} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('home.searchPlaceholder') || 'Tresor durchsuchen…'}
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <AppIcon name="close" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </TutorialTarget>
+
+        <TutorialTarget id="home.sort">
+          <TouchableOpacity
+            style={[
+              styles.reorderToggleBtn,
+              {
+                backgroundColor: isReordering ? colors.gold : colors.card,
+                borderColor: isReordering ? colors.gold : colors.cardBorder,
+              },
+            ]}
+            onPress={() => {
+              triggerSmoothOrderAnim();
+              setIsReordering((prev) => !prev);
+            }}
+            activeOpacity={0.8}
+          >
+            <AppIcon
+              name={isReordering ? 'check' : 'reorder'}
+              size={15}
+              color={isReordering ? '#ffffff' : colors.gold}
+            />
+            <Text
+              style={[
+                styles.reorderToggleText,
+                { color: isReordering ? '#ffffff' : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {isReordering
+                ? t('home.reorderDoneBtn') || 'Fertig'
+                : t('home.reorderBtn') || 'Sortieren'}
+            </Text>
+          </TouchableOpacity>
+        </TutorialTarget>
       </View>
 
       {isReordering && (
@@ -1080,7 +1279,8 @@ export default function HomeScreen({
 
       {/* Segment-Specific Filter Strip */}
       {activeSegment === 'logins' && (
-        <View style={styles.filterSection}>
+        <TutorialTarget id="home.categories">
+          <View style={styles.filterSection}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -1209,6 +1409,7 @@ export default function HomeScreen({
             </TouchableOpacity>
           </ScrollView>
         </View>
+        </TutorialTarget>
       )}
 
       {activeSegment === 'codes' && codes.length > 0 && (
@@ -1294,80 +1495,91 @@ export default function HomeScreen({
         </View>
       ) : activeSegment === 'logins' ? (
         credentials.length === 0 ? (
-          <View style={styles.empty}>
-            <AppIcon
-              name="lock"
-              size={44}
-              color={colors.gold}
-              style={{ marginBottom: 14 }}
-            />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {t('home.noEntries')}
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {t('home.noEntriesText')}
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.addButton,
-                { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-              ]}
-              onPress={() =>
-                navigation.navigate('Credentials', { initialType: 'login' })
-              }
-            >
-              <Text style={[styles.addButtonText, { color: colors.gold }]}>
-                {t('home.addButton')}
+          <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+            {renderBreachedWarningCard()}
+            <View style={styles.empty}>
+              <AppIcon
+                name="lock"
+                size={44}
+                color={colors.gold}
+                style={{ marginBottom: 14 }}
+              />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {t('home.noEntries')}
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.restoreVaultEmptyBtn,
-                { backgroundColor: colors.card, borderColor: colors.cardBorder },
-              ]}
-              onPress={() =>
-                navigation.navigate('VaultTransfer', { mode: 'check_or_receive' })
-              }
-            >
-              <Text
-                style={[
-                  styles.restoreVaultEmptyText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {t('settings.restoreVault') || 'Restore from Cloud Vault'}
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                {t('home.noEntriesText')}
               </Text>
-            </TouchableOpacity>
-          </View>
+              <TutorialTarget id="home.emptyAdd">
+                <TouchableOpacity
+                  style={[
+                    styles.addButton,
+                    { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
+                  ]}
+                  onPress={() =>
+                    navigation.navigate('Credentials', { initialType: 'login' })
+                  }
+                >
+                  <Text style={[styles.addButtonText, { color: colors.gold }]}>
+                    {t('home.addButton')}
+                  </Text>
+                </TouchableOpacity>
+              </TutorialTarget>
+              <TutorialTarget id="home.restore">
+                <TouchableOpacity
+                  style={[
+                    styles.restoreVaultEmptyBtn,
+                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                  ]}
+                  onPress={() =>
+                    navigation.navigate('VaultTransfer', { mode: 'check_or_receive' })
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.restoreVaultEmptyText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {t('settings.restoreVault') || 'Restore from Cloud Vault'}
+                  </Text>
+                </TouchableOpacity>
+              </TutorialTarget>
+            </View>
+          </ScrollView>
         ) : filteredCredentials.length === 0 ? (
-          <View style={styles.empty}>
-            <AppIcon
-              name="folder"
-              size={44}
-              color={colors.gold}
-              style={{ marginBottom: 14 }}
-            />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {t('home.noEntriesInCategory')}
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.addButton,
-                { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
-              ]}
-              onPress={() =>
-                navigation.navigate('Credentials', { initialType: 'login' })
-              }
-            >
-              <Text style={[styles.addButtonText, { color: colors.gold }]}>
-                {t('home.addButton')}
+          <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+            {renderBreachedWarningCard()}
+            <View style={styles.empty}>
+              <AppIcon
+                name="folder"
+                size={44}
+                color={colors.gold}
+                style={{ marginBottom: 14 }}
+              />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {t('home.noEntriesInCategory')}
               </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[
+                  styles.addButton,
+                  { backgroundColor: colors.goldDim, borderColor: colors.goldBorder },
+                ]}
+                onPress={() =>
+                  navigation.navigate('Credentials', { initialType: 'login' })
+                }
+              >
+                <Text style={[styles.addButtonText, { color: colors.gold }]}>
+                  {t('home.addButton')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         ) : (
           <FlatList
             data={groupedDomains}
             keyExtractor={(item) => item.domain}
+            ListHeaderComponent={renderBreachedWarningCard}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -1385,7 +1597,7 @@ export default function HomeScreen({
               const canMoveGroupUp = groupIdx > 0;
               const canMoveGroupDown = groupIdx < groupedDomains.length - 1;
 
-              return (
+              const groupCard = (
                 <View
                   style={[
                     styles.domainGroupCard,
@@ -1412,12 +1624,21 @@ export default function HomeScreen({
                         style={{ marginRight: 10 }}
                       />
                       <View style={styles.domainGroupTitleCol}>
-                        <Text
-                          style={[styles.domainGroupTitle, { color: colors.text }]}
-                          numberOfLines={1}
-                        >
-                          {group.domain}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <Text
+                            style={[styles.domainGroupTitle, { color: colors.text }]}
+                            numberOfLines={1}
+                          >
+                            {group.domain}
+                          </Text>
+                          {breachedDomains.has(group.domain.toLowerCase().trim()) && (
+                            <View style={styles.compromisedBadge}>
+                              <Text style={styles.compromisedBadgeText}>
+                                {t('home.breachedBadge') || 'Kompromittiert'}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                         <Text
                           style={[
                             styles.domainGroupSubtitle,
@@ -1544,6 +1765,13 @@ export default function HomeScreen({
                               >
                                 {displayName}
                               </Text>
+                              {breachedCredIds.has(account.id) && (
+                                <View style={styles.compromisedAccountBadge}>
+                                  <Text style={styles.compromisedBadgeText}>
+                                    {t('home.breachedBadge') || 'Kompromittiert'}
+                                  </Text>
+                                </View>
+                              )}
                               {account.hasNote && (
                                 <View
                                   style={[
@@ -1670,6 +1898,11 @@ export default function HomeScreen({
                     })}
                   </View>
                 </View>
+              );
+              return groupIdx === 0 ? (
+                <TutorialTarget id="home.firstItem">{groupCard}</TutorialTarget>
+              ) : (
+                groupCard
               );
             }}
           />
@@ -3352,6 +3585,109 @@ const styles = StyleSheet.create({
   },
   vaultModalConfirmText: {
     fontSize: 14,
+    fontWeight: '700',
+  },
+  breachWarningCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 16,
+    overflow: 'hidden',
+  },
+  breachWarningHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  breachWarningTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+    gap: 12,
+  },
+  breachIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  breachWarningTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#EF4444',
+    marginBottom: 3,
+  },
+  breachWarningSubtitle: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  breachDismissBtn: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  breachItemsList: {
+    marginTop: 4,
+  },
+  breachItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+  },
+  breachItemDomain: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  breachItemUser: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  breachChangeBtn: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  breachChangeBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  breachDismissFullBtn: {
+    alignItems: 'center',
+    paddingTop: 12,
+    marginTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(239, 68, 68, 0.12)',
+  },
+  breachDismissFullText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  compromisedBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#EF4444',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  compromisedAccountBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#EF4444',
+    borderWidth: 1,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  compromisedBadgeText: {
+    color: '#EF4444',
+    fontSize: 10,
     fontWeight: '700',
   },
 });

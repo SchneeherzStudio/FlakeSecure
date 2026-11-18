@@ -154,6 +154,7 @@ const sendStaticPage = (res, filename) => {
 
 // Static Web Pages
 app.get('/', (req, res) => sendStaticPage(res, 'index.html'));
+app.get('/welcome', (req, res) => sendStaticPage(res, 'welcome.html'));
 app.get('/downloads', (req, res) => sendStaticPage(res, 'downloads.html'));
 app.get('/features', (req, res) => sendStaticPage(res, 'features.html'));
 app.get('/account', (req, res) => sendStaticPage(res, 'account.html'));
@@ -181,19 +182,29 @@ app.get('/download/firefox', (req, res) => {
 });
 app.get('/download/android', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-  const apkPath = path.join(PUBLIC_DIR, 'FlakeSecure_android-v2.0.3.apk');
+  const v210ApkPath = path.join(PUBLIC_DIR, 'FlakeSecure_v2.1.0.apk');
+  const v203ApkPath = path.join(PUBLIC_DIR, 'FlakeSecure_android-v2.0.3.apk');
   const legacyApkPath = path.join(PUBLIC_DIR, 'FlakeSecure_v2-0-2.apk');
-  if (fs.existsSync(apkPath)) {
-    res.download(apkPath, 'FlakeSecure_android-v2.0.3.apk');
+  if (fs.existsSync(v210ApkPath)) {
+    res.download(v210ApkPath, 'FlakeSecure_v2.1.0.apk');
+  } else if (fs.existsSync(v203ApkPath)) {
+    res.download(v203ApkPath, 'FlakeSecure_android-v2.0.3.apk');
   } else if (fs.existsSync(legacyApkPath)) {
     res.download(legacyApkPath, 'FlakeSecure_android-v2.0.3.apk');
   } else {
+    try {
+      const apks = fs.readdirSync(PUBLIC_DIR).filter(f => f.endsWith('.apk'));
+      if (apks.length > 0) {
+        return res.download(path.join(PUBLIC_DIR, apks[0]), apks[0]);
+      }
+    } catch (_) {}
     res.status(404).send('Android APK build package currently being prepared.');
   }
 });
 
 // Clean redirects
 app.get(['/download', '/downloads.html'], (req, res) => res.redirect(301, '/downloads'));
+app.get('/welcome.html', (req, res) => res.redirect(301, '/welcome'));
 app.get('/features.html', (req, res) => res.redirect(301, '/features'));
 app.get(['/impressum', '/imprint.html'], (req, res) => res.redirect(301, '/imprint'));
 app.get(['/privacy', '/datenschutz', '/legal.html', '/privacy.html'], (req, res) => res.redirect(301, '/legal'));

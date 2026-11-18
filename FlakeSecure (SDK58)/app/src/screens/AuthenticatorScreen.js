@@ -19,12 +19,15 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { CameraView, useCameraPermissions, scanFromURLAsync } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTutorial } from '../context/TutorialContext';
+import TutorialTarget from '../components/tutorial/TutorialTarget';
 import { useToast } from '../components/Toast';
 import { AppIcon } from '../components/CategoryIcons';
 import {
@@ -42,6 +45,8 @@ export default function AuthenticatorScreen({ route, navigation }) {
   const activeRelaySession = route?.params?.relaySession || null;
   const { t } = useLanguage();
   const { colors } = useTheme();
+  const { startTour } = useTutorial();
+  const isFocused = useIsFocused();
   const toast = useToast();
 
   const [totpList, setTotpList] = useState([]);
@@ -477,7 +482,32 @@ export default function AuthenticatorScreen({ route, navigation }) {
   const defaultRemainingSec = getRemainingSeconds(30);
   const defaultUrgent = defaultRemainingSec <= 5;
 
-  const renderItem = ({ item }) => {
+  useEffect(() => {
+    if (
+      !isFocused ||
+      modalVisible ||
+      scannerVisible ||
+      migrationVisible ||
+      route?.params?.otpauthUri ||
+      route?.params?.prefillAdd
+    ) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      startTour('authenticator');
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [
+    isFocused,
+    modalVisible,
+    scannerVisible,
+    migrationVisible,
+    route?.params?.otpauthUri,
+    route?.params?.prefillAdd,
+    startTour,
+  ]);
+
+  const renderItem = ({ item, index }) => {
     const itemPeriod = item.period === 60 ? 60 : 30;
     const itemDigits = item.digits === 8 ? 8 : 6;
     const itemAlgo = item.algorithm || 'SHA1';
@@ -493,7 +523,7 @@ export default function AuthenticatorScreen({ route, navigation }) {
     const isUrgent = itemRemaining <= 5;
     const isCopied = copiedId === item.id;
 
-    return (
+    const cardNode = (
       <TouchableOpacity
         style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}
         activeOpacity={0.8}
@@ -568,6 +598,11 @@ export default function AuthenticatorScreen({ route, navigation }) {
         </View>
       </TouchableOpacity>
     );
+    return index === 0 ? (
+      <TutorialTarget id="auth.firstRow">{cardNode}</TutorialTarget>
+    ) : (
+      cardNode
+    );
   };
 
   const selectedCredObj = allCredentials.find((c) => c.id === linkedCredId) || null;
@@ -579,12 +614,14 @@ export default function AuthenticatorScreen({ route, navigation }) {
           <AppIcon name="back" size={20} color={colors.textMain} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('authenticator.title')}</Text>
-        <TouchableOpacity
-          onPress={() => openAddModal()}
-          style={[styles.addHeaderBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
-        >
-          <Text style={[styles.addHeaderBtnText, { color: colors.gold }]}>{t('home.addButton')}</Text>
-        </TouchableOpacity>
+        <TutorialTarget id="auth.add">
+          <TouchableOpacity
+            onPress={() => openAddModal()}
+            style={[styles.addHeaderBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
+          >
+            <Text style={[styles.addHeaderBtnText, { color: colors.gold }]}>{t('home.addButton')}</Text>
+          </TouchableOpacity>
+        </TutorialTarget>
       </View>
 
       {activeRelaySession && (
@@ -596,12 +633,14 @@ export default function AuthenticatorScreen({ route, navigation }) {
         </View>
       )}
 
-      <View style={styles.timerBar}>
-        <Text style={[styles.timerLabel, { color: colors.textMuted }]}>{t('authenticator.nextCodeIn')}</Text>
-        <Text style={[styles.timerValue, { color: colors.gold }, defaultUrgent && { color: colors.danger }]}>
-          {defaultRemainingSec}s
-        </Text>
-      </View>
+      <TutorialTarget id="auth.timer">
+        <View style={styles.timerBar}>
+          <Text style={[styles.timerLabel, { color: colors.textMuted }]}>{t('authenticator.nextCodeIn')}</Text>
+          <Text style={[styles.timerValue, { color: colors.gold }, defaultUrgent && { color: colors.danger }]}>
+            {defaultRemainingSec}s
+          </Text>
+        </View>
+      </TutorialTarget>
 
       <View style={styles.searchBox}>
         <TextInput
@@ -626,12 +665,14 @@ export default function AuthenticatorScreen({ route, navigation }) {
             <Text style={[styles.emptySub, { color: colors.textSub }]}>
               {t('authenticator.emptySub')}
             </Text>
-            <TouchableOpacity
-              style={[styles.addEmptyBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
-              onPress={() => openAddModal()}
-            >
-              <Text style={[styles.addEmptyBtnText, { color: colors.gold }]}>{t('authenticator.addAccount')}</Text>
-            </TouchableOpacity>
+            <TutorialTarget id="auth.emptyAdd">
+              <TouchableOpacity
+                style={[styles.addEmptyBtn, { backgroundColor: colors.goldBg, borderColor: colors.goldBorder }]}
+                onPress={() => openAddModal()}
+              >
+                <Text style={[styles.addEmptyBtnText, { color: colors.gold }]}>{t('authenticator.addAccount')}</Text>
+              </TouchableOpacity>
+            </TutorialTarget>
           </View>
         }
       />

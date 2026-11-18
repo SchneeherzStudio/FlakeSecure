@@ -79,10 +79,49 @@
     "done": {
       "title": "¡Todo listo!",
       "subtitle": "FlakeSecure está preparado. Agrega tus primeras credenciales e inicia sesión con seguridad.",
-      "button": "Comenzar"
+      "button": "Comenzar",
+      "startTourButton": "Iniciar tour con Yuki",
+      "skipTourButton": "Omitir tour (disponible en Ajustes)"
     },
     "next": "Siguiente",
-    "skip": "Omitir"
+    "skip": "Omitir",
+    "notifications": {
+      "title": "Notificaciones y alertas de seguridad",
+      "subtitle": "Imprescindible para protección en tiempo real y aprobaciones instantáneas",
+      "reason1Title": "Aprobaciones de inicio en tiempo real",
+      "reason1Desc": "Aprobación ultrarrápida de inicios de sesión en tu ordenador sin escribir contraseña.",
+      "reason2Title": "Alertas de filtraciones",
+      "reason2Desc": "Aviso inmediato si una contraseña guardada aparece en una filtración conocida.",
+      "reason3Title": "Avisos de caducidad de tarjetas",
+      "reason3Desc": "Recordatorio oportuno 30 días antes de que caduquen tus tarjetas registradas.",
+      "enableBtn": "Activar notificaciones",
+      "declineBtn": "Ahora no / Rechazar",
+      "note": "Nota: Puedes activar las notificaciones en cualquier momento desde Ajustes (en Ajustes → Notificaciones)."
+    },
+    "yuki": {
+      "welcome": "¡Hola! Soy Yuki. Te muestro rápidamente cómo FlakeSecure protege tus contraseñas, tarjetas y códigos 2FA.",
+      "howItWorks": "Todo funciona con arquitectura Zero-Knowledge: tus datos se cifran en tu dispositivo – ni siquiera nuestros servidores pueden leerlos.",
+      "requirements": "Con total transparencia, te muestro qué permisos del teléfono utilizamos y para qué sirve cada uno.",
+      "extension": "Con la extensión del navegador inicias sesión por QR en tu ordenador – ¡y generas contraseñas seguras al registrarte en webs!",
+      "notifications": "Las notificaciones te avisan al instante de aprobaciones de acceso y filtraciones. Tu sistema solo preguntará si aceptas aquí primero.",
+      "account": "¡Casi listo! Crea ahora tu cuenta cifrada o inicia sesión en tu bóveda existente.",
+      "done": "¡Todo preparado! Si quieres, ahora te guío paso a paso por la pantalla principal para explicarte cada botón."
+    },
+    "requirements": {
+      "title": "Lo que necesita FlakeSecure",
+      "subtitle": "Total transparencia sobre permisos y funciones",
+      "badgeOnDemand": "Bajo demanda",
+      "badgeOptional": "Opcional",
+      "cameraTitle": "Cámara (Escáner QR)",
+      "cameraDesc": "Emparejar extensiones, aprobar accesos, generar contraseñas seguras en QR de registro y escanear códigos QR 2FA.",
+      "notifTitle": "Notificaciones",
+      "notifDesc": "Aprobaciones de inicio en tiempo real, alertas de filtraciones (HaveIBeenPwned) y avisos de caducidad de tarjetas.",
+      "bioTitle": "Biometría (Huella / Face ID)",
+      "bioDesc": "Desbloquea rápidamente tu bóveda, aprueba accesos y protege la copia de códigos sensibles.",
+      "autofillTitle": "Autocompletado y enlaces de cámara",
+      "autofillDesc": "Rellena accesos y tarjetas en otras apps y permite que tu cámara sugiera «Abrir en FlakeSecure» al leer un QR 2FA.",
+      "footerNote": "Tranquilo: tu sistema operativo solo pedirá cada permiso cuando utilices activamente esa función."
+    }
   },
   "home": {
     "title": "Inicio",
@@ -113,7 +152,12 @@
     "searchPlaceholder": "Buscar credenciales, tarjetas, IBAN o códigos…",
     "segmentLogins": "Credenciales",
     "segmentCards": "Tarjetas",
-    "segmentCodes": "Códigos"
+    "segmentCodes": "Códigos",
+    "breachAlertTitle": "Alerta de seguridad: %{count} contraseñas comprometidas",
+    "breachAlertSubtitle": "Las siguientes credenciales se encontraron en filtraciones de datos conocidas (HaveIBeenPwned):",
+    "breachChangeNowBtn": "Cambiar ahora",
+    "breachDismissBtn": "Cerrar",
+    "breachedBadge": "Comprometido"
   },
   "categories": {
     "all": "Todas",
@@ -364,7 +408,10 @@
     "themeSection": "APARIENCIA Y DISEÑO",
     "themeSystem": "Predeterminado del sistema",
     "themeDark": "Modo oscuro (Deep Navy)",
-    "themeLight": "Modo claro (Clean Slate)"
+    "themeLight": "Modo claro (Clean Slate)",
+    "tutorialSection": "AYUDA Y TUTORIAL",
+    "showTutorial": "Volver a ver el tutorial",
+    "showTutorialSub": "Yuki te explica todos los botones y funciones paso a paso"
   },
   "logs": {
     "title": "Registros de actividad",
@@ -481,6 +528,11 @@
     "hideFromRecipientDesc": "Se autocompletarán pero permanecerán ocultas",
     "autoDeleteAfter": "Auto-eliminar después de",
     "expiryNever": "Nunca"
+  },
+  "pair": {
+    "biometricPrompt": "Vincular extensión del navegador",
+    "success": "¡Extensión de navegador vinculada con éxito!",
+    "notLoggedIn": "Por favor, inicia sesión en la aplicación primero para vincular una extensión."
   },
   "vaultTransfer": {
     "title": "Restauración de bóveda en la nube",
@@ -715,6 +767,7 @@
     "cardExpiringBody": "Tu tarjeta «%{label}» caduca el %{expiry}.",
     "breachFoundTitle": "Alerta de filtración de contraseñas",
     "breachFoundBody": "%{count} contraseña(s) encontrada(s) en filtraciones conocidas. ¡Cámbialas!",
+    "breachAffectsPrefix": "Afecta",
     "weakPasswordsTitle": "Informe semanal de seguridad",
     "weakPasswordsBody": "Se detectaron %{weak} contraseñas débiles y %{reused} reutilizadas en tu bóveda.",
     "backupReminderTitle": "Copia de seguridad recomendada",
@@ -740,5 +793,58 @@
     "importedPendingToast": "Se importaron %{count} credencial(es) guardada(s) desde Android Autofill",
     "iosHint": "En iOS, FlakeSecure utiliza Dominios Asociados y el llavero del sistema."
   },
-  "loading": "Cargando..."
+  "loading": "Cargando...",
+  "tutorial": {
+    "next": "Siguiente",
+    "back": "Atrás",
+    "skip": "Omitir",
+    "done": "¡Listo!",
+    "stepOf": "%{current} / %{total}",
+    "home": {
+      "introTitle": "¡Bienvenido a tu bóveda!",
+      "intro": "Soy Yuki y te mostraré la pantalla principal en un minuto. Puedes omitir en cualquier momento o repetir el tour desde Ajustes.",
+      "scanTitle": "Escanear código QR (Botón principal)",
+      "scan": "Tu botón clave: vincula la extensión del navegador, aprueba accesos, genera contraseñas seguras con QR de registro en el navegador y escanea códigos 2FA.",
+      "quick2faTitle": "Autenticador 2FA",
+      "quick2fa": "Genera tus códigos de 6 dígitos. Consejo: ¡escanear un QR 2FA desde la app Cámara del móvil sugiere «Abrir en FlakeSecure»!",
+      "quickLogsTitle": "Registros de actividad",
+      "quickLogs": "Revisa cada inicio de sesión, transferencia y envío con dispositivo y hora para control total.",
+      "quickNewTitle": "Crear nueva entrada",
+      "quickNew": "Añade directamente un acceso, tarjeta bancaria o código secreto según la pestaña activa.",
+      "quickShareTitle": "Compartir cifrado",
+      "quickShare": "Comparte credenciales cifradas de extremo a extremo con otros dispositivos o usuarios – con caducidad opcional.",
+      "segmentsTitle": "Accesos, Tarjetas y Códigos",
+      "segments": "Cambia aquí entre accesos web, tarjetas bancarias (con IBAN y aviso de caducidad) y códigos secretos como PINs.",
+      "searchTitle": "Búsqueda rápida",
+      "search": "Filtra al instante la sección activa por dominio, nombre, cuenta o notas.",
+      "sortTitle": "Reordenar entradas",
+      "sort": "Ordena tus elementos con las flechas – o mantén pulsada cualquier tarjeta para moverla.",
+      "categoriesTitle": "Categorías y filtros",
+      "categories": "Filtra tus accesos por categoría (Trabajo, Finanzas…) o crea las tuyas pulsando «+» a la derecha.",
+      "breachTitle": "Alerta de filtración",
+      "breach": "¡Atención! Si una contraseña aparece en una filtración conocida (HaveIBeenPwned), te aviso aquí con acceso directo para cambiarla.",
+      "emptyAddTitle": "Tus entradas de la bóveda",
+      "emptyAdd": "Añade aquí tu primer acceso o toca una tarjeta guardada para ver detalles, copiar o editar.",
+      "restoreTitle": "Restaurar bóveda en la nube",
+      "restore": "¿Ya usabas FlakeSecure en otro dispositivo? Recupera y descifra aquí tu copia en la nube.",
+      "userBadgeTitle": "Conexión y Ajustes",
+      "userBadge": "El punto muestra tu estado (verde = en línea, ámbar = sin conexión). Toca para abrir Ajustes – ¡allí puedes repetir este tour cuando quieras!"
+    },
+    "authenticator": {
+      "addTitle": "Añadir código 2FA",
+      "add": "Añade una cuenta 2FA por cámara QR, imagen de tu galería o enlace – ¡o directamente desde tu app de Cámara!",
+      "timerTitle": "Cuenta atrás de 30s",
+      "timer": "Muestra cuántos segundos faltan para que todos los códigos se renueven automáticamente.",
+      "listTitle": "Copiar y enviar códigos",
+      "list": "Toca una tarjeta para copiar el código (se borra a los 45s). Si el navegador está vinculado, ¡se envía al instante!"
+    },
+    "credentials": {
+      "typeSwitcherTitle": "Elegir tipo de entrada",
+      "typeSwitcher": "Elige arriba qué guardar: Acceso, Tarjeta bancaria (vista previa e IBAN) o Código secreto.",
+      "categoryTitle": "Asignar categoría",
+      "category": "Agrupa la entrada en una categoría para encontrarla antes – «+ Nuevo» crea tus propias categorías.",
+      "saveTitle": "Guardado cifrado",
+      "save": "Al guardar, todo se cifra directamente en tu dispositivo antes de sincronizarse."
+    }
+  }
 }

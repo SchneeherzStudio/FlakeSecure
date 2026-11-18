@@ -79,10 +79,49 @@
     "done": {
       "title": "Tout est prêt !",
       "subtitle": "FlakeSecure est prêt. Ajoutez vos premiers identifiants.",
-      "button": "Commencer"
+      "button": "Commencer",
+      "startTourButton": "Démarrer la visite avec Yuki",
+      "skipTourButton": "Passer la visite (disponible dans Paramètres)"
     },
     "next": "Suivant",
-    "skip": "Passer"
+    "skip": "Passer",
+    "notifications": {
+      "title": "Notifications & Alertes de sécurité",
+      "subtitle": "Essentiel pour la protection en temps réel et les approbations instantanées",
+      "reason1Title": "Validations de connexion en direct",
+      "reason1Desc": "Approbation ultra-rapide des connexions sur ordinateur sans saisir de mot de passe.",
+      "reason2Title": "Alertes de fuite de données",
+      "reason2Desc": "Alerte immédiate si un mot de passe enregistré apparaît dans une violation connue.",
+      "reason3Title": "Rappels d'expiration de carte",
+      "reason3Desc": "Rappel préventif 30 jours avant l'expiration de vos cartes bancaires.",
+      "enableBtn": "Activer les notifications",
+      "declineBtn": "Pas maintenant / Refuser",
+      "note": "Remarque : Vous pouvez activer les notifications à tout moment dans les Paramètres (sous Paramètres → Notifications)."
+    },
+    "yuki": {
+      "welcome": "Salut ! Je suis Yuki. Laisse-moi te montrer brièvement comment FlakeSecure protège tes mots de passe, cartes et codes 2FA.",
+      "howItWorks": "Tout repose sur le zéro-connaissance : tes données sont chiffrées localement sur ton appareil – même nos serveurs ne peuvent pas les lire.",
+      "requirements": "En toute transparence, voici les autorisations utilisées par l’application et leur utilité.",
+      "extension": "Avec l’extension de navigateur, connecte-toi par QR code sur PC – et génère des mots de passe forts lors de tes inscriptions !",
+      "notifications": "Les notifications t’alertent en direct pour les validations de connexion et fuites de données. Le système ne te sollicite qu’après ton accord ici.",
+      "account": "Presque terminé ! Crée maintenant ton compte chiffré ou connecte-toi à ton coffre existant.",
+      "done": "Tout est prêt ! Si tu veux, je te fais maintenant visiter l’écran d’accueil bouton par bouton."
+    },
+    "requirements": {
+      "title": "Ce dont FlakeSecure a besoin",
+      "subtitle": "Transparence totale sur les autorisations et fonctions",
+      "badgeOnDemand": "À la demande",
+      "badgeOptional": "Optionnel",
+      "cameraTitle": "Caméra (Scanner QR)",
+      "cameraDesc": "Pour associer l’extension navigateur, approuver des connexions, générer des mots de passe à l’inscription et scanner des QR 2FA.",
+      "notifTitle": "Notifications",
+      "notifDesc": "Pour les validations de connexion en direct, alertes de fuite (HaveIBeenPwned) et rappels d’expiration de carte.",
+      "bioTitle": "Biométrie (Empreinte / Face ID)",
+      "bioDesc": "Pour déverrouiller ton coffre rapidement, approuver les accès et protéger la copie de codes sensibles.",
+      "autofillTitle": "Autofill système & liens caméra",
+      "autofillDesc": "Remplit tes identifiants et cartes dans d’autres apps et propose « Ouvrir dans FlakeSecure » sur les QR 2FA dans ton appareil photo.",
+      "footerNote": "Pas d’inquiétude : ton téléphone ne demande ces autorisations que lorsque tu utilises activement la fonction."
+    }
   },
   "home": {
     "title": "Accueil",
@@ -113,7 +152,12 @@
     "searchPlaceholder": "Rechercher identifiants, cartes, IBAN ou codes…",
     "segmentLogins": "Identifiants",
     "segmentCards": "Cartes",
-    "segmentCodes": "Codes"
+    "segmentCodes": "Codes",
+    "breachAlertTitle": "Alerte de sécurité : %{count} mot(s) de passe compromis",
+    "breachAlertSubtitle": "Les identifiants suivants ont été trouvés dans des fuites de données connues (HaveIBeenPwned) :",
+    "breachChangeNowBtn": "Modifier",
+    "breachDismissBtn": "Ignorer",
+    "breachedBadge": "Compromis"
   },
   "categories": {
     "all": "Tous",
@@ -364,7 +408,10 @@
     "themeSection": "APPARENCE & THÈME",
     "themeSystem": "Par défaut du système",
     "themeDark": "Mode sombre (Deep Navy)",
-    "themeLight": "Mode clair (Clean Slate)"
+    "themeLight": "Mode clair (Clean Slate)",
+    "tutorialSection": "AIDE & DÉCOUVERTE",
+    "showTutorial": "Revoir le tutoriel",
+    "showTutorialSub": "Yuki t’explique chaque bouton et fonction étape par étape"
   },
   "logs": {
     "title": "Journaux d'activité",
@@ -481,6 +528,11 @@
     "hideFromRecipientDesc": "Remplissage automatique actif sans afficher le mot de passe",
     "autoDeleteAfter": "Supprimer après",
     "expiryNever": "Jamais"
+  },
+  "pair": {
+    "biometricPrompt": "Associer l'extension de navigateur",
+    "success": "Extension de navigateur associée avec succès !",
+    "notLoggedIn": "Veuillez d'abord vous connecter à l'application pour associer une extension."
   },
   "vaultTransfer": {
     "title": "Restauration du coffre cloud",
@@ -715,6 +767,7 @@
     "cardExpiringBody": "Votre carte « %{label} » expire le %{expiry}.",
     "breachFoundTitle": "Alerte fuite de données",
     "breachFoundBody": "%{count} mot(s) de passe trouvé(s) dans des fuites de données. Changez-les !",
+    "breachAffectsPrefix": "Concerne",
     "weakPasswordsTitle": "Rapport de sécurité hebdomadaire",
     "weakPasswordsBody": "%{weak} mot(s) de passe faible(s) et %{reused} réutilisé(s) détecté(s).",
     "backupReminderTitle": "Sauvegarde du coffre recommandée",
@@ -740,5 +793,58 @@
     "importedPendingToast": "%{count} nouvel(s) identifiant(s) importé(s) depuis Android Autofill",
     "iosHint": "Sur iOS, FlakeSecure utilise les domaines associés et le trousseau système."
   },
-  "loading": "Chargement..."
+  "loading": "Chargement...",
+  "tutorial": {
+    "next": "Suivant",
+    "back": "Retour",
+    "skip": "Passer",
+    "done": "Terminé !",
+    "stepOf": "%{current} / %{total}",
+    "home": {
+      "introTitle": "Bienvenue dans ton coffre !",
+      "intro": "Je suis Yuki et je te présente l’écran principal en une minute. Tu peux passer à tout moment ou relancer la visite dans les Paramètres.",
+      "scanTitle": "Scanner QR Code (Bouton principal)",
+      "scan": "Ton bouton clé : associe l’extension, valide les connexions sur PC, génère automatiquement des mots de passe forts via QR d’inscription et scanne les codes 2FA.",
+      "quick2faTitle": "Authentificateur 2FA",
+      "quick2fa": "Génère tes codes à usage unique à 6 chiffres. Astuce : scanner un QR 2FA avec ton appareil photo propose désormais « Ouvrir dans FlakeSecure » !",
+      "quickLogsTitle": "Journaux d’activité",
+      "quickLogs": "Consulte chaque connexion, transfert et partage avec l’appareil et l’heure pour un contrôle total.",
+      "quickNewTitle": "Nouvelle entrée",
+      "quickNew": "Ajoute rapidement un identifiant, une carte bancaire ou un code secret selon l’onglet actif.",
+      "quickShareTitle": "Partage chiffré",
+      "quickShare": "Partage des identifiants chiffrés de bout en bout avec un autre appareil ou utilisateur – avec expiration optionnelle.",
+      "segmentsTitle": "Identifiants, Cartes & Codes",
+      "segments": "Bascule ici entre tes connexions web, cartes bancaires (avec IBAN et alertes d’expiration) et codes secrets (PIN, clés de secours).",
+      "searchTitle": "Recherche rapide",
+      "search": "Filtre instantanément l’onglet actif par domaine, nom, compte ou notes.",
+      "sortTitle": "Réorganiser l’ordre",
+      "sort": "Réordonne tes entrées avec les flèches – ou appuie longuement sur n’importe quelle carte.",
+      "categoriesTitle": "Catégories & filtres",
+      "categories": "Filtre tes identifiants par catégorie (Travail, Finances…) ou crée les tiennes avec le « + » à droite.",
+      "breachTitle": "Alerte fuite de données",
+      "breach": "Attention ! Si un mot de passe apparaît dans une fuite connue (HaveIBeenPwned), je te préviens ici avec un lien pour le modifier.",
+      "emptyAddTitle": "Tes entrées du coffre",
+      "emptyAdd": "Ajoute ton premier identifiant ici ou touche une carte existante pour afficher, copier ou modifier.",
+      "restoreTitle": "Restaurer le coffre Cloud",
+      "restore": "Déjà utilisé FlakeSecure sur un autre appareil ? Récupère et déchiffre ta sauvegarde cloud ici.",
+      "userBadgeTitle": "Connexion & Paramètres",
+      "userBadge": "Le point indique ton statut (vert = en ligne, orange = hors ligne). Touche pour ouvrir les Paramètres et relancer cette visite quand tu veux !"
+    },
+    "authenticator": {
+      "addTitle": "Ajouter un code 2FA",
+      "add": "Ajoute un compte 2FA par caméra QR, image de ta galerie ou lien – ou directement depuis ton appareil photo !",
+      "timerTitle": "Compte à rebours 30s",
+      "timer": "Indique le temps restant avant le renouvellement automatique de tous les codes.",
+      "listTitle": "Copier & diffuser",
+      "list": "Touche une carte pour copier le code (effacé après 45s). Si le navigateur est lié, il est transmis directement !"
+    },
+    "credentials": {
+      "typeSwitcherTitle": "Choisir le type",
+      "typeSwitcher": "Choisis en haut ce que tu veux enregistrer : Connexion, Carte bancaire (aperçu en direct & IBAN) ou Code secret.",
+      "categoryTitle": "Attribuer une catégorie",
+      "category": "Classe ton entrée dans une catégorie pour la retrouver plus vite – « + Nouveau » crée la tienne.",
+      "saveTitle": "Enregistrement chiffré",
+      "save": "Tout est chiffré directement sur ton appareil avant toute synchronisation."
+    }
+  }
 }

@@ -88,6 +88,12 @@ function initSocket(sessionId, token, domain) {
     broadcastToPorts({ type: 'LOGIN_DATA', payload });
   });
 
+  socket.on('pairing-data', (payload) => {
+    console.log('[FlakeSecure Background] Received pairing data from mobile app');
+    broadcastToPorts({ type: 'PAIRING_DATA', payload });
+    broadcastToPorts({ type: 'LOGIN_DATA', payload });
+  });
+
   socket.on('totp-data', (payload) => {
     console.log('[FlakeSecure Background] Received TOTP data');
     broadcastToPorts({ type: 'TOTP_DATA', payload });
@@ -167,6 +173,28 @@ if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.onMessa
     } else if (message.type === 'DISCONNECT') {
       if (activePorts.size === 0) {
         closeSocket();
+      }
+    }
+  });
+}
+
+// 5. Onboarding / First-install landing page
+const extRuntime = (typeof browser !== 'undefined' && browser.runtime) ? browser.runtime : (typeof chrome !== 'undefined' ? chrome.runtime : null);
+const extTabs = (typeof browser !== 'undefined' && browser.tabs) ? browser.tabs : (typeof chrome !== 'undefined' ? chrome.tabs : null);
+if (extRuntime && extRuntime.onInstalled) {
+  extRuntime.onInstalled.addListener(async (details) => {
+    if (details.reason === 'install' && extTabs) {
+      const hostedWelcomeUrl = 'https://flakesecure.snowystudio.dev/welcome';
+      const localWelcomeUrl = extRuntime.getURL('welcome.html');
+      try {
+        const response = await fetch(hostedWelcomeUrl, { method: 'HEAD', cache: 'no-store' });
+        if (response.ok) {
+          extTabs.create({ url: hostedWelcomeUrl });
+        } else {
+          extTabs.create({ url: localWelcomeUrl });
+        }
+      } catch (e) {
+        extTabs.create({ url: localWelcomeUrl });
       }
     }
   });

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlakeSecure – Erste Schritte & Onboarding</title>
+  <link rel="stylesheet" href="welcome.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-content">
+      <a href="https://flakesecure.snowystudio.dev" class="brand" target="_blank" rel="noopener">
+        <img src="icons/icon48.png" alt="FlakeSecure Logo" class="brand-logo-img" style="width:36px;height:36px;border-radius:8px;object-fit:contain;">
+        <div class="brand-name">Flake<span>Secure</span> <span class="brand-badge" id="t-badge-guide">Erste Schritte</span></div>
+      </a>
+
+      <div class="header-actions">
+        <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle light/dark theme" title="Design wechseln">
+          <svg id="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg id="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+
+        <select id="lang-select" class="lang-select" aria-label="Sprache">
+          <option value="de">DE</option>
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+          <option value="es">ES</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-badge" id="t-hero-badge">Erfolgreich installiert</div>
+      <h1 id="t-hero-title">Willkommen bei FlakeSecure</h1>
+      <p id="t-hero-subtitle">Dein sicherer Zero-Knowledge Passwort-Manager für den Browser. In nur 4 Schritten bist du startklar.</p>
+    </section>
+
+    <!-- 4 Onboarding Steps -->
+    <div class="steps-grid">
+      <!-- Step 1: Mobile App herunterladen -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-num">01</span>
+          <div class="step-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+          </div>
+        </div>
+        <h2 class="step-title" id="t-step1-title">Mobile App herunterladen</h2>
+        <p class="step-desc" id="t-step1-desc">Scanne den QR-Code mit deiner Smartphone-Kamera, um zur Download-Seite zu gelangen, oder lade die Android APK direkt herunter.</p>
+        
+        <div style="text-align: center;">
+          <div id="download-qr-code" class="qr-container-box"></div>
+        </div>
+
+        <div class="download-buttons">
+          <a href="https://flakesecure.snowystudio.dev/download/android" class="btn-primary" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span id="t-step1-btn-apk">Android APK herunterladen</span>
+          </a>
+          <a href="https://flakesecure.snowystudio.dev/downloads" class="btn-secondary" target="_blank" rel="noopener">
+            <span id="t-step1-btn-all">Alle Versionen & Downloads</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Step 2: Tresor einrichten & Biometrie -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-num">02</span>
+          <div class="step-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+        </div>
+        <h2 class="step-title" id="t-step2-title">Tresor einrichten & Biometrie</h2>
+        <p class="step-desc" id="t-step2-desc">Öffne die FlakeSecure Mobile App und erstelle deinen Account. Aktiviere Face ID oder deinen Fingerabdruck für sichere Freigaben ohne Tippen von Master-Passwörtern.</p>
+
+        <div class="feature-pills">
+          <span class="pill" id="t-step2-pill1">Zero-Knowledge AES-256</span>
+          <span class="pill" id="t-step2-pill2">Face ID / Fingerabdruck</span>
+          <span class="pill" id="t-step2-pill3">Lokale Schlüsselerzeugung</span>
+        </div>
+      </div>
+
+      <!-- Step 3: Browser-Erweiterung koppeln -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-num">03</span>
+          <div class="step-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+          </div>
+        </div>
+        <h2 class="step-title" id="t-step3-title">Browser-Erweiterung koppeln</h2>
+        <p class="step-desc" id="t-step3-desc">Klicke oben rechts auf das FlakeSecure-Symbol in der Browser-Toolbar. Es erscheint ein QR-Code. Scanne ihn mit deiner FlakeSecure Mobile App – schon sind Browser und Smartphone Ende-zu-Ende gekoppelt.</p>
+
+        <button type="button" class="btn-primary" id="start-pairing-btn" style="margin-top: auto;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span id="t-step3-btn">Jetzt koppeln</span>
+        </button>
+      </div>
+
+      <!-- Step 4: Automatisches Ausfüllen -->
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-num">04</span>
+          <div class="step-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+        </div>
+        <h2 class="step-title" id="t-step4-title">Automatisches Ausfüllen im Web</h2>
+        <p class="step-desc" id="t-step4-desc">Wenn du Anmeldeseiten besuchst, erkennt FlakeSecure die Formulare automatisch. Bestätige den Login einfach per Fingertipp auf deinem Smartphone – Passwörter werden automatisch sicher eingetragen.</p>
+
+        <div class="feature-pills">
+          <span class="pill" id="t-step4-pill1">1-Klick Auto-Fill</span>
+          <span class="pill" id="t-step4-pill2">TOTP Authenticator Unterstützung</span>
+          <span class="pill" id="t-step4-pill3">Phishing-Schutz</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pin Callout Banner -->
+    <div class="pin-banner">
+      <div class="pin-icon">📌</div>
+      <div>
+        <div class="pin-title" id="t-pin-title">Tipp: FlakeSecure an die Toolbar pinnen</div>
+        <div class="pin-desc" id="t-pin-desc">Klicke oben rechts im Browser auf das Puzzleteil-Symbol (Erweiterungen) und aktiviere die Stecknadel neben FlakeSecure, damit du jederzeit mit einem Klick darauf zugreifen kannst.</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal for "Jetzt koppeln" -->
+  <div class="guide-modal-backdrop" id="guide-modal-backdrop">
+    <div class="guide-modal">
+      <div class="guide-modal-header">
+        <h3 class="guide-modal-title" id="t-modal-title">So koppelst du die Erweiterung</h3>
+        <button class="guide-modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="guide-modal-body" id="t-modal-body">
+        <p id="t-modal-intro">Folge diesen einfachen Schritten:</p>
+        <ol class="modal-steps">
+          <li id="t-modal-step1">Klicke oben rechts auf das FlakeSecure-Icon in deiner Browserleiste.</li>
+          <li id="t-modal-step2">Ein sicherer Kopplungs-QR-Code wird im Popup angezeigt.</li>
+          <li id="t-modal-step3">Öffne die FlakeSecure Mobile App auf deinem Smartphone.</li>
+          <li id="t-modal-step4">Tippe auf das Scan-Symbol und halte deine Kamera auf den QR-Code.</li>
+          <li id="t-modal-step5">Bestätige kurz mit deinem Fingerabdruck / Face ID – fertig!</li>
+        </ol>
+      </div>
+      <button class="btn-primary" id="modal-gotit-btn" style="width: 100%;">
+        <span id="t-modal-btn">Verstanden</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://flakesecure.snowystudio.dev" target="_blank" rel="noopener">Website</a>
+        <a href="https://flakesecure.snowystudio.dev/downloads" target="_blank" rel="noopener" id="t-footer-downloads">Downloads</a>
+        <a href="https://flakesecure.snowystudio.dev/account" target="_blank" rel="noopener" id="t-footer-account">Web Vault</a>
+        <a href="https://flakesecure.snowystudio.dev/legal" target="_blank" rel="noopener" id="t-footer-legal">Datenschutz</a>
+        <a href="https://flakesecure.snowystudio.dev/terms" target="_blank" rel="noopener" id="t-footer-terms">AGB</a>
+      </div>
+      <div>&copy; 2026 FlakeSecure. Zero-Knowledge Biometric Authentication.</div>
+    </div>
+  </footer>
+
+  <script src="lib/qrcode.min.js"></script>
+  <script src="welcome.js"></script>
+</body>
+</html>

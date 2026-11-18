@@ -79,10 +79,49 @@
     "done": {
       "title": "Alles bereit!",
       "subtitle": "FlakeSecure ist startklar. Füge deine ersten Zugangsdaten hinzu und melde dich sicher an.",
-      "button": "Loslegen"
+      "button": "Loslegen",
+      "startTourButton": "Tresor-Tour mit Yuki starten",
+      "skipTourButton": "Tour überspringen (jederzeit in Einstellungen)"
     },
     "next": "Weiter",
-    "skip": "Überspringen"
+    "skip": "Überspringen",
+    "notifications": {
+      "title": "Benachrichtigungen & Sicherheitswarnungen",
+      "subtitle": "Wichtig für Echtzeitschutz und mobile Freigaben",
+      "reason1Title": "Echtzeit-Login-Freigaben",
+      "reason1Desc": "Blitzschnelle Freigabe von Anmeldungen am Computer ohne Passwort-Eingabe.",
+      "reason2Title": "Passwort-Datenpannen (Breach-Alerts)",
+      "reason2Desc": "Sofortige Warnung, falls ein gespeichertes Passwort in einer bekannten Datenpanne auftaucht.",
+      "reason3Title": "Karten-Ablaufwarnungen",
+      "reason3Desc": "Rechtzeitige Erinnerung 30 Tage vor Ablauf hinterlegter Bankkarten.",
+      "enableBtn": "Benachrichtigungen aktivieren",
+      "declineBtn": "Nicht jetzt / Ablehnen",
+      "note": "Hinweis: Du kannst Benachrichtigungen jederzeit nachträglich in den Einstellungen (unter Einstellungen → Benachrichtigungen) aktivieren."
+    },
+    "yuki": {
+      "welcome": "Hi! Ich bin Yuki. Ich zeige dir kurz, wie FlakeSecure deine Passwörter, Karten und 2FA-Codes schützt.",
+      "howItWorks": "Alles läuft nach dem Zero-Knowledge-Prinzip: Deine Daten werden lokal verschlüsselt – nicht einmal unsere Server können sie lesen.",
+      "requirements": "Damit alles reibungslos klappt, zeige ich dir vorab transparent, welche Funktionen dein Smartphone wofür nutzt.",
+      "extension": "Mit der Browser-Erweiterung meldest du dich am PC per QR-Code an – und generierst bei Registrierungen sofort starke Passwörter!",
+      "notifications": "Benachrichtigungen informieren dich sofort über Login-Freigaben und Datenpannen. Dein System fragt erst nach deiner Zustimmung hier.",
+      "account": "Fast geschafft! Erstelle jetzt dein geschütztes Konto oder melde dich mit deinem bestehenden an.",
+      "done": "Geschafft! Wenn du möchtest, zeige ich dir jetzt direkt auf dem Startbildschirm alle Buttons Schritt für Schritt."
+    },
+    "requirements": {
+      "title": "Was FlakeSecure benötigt",
+      "subtitle": "Volle Transparenz über Berechtigungen & Systemfunktionen",
+      "badgeOnDemand": "Bei Bedarf",
+      "badgeOptional": "Optional",
+      "cameraTitle": "Kamera (QR-Scanner)",
+      "cameraDesc": "Zum Koppeln der Browser-Erweiterung, Freigeben von Logins, Generieren starker Passwörter bei Registrierungs-QR-Codes und Scannen von 2FA-Codes.",
+      "notifTitle": "Benachrichtigungen",
+      "notifDesc": "Für Echtzeit-Login-Freigaben am PC, Passwort-Datenpannen (HaveIBeenPwned) und Erinnerungen vor Kartenablauf.",
+      "bioTitle": "Biometrie (Fingerabdruck / Face ID)",
+      "bioDesc": "Zum schnellen, sicheren Entsperren deines Tresors, von Freigaben und beim Kopieren sensibler Codes.",
+      "autofillTitle": "System-Autofill & Kamera-Links",
+      "autofillDesc": "Füllt Logins & Karten direkt in anderen Apps aus und schlägt in deiner Kamera-App bei 2FA-QR-Codes „In FlakeSecure öffnen“ vor.",
+      "footerNote": "Keine Sorge: Dein Betriebssystem fragt Berechtigungen immer erst ab, wenn du die jeweilige Funktion aktiv nutzt."
+    }
   },
   "home": {
     "title": "Übersicht",
@@ -113,7 +152,12 @@
     "searchPlaceholder": "Logins, Karten, IBAN oder Codes suchen…",
     "segmentLogins": "Logins",
     "segmentCards": "Karten",
-    "segmentCodes": "Codes"
+    "segmentCodes": "Codes",
+    "breachAlertTitle": "Sicherheitswarnung: %{count} kompromittierte Passwörter entdeckt",
+    "breachAlertSubtitle": "Folgende Zugangsdaten wurden in bekannten Datenpannen (HaveIBeenPwned) gefunden:",
+    "breachChangeNowBtn": "Jetzt ändern",
+    "breachDismissBtn": "Schließen",
+    "breachedBadge": "Kompromittiert"
   },
   "categories": {
     "all": "Alle",
@@ -364,7 +408,10 @@
     "themeSection": "DARSTELLUNG & DESIGN",
     "themeSystem": "System-Standard",
     "themeDark": "Dunkelmodus (Deep Navy)",
-    "themeLight": "Hellmodus (Clean Slate)"
+    "themeLight": "Hellmodus (Clean Slate)",
+    "tutorialSection": "HILFE & EINFÜHRUNG",
+    "showTutorial": "Tutorial erneut anzeigen",
+    "showTutorialSub": "Yuki erklärt dir alle Buttons & Funktionen Schritt für Schritt"
   },
   "logs": {
     "title": "Aktivitäts-Logs",
@@ -481,6 +528,11 @@
     "hideFromRecipientDesc": "Zugangsdaten füllen automatisch aus, bleiben aber unsichtbar",
     "autoDeleteAfter": "Automatisch löschen nach",
     "expiryNever": "Nie"
+  },
+  "pair": {
+    "biometricPrompt": "Browser-Erweiterung koppeln",
+    "success": "Browser-Erweiterung erfolgreich gekoppelt!",
+    "notLoggedIn": "Bitte melde dich zuerst in der App an, um eine Browser-Erweiterung zu koppeln."
   },
   "vaultTransfer": {
     "title": "Cloud-Tresor wiederherstellen",
@@ -715,6 +767,7 @@
     "cardExpiringBody": "Deine Karte „%{label}“ läuft am %{expiry} ab.",
     "breachFoundTitle": "Passwort-Warnung (Datenleck)",
     "breachFoundBody": "%{count} Passwort/Passwörter wurden in bekannten Datenlecks gefunden. Bitte ändern!",
+    "breachAffectsPrefix": "Betrifft",
     "weakPasswordsTitle": "Wöchentlicher Sicherheitsbericht",
     "weakPasswordsBody": "%{weak} schwache und %{reused} mehrfach genutzte Passwörter im Tresor erkannt.",
     "backupReminderTitle": "Tresor-Backup empfohlen",
@@ -740,5 +793,58 @@
     "importedPendingToast": "%{count} neue Zugangsdaten aus Android-Autofill übernommen",
     "iosHint": "Auf iOS nutzt FlakeSecure Associated Domains und die Schlüsselbund-Integration."
   },
-  "loading": "Laden..."
+  "loading": "Laden...",
+  "tutorial": {
+    "next": "Weiter",
+    "back": "Zurück",
+    "skip": "Überspringen",
+    "done": "Fertig!",
+    "stepOf": "%{current} / %{total}",
+    "home": {
+      "introTitle": "Willkommen in deinem Tresor!",
+      "intro": "Ich bin Yuki und führe dich kurz über den Startbildschirm. Du kannst die Tour jederzeit überspringen oder später in den Einstellungen neu starten.",
+      "scanTitle": "QR-Code scannen (Allzweck-Taste)",
+      "scan": "Dein wichtigster Button: Koppelt die Browser-Erweiterung, bestätigt Logins am PC, generiert automatisch starke Passwörter bei Registrierungs-QR-Codes im Browser und scannt 2FA-Codes.",
+      "quick2faTitle": "2FA Authenticator",
+      "quick2fa": "Erzeugt 6-stellige Einmal-Codes. Tipp: Scannst du einen 2FA-QR-Code mit der normalen Kamera-App, wird dir dort „In FlakeSecure öffnen“ vorgeschlagen!",
+      "quickLogsTitle": "Aktivitäts-Logs",
+      "quickLogs": "Hier siehst du jede Anmeldung, Übertragung und Freigabe mit Gerät & Zeit – volle Sicherheitskontrolle auf einen Blick.",
+      "quickNewTitle": "Neuen Eintrag anlegen",
+      "quickNew": "Legt direkt einen neuen Login, eine Bankkarte oder einen Code an – automatisch passend zum aktuell ausgewählten Bereich.",
+      "quickShareTitle": "Sicher teilen",
+      "quickShare": "Teile Logins Ende-zu-Ende verschlüsselt mit anderen Geräten oder vertrauenswürdigen Nutzern – optional mit Ablaufzeit.",
+      "segmentsTitle": "Logins, Karten & Codes",
+      "segments": "Wechsle hier zwischen Website-Logins, Bankkarten (inkl. IBAN & Ablauf-Warnung) und geheimen Codes wie PINs oder Recovery-Keys.",
+      "searchTitle": "Schnellsuche",
+      "search": "Durchsucht blitzschnell den aktuell ausgewählten Bereich nach Domains, Namen, Konten oder Notizen.",
+      "sortTitle": "Reihenfolge anpassen",
+      "sort": "Sortiere deine Einträge ganz nach Wunsch mit den Pfeiltasten – alternativ einfach eine Karte lange gedrückt halten.",
+      "categoriesTitle": "Kategorien & Filter",
+      "categories": "Filtere deine Logins nach Kategorien (z. B. Arbeit, Finanzen) oder erstelle über das „+“ ganz rechts deine eigenen.",
+      "breachTitle": "Datenleck-Warnung",
+      "breach": "Achtung! Wenn ein Passwort in einem bekannten Datenleck (HaveIBeenPwned) auftaucht, warne ich dich genau hier – ein Tipp führt direkt zum Ändern.",
+      "emptyAddTitle": "Deine Tresor-Einträge",
+      "emptyAdd": "Lege hier deinen ersten Login an oder tippe auf einen bestehenden Eintrag, um Details anzuzeigen, zu kopieren oder zu bearbeiten.",
+      "restoreTitle": "Cloud-Tresor wiederherstellen",
+      "restore": "Hattest du FlakeSecure schon auf einem anderen Gerät? Hier holst du deinen verschlüsselten Tresor aus der Cloud zurück.",
+      "userBadgeTitle": "Verbindung & Einstellungen",
+      "userBadge": "Der Punkt zeigt deine Verbindung (grün = online, gelb = offline). Ein Tipp öffnet die Einstellungen – dort kannst du diese Tour jederzeit erneut starten!"
+    },
+    "authenticator": {
+      "addTitle": "2FA-Code hinzufügen",
+      "add": "Füge ein 2FA-Konto per QR-Kamera, Galerie-Bild oder Link hinzu – oder scanne den QR-Code direkt mit der System-Kamera-App!",
+      "timerTitle": "30-Sekunden-Takt",
+      "timer": "Dieser Countdown zeigt, wie lange die aktuellen Einmal-Codes noch gültig sind, bevor automatisch neue erzeugt werden.",
+      "listTitle": "Codes kopieren & streamen",
+      "list": "Tippe auf einen Code zum Kopieren (Zwischenablage leert sich nach 45 s). Bist du mit dem Browser gekoppelt, wird er direkt gestreamt!"
+    },
+    "credentials": {
+      "typeSwitcherTitle": "Eintragstyp wählen",
+      "typeSwitcher": "Wähle oben, was du speichern möchtest: Login, Bankkarte (mit Live-Vorschau & IBAN-Erkennung) oder geheimen Code.",
+      "categoryTitle": "Kategorie zuordnen",
+      "category": "Ordne den Eintrag einer Kategorie zu, um ihn schneller zu finden – über „+ Neu“ legst du eigene an.",
+      "saveTitle": "Verschlüsselt speichern",
+      "save": "Beim Speichern werden alle Daten direkt auf deinem Gerät verschlüsselt, bevor sie sicher synchronisiert werden."
+    }
+  }
 }
